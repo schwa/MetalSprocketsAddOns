@@ -47,6 +47,12 @@ let package = Package(
             dependencies: [
                 "MetalSprocketsAddOns",
                 "MetalSprocketsAddOnsShaders",
+            ],
+            resources: [
+                .copy("Golden Images")
+            ],
+            swiftSettings: [
+                .interoperabilityMode(.Cxx)
             ]
         ),
         .target(
