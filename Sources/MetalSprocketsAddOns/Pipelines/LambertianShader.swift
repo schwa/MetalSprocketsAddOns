@@ -7,21 +7,21 @@ public struct LambertianShader <Content>: Element where Content: Element {
     var cameraMatrix: float4x4
     var modelMatrix: float4x4
     var color: SIMD3<Float>
-    var vertexShader: VertexShader
-    var fragmentShader: FragmentShader
+
+    @MSState
+    private var vertexShader = ShaderLibrary.module.namespaced("LambertianShader").requiredFunction(named: "vertex_main", type: VertexShader.self)
+
+    @MSState
+    private var fragmentShader = ShaderLibrary.module.namespaced("LambertianShader").requiredFunction(named: "fragment_main", type: FragmentShader.self)
+
     var lightDirection: SIMD3<Float>
     var content: Content
 
-    public init(projectionMatrix: float4x4, cameraMatrix: float4x4, modelMatrix: float4x4, color: SIMD3<Float>, lightDirection: SIMD3<Float>, content: () -> Content) throws {
+    public init(projectionMatrix: float4x4, cameraMatrix: float4x4, modelMatrix: float4x4, color: SIMD3<Float>, lightDirection: SIMD3<Float>, content: () -> Content) {
         self.projectionMatrix = projectionMatrix
         self.cameraMatrix = cameraMatrix
         self.modelMatrix = modelMatrix
         self.color = color
-
-        let library = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders()).namespaced("LambertianShader")
-        self.vertexShader = try library.vertex_main
-        self.fragmentShader = try library.fragment_main
-
         self.lightDirection = lightDirection
         self.content = content()
     }
@@ -57,21 +57,22 @@ public struct LambertianShaderInstanced <Content>: Element where Content: Elemen
     var cameraMatrix: float4x4
     var colors: [SIMD3<Float>]
     var modelMatrices: [simd_float4x4]
-    var vertexShader: VertexShader
-    var fragmentShader: FragmentShader
+
+    @MSState
+    private var vertexShader = ShaderLibrary.module.namespaced("LambertianShader").requiredFunction(named: "vertex_instanced", type: VertexShader.self)
+
+    @MSState
+    private var fragmentShader = ShaderLibrary.module.namespaced("LambertianShader").requiredFunction(named: "fragment_main", type: FragmentShader.self)
+
     var lightDirection: SIMD3<Float>
     var content: Content
 
-    public init(projectionMatrix: float4x4, cameraMatrix: float4x4, colors: [SIMD3<Float>], modelMatrices: [simd_float4x4], lightDirection: SIMD3<Float>, @ElementBuilder content: () -> Content) throws {
+    public init(projectionMatrix: float4x4, cameraMatrix: float4x4, colors: [SIMD3<Float>], modelMatrices: [simd_float4x4], lightDirection: SIMD3<Float>, @ElementBuilder content: () -> Content) {
         self.projectionMatrix = projectionMatrix
         self.cameraMatrix = cameraMatrix
         self.colors = colors
         self.modelMatrices = modelMatrices
         self.lightDirection = lightDirection
-
-        let library = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders()).namespaced("LambertianShader")
-        self.vertexShader = try library.vertex_instanced
-        self.fragmentShader = try library.fragment_main
         self.content = content()
     }
 

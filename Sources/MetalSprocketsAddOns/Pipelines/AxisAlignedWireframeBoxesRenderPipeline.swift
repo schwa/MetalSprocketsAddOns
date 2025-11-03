@@ -4,16 +4,17 @@ import MetalSprocketsAddOnsShaders
 import simd
 
 public struct AxisAlignedWireframeBoxesRenderPipeline: Element {
-    let vertexShader: VertexShader
-    let fragmentShader: FragmentShader
+    @MSState
+    private var vertexShader = ShaderLibrary.module.namespaced("Boxes").requiredFunction(named: "vertex_main", type: VertexShader.self)
+
+    @MSState
+    private var fragmentShader = ShaderLibrary.module.namespaced("Boxes").requiredFunction(named: "fragment_main", type: FragmentShader.self)
+
     let mvpMatrix: float4x4
     let boxes: [BoxInstance]
     let nudge: SIMD3<Float>
 
-    public init(mvpMatrix: float4x4, boxes: [BoxInstance], nudge: SIMD3<Float> = .zero) throws {
-        let library = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders()).namespaced("Boxes")
-        vertexShader = try library.vertex_main
-        fragmentShader = try library.fragment_main
+    public init(mvpMatrix: float4x4, boxes: [BoxInstance], nudge: SIMD3<Float> = .zero) {
         self.mvpMatrix = mvpMatrix
         self.boxes = boxes
         self.nudge = nudge

@@ -36,8 +36,11 @@ public extension Quad {
 }
 
 public struct TextureBillboardPipeline: Element {
-    let vertexShader: VertexShader
-    let fragmentShader: FragmentShader
+    @MSState
+    private var vertexShader = ShaderLibrary.module.namespaced("TextureBillboard").requiredFunction(named: "vertex_main", type: VertexShader.self)
+
+    @MSState
+    private var fragmentShader = ShaderLibrary.module.namespaced("TextureBillboard").requiredFunction(named: "fragment_main", type: FragmentShader.self)
 
     let specifierA: ColorSource
     let specifierB: ColorSource
@@ -52,10 +55,6 @@ public struct TextureBillboardPipeline: Element {
         assert(device.supportsFamily(.apple4)) // For argument buffers tier
         #endif
         assert(device.argumentBuffersSupport == .tier2)
-        let shaderBundle = Bundle.metalSprocketsAddOnsShaders().orFatalError("Failed to load metal-sprockets example shaders bundle")
-        let shaderLibrary = try ShaderLibrary(bundle: shaderBundle).namespaced("TextureBillboard")
-        self.vertexShader = try shaderLibrary.vertex_main
-        self.fragmentShader = try shaderLibrary.fragment_main
 
         self.specifierA = specifierA
         self.specifierB = specifierB
@@ -68,6 +67,7 @@ public struct TextureBillboardPipeline: Element {
         ]
         self.textureCoordinates = [textureCoordinates.minXMaxY, textureCoordinates.maxXMaxY, textureCoordinates.minXMinY, textureCoordinates.maxXMinY]
 
+        let shaderLibrary = ShaderLibrary.module.namespaced("TextureBillboard")
         let colorTransform = try colorTransform ?? shaderLibrary.function(named: "colorTransformIdentity", type: VisibleFunction.self)
         colorTransformGraph = try SimpleStitchedFunctionGraph(name: "TextureBillboard::colorTransform", function: colorTransform, inputs: 4)
     }
@@ -99,7 +99,7 @@ public struct TextureBillboardPipeline: Element {
 
 public extension TextureBillboardPipeline {
     init(specifierA: ColorSource, specifierB: ColorSource, positions: Quad = .clip, textureCoordinates: Quad = .unit, colorTransformFunctionName: String) throws {
-        let shaderBundle = Bundle.metalSprocketsAddOnsShaders().orFatalError("Failed to load metal-sprockets example shaders bundle")
+        let shaderBundle = Bundle.metalSprocketsAddOnsShaders()
         let shaderLibrary = try ShaderLibrary(bundle: shaderBundle).namespaced("TextureBillboard")
         let colorTransform = try shaderLibrary.function(named: colorTransformFunctionName, type: VisibleFunction.self)
         try self.init(specifierA: specifierA, specifierB: specifierB, positions: positions, textureCoordinates: textureCoordinates, colorTransform: colorTransform)
@@ -111,14 +111,11 @@ public extension TextureBillboardPipeline {
         assert(device.supportsFamily(.apple4))
         #endif
         assert(device.argumentBuffersSupport == .tier2)
-        let shaderBundle = Bundle.metalSprocketsAddOnsShaders().orFatalError("Failed to load metal-sprockets example shaders bundle")
-        let shaderLibrary = try ShaderLibrary(bundle: shaderBundle).namespaced("TextureBillboard")
-        self.vertexShader = try shaderLibrary.vertex_main
-        self.fragmentShader = try shaderLibrary.fragment_main
         self.specifierA = specifierA
         self.specifierB = specifierB
         self.positions = [positions.minXMinY, positions.maxXMinY, positions.minXMaxY, positions.maxXMaxY]
         self.textureCoordinates = textureCoordinatesArray
+        let shaderLibrary = ShaderLibrary.module.namespaced("TextureBillboard")
         let colorTransform = try shaderLibrary.function(named: colorTransformFunctionName, type: VisibleFunction.self)
         colorTransformGraph = try SimpleStitchedFunctionGraph(name: "TextureBillboard::colorTransform", function: colorTransform, inputs: 4)
     }

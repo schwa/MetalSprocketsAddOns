@@ -31,8 +31,7 @@ public struct FlatShader <Content>: Element where Content: Element {
         self.useVertexColors = useVertexColors
         self.content = try content()
 
-        let shaderBundle = Bundle.metalSprocketsAddOnsShaders().orFatalError("Failed to load metal-sprockets example shaders bundle")
-        let shaderLibrary = try ShaderLibrary(bundle: shaderBundle).namespaced("FlatShader")
+        let shaderLibrary = ShaderLibrary.module.namespaced("FlatShader")
 
         // Setup function constants
         var constants = FunctionConstants()

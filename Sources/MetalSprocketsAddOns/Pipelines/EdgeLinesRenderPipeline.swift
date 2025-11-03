@@ -10,10 +10,10 @@ public struct EdgeLinesRenderPipeline: Element {
     var edgeDataBuffer: MTLBuffer?
 
     @MSState
-    var meshShader: MeshShader
+    private var meshShader = ShaderLibrary.module.namespaced("EdgeRendering").requiredFunction(named: "edgeRenderingMeshShader", type: MeshShader.self)
 
     @MSState
-    var fragmentShader: FragmentShader
+    private var fragmentShader = ShaderLibrary.module.namespaced("EdgeRendering").requiredFunction(named: "edgeRenderingFragmentShader", type: FragmentShader.self)
 
     @MSEnvironment(\.device)
     var device
@@ -26,7 +26,7 @@ public struct EdgeLinesRenderPipeline: Element {
     var edgeColor: SIMD4<Float>
     var debugMode: Bool
 
-    public init(meshWithEdges: MeshWithEdges, viewProjection: simd_float4x4, lineWidth: Float = 1, viewport: SIMD2<Float>, colorizeByTriangle: Bool = false, edgeColor: SIMD4<Float> = [1, 1, 1, 1], debugMode: Bool = false) throws {
+    public init(meshWithEdges: MeshWithEdges, viewProjection: simd_float4x4, lineWidth: Float = 1, viewport: SIMD2<Float>, colorizeByTriangle: Bool = false, edgeColor: SIMD4<Float> = [1, 1, 1, 1], debugMode: Bool = false) {
         self.meshWithEdges = meshWithEdges
         self.viewProjection = viewProjection
         self.lineWidth = lineWidth
@@ -34,10 +34,6 @@ public struct EdgeLinesRenderPipeline: Element {
         self.colorizeByTriangle = colorizeByTriangle
         self.edgeColor = edgeColor
         self.debugMode = debugMode
-
-        let library = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders()).namespaced("EdgeRendering")
-        meshShader = try library.function(named: "edgeRenderingMeshShader", type: MeshShader.self)
-        fragmentShader = try library.function(named: "edgeRenderingFragmentShader", type: FragmentShader.self)
     }
 
     public var body: some Element {

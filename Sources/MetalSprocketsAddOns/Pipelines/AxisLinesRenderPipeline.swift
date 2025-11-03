@@ -4,8 +4,12 @@ import MetalSprocketsAddOnsShaders
 import simd
 
 public struct AxisLinesRenderPipeline: Element {
-    let vertexShader: VertexShader
-    let fragmentShader: FragmentShader
+    @MSState
+    private var vertexShader = ShaderLibrary.module.namespaced("AxisLines").requiredFunction(named: "vertex_main", type: VertexShader.self)
+
+    @MSState
+    private var fragmentShader = ShaderLibrary.module.namespaced("AxisLines").requiredFunction(named: "fragment_main", type: FragmentShader.self)
+
     let mvpMatrix: float4x4
     let viewMatrix: float4x4
     let projectionMatrix: float4x4
@@ -27,9 +31,6 @@ public struct AxisLinesRenderPipeline: Element {
         yAxisColor: SIMD4<Float> = [0, 1, 0, 1],
         zAxisColor: SIMD4<Float> = [0, 0, 1, 1]
     ) throws {
-        let library = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders()).namespaced("AxisLines")
-        vertexShader = try library.vertex_main
-        fragmentShader = try library.fragment_main
         self.mvpMatrix = mvpMatrix
         self.viewMatrix = viewMatrix
         self.projectionMatrix = projectionMatrix

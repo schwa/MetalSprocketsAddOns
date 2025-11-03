@@ -11,19 +11,19 @@ public struct GraphicsContext3DRenderPipeline: Element {
     let debugWireframe: Bool
 
     @MSState
-    var objectShader: ObjectShader
+    private var objectShader = ShaderLibrary.module.namespaced("GraphicsContext3D").requiredFunction(named: "lineJoinObjectShader", type: ObjectShader.self)
 
     @MSState
-    var meshShader: MeshShader
+    private var meshShader = ShaderLibrary.module.namespaced("GraphicsContext3D").requiredFunction(named: "lineJoinMeshShader", type: MeshShader.self)
 
     @MSState
-    var meshFragmentShader: FragmentShader
+    private var meshFragmentShader = ShaderLibrary.module.namespaced("GraphicsContext3D").requiredFunction(named: "fragmentShader", type: FragmentShader.self)
 
     @MSState
-    var fillVertexShader: VertexShader
+    private var fillVertexShader = ShaderLibrary.module.namespaced("GraphicsContext3D").requiredFunction(named: "vertexShader", type: VertexShader.self)
 
     @MSState
-    var fillFragmentShader: FragmentShader
+    private var fillFragmentShader = ShaderLibrary.module.namespaced("GraphicsContext3D").requiredFunction(named: "fragmentShader", type: FragmentShader.self)
 
     @MSState
     var joinDataBuffer: MTLBuffer?
@@ -52,18 +52,11 @@ public struct GraphicsContext3DRenderPipeline: Element {
     @MSEnvironment(\.device)
     var device
 
-    public init(context: GraphicsContext3D, viewProjection: float4x4, viewport: SIMD2<Float>, debugWireframe: Bool = false) throws {
+    public init(context: GraphicsContext3D, viewProjection: float4x4, viewport: SIMD2<Float>, debugWireframe: Bool = false) {
         self.context = context
         self.viewProjection = viewProjection
         self.viewport = viewport
         self.debugWireframe = debugWireframe
-
-        let library = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders()).namespaced("GraphicsContext3D")
-        objectShader = try library.function(named: "lineJoinObjectShader", type: ObjectShader.self)
-        meshShader = try library.function(named: "lineJoinMeshShader", type: MeshShader.self)
-        meshFragmentShader = try library.function(named: "fragmentShader", type: FragmentShader.self)
-        fillVertexShader = try library.function(named: "vertexShader", type: VertexShader.self)
-        fillFragmentShader = try library.function(named: "fragmentShader", type: FragmentShader.self)
     }
 
     public var body: some Element {

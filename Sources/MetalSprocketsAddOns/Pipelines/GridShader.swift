@@ -7,21 +7,17 @@ import SwiftUI
 
 public struct GridShader: Element {
     @MSState
-    var vertexShader: VertexShader
+    private var vertexShader = ShaderLibrary.module.namespaced("GridShader").requiredFunction(named: "vertex_main", type: VertexShader.self)
 
     @MSState
-    var fragmentShader: FragmentShader
+    private var fragmentShader = ShaderLibrary.module.namespaced("GridShader").requiredFunction(named: "fragment_main", type: FragmentShader.self)
 
     var projectionMatrix: simd_float4x4
     var cameraMatrix: simd_float4x4
 
-    public init(projectionMatrix: simd_float4x4, cameraMatrix: simd_float4x4) throws {
+    public init(projectionMatrix: simd_float4x4, cameraMatrix: simd_float4x4) {
         self.projectionMatrix = projectionMatrix
         self.cameraMatrix = cameraMatrix
-        let shaderBundle = Bundle.metalSprocketsAddOnsShaders().orFatalError("Failed to load metal-sprockets example shaders bundle")
-        let shaderLibrary = try ShaderLibrary(bundle: shaderBundle).namespaced("GridShader")
-        vertexShader = try shaderLibrary.vertex_main
-        fragmentShader = try shaderLibrary.fragment_main
     }
 
     public var body: some Element {

@@ -4,17 +4,17 @@ import MetalSprockets
 import MetalSprocketsAddOnsShaders
 
 public struct WireframeRenderPipeline: Element {
-    let vertexShader: VertexShader
-    let fragmentShader: FragmentShader
+    @MSState
+    private var vertexShader = ShaderLibrary.module.namespaced("WireframeShader").requiredFunction(named: "vertex_main", type: VertexShader.self)
+
+    @MSState
+    private var fragmentShader = ShaderLibrary.module.namespaced("WireframeShader").requiredFunction(named: "fragment_main", type: FragmentShader.self)
+
     var mvpMatrix: float4x4
     var wireframeColor: SIMD4<Float>
     var mesh: MTKMesh
 
-    public init(mvpMatrix: float4x4, wireframeColor: SIMD4<Float>, mesh: MTKMesh) throws {
-        let shaderBundle = Bundle.metalSprocketsAddOnsShaders().orFatalError("Failed to load metal-sprockets example shaders bundle")
-        let shaderLibrary = try ShaderLibrary(bundle: shaderBundle).namespaced("WireframeShader")
-        self.vertexShader = try shaderLibrary.vertex_main
-        self.fragmentShader = try shaderLibrary.fragment_main
+    public init(mvpMatrix: float4x4, wireframeColor: SIMD4<Float>, mesh: MTKMesh) {
         self.mvpMatrix = mvpMatrix
         self.wireframeColor = wireframeColor
         self.mesh = mesh
