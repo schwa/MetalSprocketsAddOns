@@ -53,7 +53,7 @@ public struct TextureBillboardPipeline: Element {
         #endif
         assert(device.argumentBuffersSupport == .tier2)
         let shaderBundle = Bundle.metalSprocketsAddOnsShaders().orFatalError("Failed to load metal-sprockets example shaders bundle")
-        let shaderLibrary = try ShaderLibrary(bundle: shaderBundle, namespace: "TextureBillboard")
+        let shaderLibrary = try ShaderLibrary(bundle: shaderBundle).namespaced("TextureBillboard")
         self.vertexShader = try shaderLibrary.vertex_main
         self.fragmentShader = try shaderLibrary.fragment_main
 
@@ -100,7 +100,7 @@ public struct TextureBillboardPipeline: Element {
 public extension TextureBillboardPipeline {
     init(specifierA: ColorSource, specifierB: ColorSource, positions: Quad = .clip, textureCoordinates: Quad = .unit, colorTransformFunctionName: String) throws {
         let shaderBundle = Bundle.metalSprocketsAddOnsShaders().orFatalError("Failed to load metal-sprockets example shaders bundle")
-        let shaderLibrary = try ShaderLibrary(bundle: shaderBundle, namespace: "TextureBillboard")
+        let shaderLibrary = try ShaderLibrary(bundle: shaderBundle).namespaced("TextureBillboard")
         let colorTransform = try shaderLibrary.function(named: colorTransformFunctionName, type: VisibleFunction.self)
         try self.init(specifierA: specifierA, specifierB: specifierB, positions: positions, textureCoordinates: textureCoordinates, colorTransform: colorTransform)
     }
@@ -112,7 +112,7 @@ public extension TextureBillboardPipeline {
         #endif
         assert(device.argumentBuffersSupport == .tier2)
         let shaderBundle = Bundle.metalSprocketsAddOnsShaders().orFatalError("Failed to load metal-sprockets example shaders bundle")
-        let shaderLibrary = try ShaderLibrary(bundle: shaderBundle, namespace: "TextureBillboard")
+        let shaderLibrary = try ShaderLibrary(bundle: shaderBundle).namespaced("TextureBillboard")
         self.vertexShader = try shaderLibrary.vertex_main
         self.fragmentShader = try shaderLibrary.fragment_main
         self.specifierA = specifierA

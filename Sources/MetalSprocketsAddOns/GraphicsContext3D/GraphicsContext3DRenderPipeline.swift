@@ -58,7 +58,7 @@ public struct GraphicsContext3DRenderPipeline: Element {
         self.viewport = viewport
         self.debugWireframe = debugWireframe
 
-        let library = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders(), namespace: "GraphicsContext3D")
+        let library = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders()).namespaced("GraphicsContext3D")
         objectShader = try library.function(named: "lineJoinObjectShader", type: ObjectShader.self)
         meshShader = try library.function(named: "lineJoinMeshShader", type: MeshShader.self)
         meshFragmentShader = try library.function(named: "fragmentShader", type: FragmentShader.self)

@@ -19,7 +19,7 @@ public struct GridShader: Element {
         self.projectionMatrix = projectionMatrix
         self.cameraMatrix = cameraMatrix
         let shaderBundle = Bundle.metalSprocketsAddOnsShaders().orFatalError("Failed to load metal-sprockets example shaders bundle")
-        let shaderLibrary = try ShaderLibrary(bundle: shaderBundle, namespace: "GridShader")
+        let shaderLibrary = try ShaderLibrary(bundle: shaderBundle).namespaced("GridShader")
         vertexShader = try shaderLibrary.vertex_main
         fragmentShader = try shaderLibrary.fragment_main
     }

@@ -35,7 +35,7 @@ public struct EdgeLinesRenderPipeline: Element {
         self.edgeColor = edgeColor
         self.debugMode = debugMode
 
-        let library = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders(), namespace: "EdgeRendering")
+        let library = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders()).namespaced("EdgeRendering")
         meshShader = try library.function(named: "edgeRenderingMeshShader", type: MeshShader.self)
         fragmentShader = try library.function(named: "edgeRenderingFragmentShader", type: FragmentShader.self)
     }

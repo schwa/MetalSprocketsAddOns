@@ -23,7 +23,7 @@ public struct TexturedQuad3DPipeline: Element {
     public var body: some Element {
         get throws {
             let shaderBundle = Bundle.metalSprocketsAddOnsShaders().orFatalError("Failed to load metal-sprockets example shaders bundle")
-            let shaderLibrary = try ShaderLibrary(bundle: shaderBundle, namespace: "TexturedQuad3D")
+            let shaderLibrary = try ShaderLibrary(bundle: shaderBundle).namespaced("TexturedQuad3D")
             let vertexShader: VertexShader = try shaderLibrary.function(named: "vertex_main", type: VertexShader.self)
             let fragmentShader: FragmentShader = try shaderLibrary.function(named: "fragment_main", type: FragmentShader.self)
 

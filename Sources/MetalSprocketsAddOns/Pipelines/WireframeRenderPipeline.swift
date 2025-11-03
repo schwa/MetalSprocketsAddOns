@@ -12,7 +12,7 @@ public struct WireframeRenderPipeline: Element {
 
     public init(mvpMatrix: float4x4, wireframeColor: SIMD4<Float>, mesh: MTKMesh) throws {
         let shaderBundle = Bundle.metalSprocketsAddOnsShaders().orFatalError("Failed to load metal-sprockets example shaders bundle")
-        let shaderLibrary = try ShaderLibrary(bundle: shaderBundle, namespace: "WireframeShader")
+        let shaderLibrary = try ShaderLibrary(bundle: shaderBundle).namespaced("WireframeShader")
         self.vertexShader = try shaderLibrary.vertex_main
         self.fragmentShader = try shaderLibrary.fragment_main
         self.mvpMatrix = mvpMatrix

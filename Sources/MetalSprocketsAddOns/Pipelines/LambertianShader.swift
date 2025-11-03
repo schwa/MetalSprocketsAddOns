@@ -18,7 +18,7 @@ public struct LambertianShader <Content>: Element where Content: Element {
         self.modelMatrix = modelMatrix
         self.color = color
 
-        let library = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders(), namespace: "LambertianShader")
+        let library = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders()).namespaced("LambertianShader")
         self.vertexShader = try library.vertex_main
         self.fragmentShader = try library.fragment_main
 
@@ -69,7 +69,7 @@ public struct LambertianShaderInstanced <Content>: Element where Content: Elemen
         self.modelMatrices = modelMatrices
         self.lightDirection = lightDirection
 
-        let library = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders(), namespace: "LambertianShader")
+        let library = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders()).namespaced("LambertianShader")
         self.vertexShader = try library.vertex_instanced
         self.fragmentShader = try library.fragment_main
         self.content = content()

@@ -32,7 +32,7 @@ public struct FlatShader <Content>: Element where Content: Element {
         self.content = try content()
 
         let shaderBundle = Bundle.metalSprocketsAddOnsShaders().orFatalError("Failed to load metal-sprockets example shaders bundle")
-        let shaderLibrary = try ShaderLibrary(bundle: shaderBundle, namespace: "FlatShader")
+        let shaderLibrary = try ShaderLibrary(bundle: shaderBundle).namespaced("FlatShader")
 
         // Setup function constants
         var constants = FunctionConstants()
