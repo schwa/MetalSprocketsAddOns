@@ -26,28 +26,40 @@ public extension MeshWithEdges {
     init(mesh: Mesh) {
         self.mesh = mesh
 
-        var edgeSet = Set<Edge>()
+        // Calculate total triangle count for capacity reservation
+        let totalTriangles = mesh.submeshes.reduce(0) { $0 + $1.indices.count / 3 }
+        let estimatedEdges = (totalTriangles * 3) / 2  // Rough estimate for closed meshes
+
+        var edgeSet = Set<Edge>(minimumCapacity: estimatedEdges)
         var uniqueEdges: [Edge] = []
+        uniqueEdges.reserveCapacity(estimatedEdges)
 
         for submesh in mesh.submeshes {
             let indexBuffer = submesh.indices.buffer
             let offset = submesh.indices.offset
-            let ptr = indexBuffer.contents().advanced(by: offset).assumingMemoryBound(to: UInt32.self)
+            var ptr = indexBuffer.contents().advanced(by: offset).assumingMemoryBound(to: UInt32.self)
 
             let triangleCount = submesh.indices.count / 3
-            for triangleIndex in 0..<triangleCount {
-                let i0 = ptr[triangleIndex * 3 + 0]
-                let i1 = ptr[triangleIndex * 3 + 1]
-                let i2 = ptr[triangleIndex * 3 + 2]
+            for _ in 0..<triangleCount {
+                let i0 = ptr[0]
+                let i1 = ptr[1]
+                let i2 = ptr[2]
+                ptr += 3
 
-                let edges = [
-                    Edge(i0, i1),
-                    Edge(i1, i2),
-                    Edge(i2, i0)
-                ]
+                // Process edges directly without temporary array
+                let edge0 = Edge(i0, i1)
+                if edgeSet.insert(edge0).inserted {
+                    uniqueEdges.append(edge0)
+                }
 
-                for edge in edges where edgeSet.insert(edge).inserted {
-                    uniqueEdges.append(Edge(edge.startIndex, edge.endIndex))
+                let edge1 = Edge(i1, i2)
+                if edgeSet.insert(edge1).inserted {
+                    uniqueEdges.append(edge1)
+                }
+
+                let edge2 = Edge(i2, i0)
+                if edgeSet.insert(edge2).inserted {
+                    uniqueEdges.append(edge2)
                 }
             }
         }
