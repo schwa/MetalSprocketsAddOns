@@ -1,36 +1,33 @@
 import Foundation
 
-public struct Edge: Hashable {
-    public var startIndex: UInt32
-    public var endIndex: UInt32
+public struct MeshWithEdges {
+    public struct Edge: Hashable {
+        public var startIndex: UInt32
+        public var endIndex: UInt32
 
-    public init(_ a: UInt32, _ b: UInt32) {
-        // Canonical ordering: smaller index first
-        if a < b {
-            startIndex = a
-            endIndex = b
-        } else {
-            startIndex = b
-            endIndex = a
+        public init(_ a: UInt32, _ b: UInt32) {
+            // Canonical ordering: smaller index first
+            if a < b {
+                startIndex = a
+                endIndex = b
+            } else {
+                startIndex = b
+                endIndex = a
+            }
         }
     }
-}
 
-public struct MeshWithEdges {
-    let mesh: Mesh
-    let uniqueEdges: [(startIndex: UInt32, endIndex: UInt32)]
-
-    public init(mesh: Mesh, uniqueEdges: [(startIndex: UInt32, endIndex: UInt32)]) {
-        self.mesh = mesh
-        self.uniqueEdges = uniqueEdges
-    }
+    var mesh: Mesh
+    var uniqueEdges: [Edge]
 }
 
 public extension MeshWithEdges {
-    /// Extract unique edges from a mesh by processing all triangles
-    nonisolated static func extractEdges(from mesh: Mesh) -> [(startIndex: UInt32, endIndex: UInt32)] {
+    /// Create a MeshWithEdges from a Mesh by extracting its unique edges
+    init(mesh: Mesh) {
+        self.mesh = mesh
+
         var edgeSet = Set<Edge>()
-        var uniqueEdges: [(startIndex: UInt32, endIndex: UInt32)] = []
+        var uniqueEdges: [Edge] = []
 
         for submesh in mesh.submeshes {
             let indexBuffer = submesh.indices.buffer
@@ -50,17 +47,11 @@ public extension MeshWithEdges {
                 ]
 
                 for edge in edges where edgeSet.insert(edge).inserted {
-                    uniqueEdges.append((edge.startIndex, edge.endIndex))
+                    uniqueEdges.append(Edge(edge.startIndex, edge.endIndex))
                 }
             }
         }
 
-        return uniqueEdges
-    }
-
-    /// Create a MeshWithEdges from a Mesh by extracting its unique edges
-    init(mesh: Mesh) {
-        self.mesh = mesh
-        self.uniqueEdges = Self.extractEdges(from: mesh)
+        self.uniqueEdges = uniqueEdges
     }
 }
