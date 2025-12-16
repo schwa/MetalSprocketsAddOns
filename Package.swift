@@ -7,7 +7,7 @@ let package = Package(
     platforms: [
         .iOS("18.5"),
         .macOS("15.5"),
-        .visionOS("2.5")
+        .visionOS("26.0")
     ],
     products: [
         .library(name: "MetalSprocketsAddOns", targets: ["MetalSprocketsAddOns"]),
