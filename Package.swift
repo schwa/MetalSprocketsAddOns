@@ -1,13 +1,13 @@
-// swift-tools-version: 6.1
+// swift-tools-version: 6.2
 
 import PackageDescription
 
 let package = Package(
     name: "MetalSprocketsAddOns",
     platforms: [
-        .iOS("18.5"),
-        .macOS("15.5"),
-        .visionOS("26.0")
+        .iOS(.v18),
+        .macOS(.v15),
+        .visionOS(.v26)
     ],
     products: [
         .library(name: "MetalSprocketsAddOns", targets: ["MetalSprocketsAddOns"]),
