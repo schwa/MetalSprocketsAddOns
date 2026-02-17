@@ -1,5 +1,5 @@
 {
-  "originHash" : "bd2079226426cff638fd730834814f24ec82fad5da0e9b3813543a128b8f2f6a",
+  "originHash" : "315f8098276e5d4aa3115ff3c39b525679b1b8a7743e2a819e5dffd5d724e715",
   "pins" : [
     {
       "identity" : "earcut-swift",
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/MetalSprockets",
       "state" : {
-        "revision" : "5e0e7d72093c76e8d9fccdd4cf17146cd4e6cc17",
-        "version" : "0.1.1"
+        "revision" : "89fceee0837b755bb2606c417bb5c34f7273bdad",
+        "version" : "0.1.4"
       }
     },
     {
