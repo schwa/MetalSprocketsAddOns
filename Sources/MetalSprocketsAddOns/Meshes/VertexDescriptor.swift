@@ -1,6 +1,6 @@
 import Collections
-import OrderedCollections
 import Metal
+import OrderedCollections
 
 public struct VertexDescriptor: Equatable, Sendable {
     public struct Attribute: Equatable, Sendable {

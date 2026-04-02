@@ -1,0 +1,6 @@
+parent_config: ../.swiftlint.yml
+
+disabled_rules:
+  - force_unwrapping
+  - force_try
+  - indentation_width

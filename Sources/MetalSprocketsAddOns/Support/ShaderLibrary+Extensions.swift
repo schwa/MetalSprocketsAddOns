@@ -2,8 +2,7 @@
 
 internal extension ShaderLibrary {
     static var module: ShaderLibrary {
-        get {
-            try! ShaderLibrary(bundle: .metalSprocketsAddOnsShaders())
-        }
+        // swiftlint:disable:next force_try
+        try! ShaderLibrary(bundle: .metalSprocketsAddOnsShaders())
     }
 }

@@ -4,9 +4,9 @@
 // Tests cover various mesh configurations and edge deduplication scenarios.
 
 import Metal
+@testable import MetalSprocketsAddOns
 import MetalSprocketsSupport
 import Testing
-@testable import MetalSprocketsAddOns
 
 // MARK: - Test Helpers
 

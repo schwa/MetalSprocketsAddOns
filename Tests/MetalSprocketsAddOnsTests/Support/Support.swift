@@ -2,9 +2,9 @@ import Accelerate
 import CoreGraphics
 import CoreImage
 import CoreImage.CIFilterBuiltins
-import Testing
 @testable import MetalSprocketsAddOns
 import MetalSprocketsSupport
+import Testing
 import UniformTypeIdentifiers
 #if canImport(AppKit)
 import AppKit
@@ -57,7 +57,7 @@ func goldenImage(named name: String) throws -> CGImage {
 /// - Returns: true if images match within tolerance
 func imageCompare(_ image1: CGImage, _ image2: CGImage, tolerance: Double = 0.70) throws -> Bool {
     // First check dimensions
-    guard image1.width == image2.width && image1.height == image2.height else {
+    guard image1.width == image2.width, image1.height == image2.height else {
         print("Image dimensions don't match: \(image1.width)x\(image1.height) vs \(image2.width)x\(image2.height)")
         return false
     }

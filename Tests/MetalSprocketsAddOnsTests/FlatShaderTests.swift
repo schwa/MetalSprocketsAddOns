@@ -13,10 +13,10 @@ import CoreGraphics
 import GeometryLite3D
 import Metal
 import MetalSprockets
+@testable import MetalSprocketsAddOns
 import MetalSprocketsSupport
 import simd
 import Testing
-@testable import MetalSprocketsAddOns
 
 @Test
 @MainActor
@@ -37,7 +37,7 @@ func testFlatShaderWithColor() throws {
         // Triangle 2
         Vertex(position: [-0.5, -0.5, 0], normal: [0, 0, 1], textureCoordinate: [0, 0]),
         Vertex(position: [0.5, 0.5, 0], normal: [0, 0, 1], textureCoordinate: [1, 1]),
-        Vertex(position: [-0.5, 0.5, 0], normal: [0, 0, 1], textureCoordinate: [0, 1]),
+        Vertex(position: [-0.5, 0.5, 0], normal: [0, 0, 1], textureCoordinate: [0, 1])
     ]
 
     // Create an identity matrix for modelViewProjection (since we're in normalized device coords)
@@ -103,7 +103,7 @@ func testFlatShaderWithTexture() throws {
         // Triangle 2
         Vertex(position: [-0.5, -0.5, 0], normal: [0, 0, 1], textureCoordinate: [0, 0]),
         Vertex(position: [0.5, 0.5, 0], normal: [0, 0, 1], textureCoordinate: [1, 1]),
-        Vertex(position: [-0.5, 0.5, 0], normal: [0, 0, 1], textureCoordinate: [0, 1]),
+        Vertex(position: [-0.5, 0.5, 0], normal: [0, 0, 1], textureCoordinate: [0, 1])
     ]
 
     // Create a simple test texture (4x4 checkerboard pattern)
@@ -122,7 +122,7 @@ func testFlatShaderWithTexture() throws {
     var pixels: [UInt8] = []
     for y in 0..<4 {
         for x in 0..<4 {
-            if (x + y) % 2 == 0 {
+            if (x + y).isMultiple(of: 2) {
                 pixels.append(contentsOf: [0, 0, 255, 255]) // Blue
             } else {
                 pixels.append(contentsOf: [0, 255, 0, 255]) // Green
@@ -192,7 +192,7 @@ func testFlatShaderWithTransform() throws {
         // Triangle 2
         Vertex(position: [-0.25, -0.25, 0], normal: [0, 0, 1], textureCoordinate: [0, 0]),
         Vertex(position: [0.25, 0.25, 0], normal: [0, 0, 1], textureCoordinate: [1, 1]),
-        Vertex(position: [-0.25, 0.25, 0], normal: [0, 0, 1], textureCoordinate: [0, 1]),
+        Vertex(position: [-0.25, 0.25, 0], normal: [0, 0, 1], textureCoordinate: [0, 1])
     ]
 
     // Create a rotation transform
@@ -286,7 +286,7 @@ func testFlatShaderWithVertexColors() throws {
             normal: [0, 0, 1],
             textureCoordinate: [0, 1],
             color: [1, 1, 0, 1]  // Yellow
-        ),
+        )
     ]
 
     // Create an identity matrix
