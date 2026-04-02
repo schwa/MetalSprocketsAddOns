@@ -1,4 +1,5 @@
 import Collections
+import OrderedCollections
 import Metal
 
 public struct VertexDescriptor: Equatable, Sendable {
