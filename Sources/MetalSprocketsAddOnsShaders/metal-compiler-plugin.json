@@ -2,6 +2,7 @@
     "metal-enable-logging": true,
     "plugin-logging": true,
     "include-dependencies": true,
+    "dependency-path-suffix": "include",
     "verbose-logging": true,
     "logging-prefix": "🔨",
     "include-paths": ["include"]

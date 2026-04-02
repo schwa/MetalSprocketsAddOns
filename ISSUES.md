@@ -9,11 +9,12 @@ The test Support.swift uses a homebrew histogram-based image comparison (vImage,
 ---
 
 ## 2: Remove local cross-environment macros and adopt them from MetalSprockets
-status: blocked
+status: closed
 priority: medium
 kind: task
 created: 2026-04-02T18:30:29.267773+00:00
-updated: 2026-04-02T18:30:33.890468+00:00
+updated: 2026-04-02T18:43:48.339937+00:00
+closed: 2026-04-02T18:43:48.339937+00:00
 
 Once MetalSprockets#305 is complete, remove the locally defined cross-environment macros from `Sources/MetalSprocketsAddOnsShaders/include/Support.h` (TEXTURE2D, DEPTH2D, TEXTURECUBE, SAMPLER, BUFFER, ATTRIBUTE, MS_ENUM) and import them from MetalSprockets instead.
 
