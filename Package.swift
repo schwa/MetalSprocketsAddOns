@@ -17,7 +17,7 @@ let package = Package(
         .package(url: "https://github.com/schwa/earcut-swift", from: "0.1.0"),
         .package(url: "https://github.com/schwa/GeometryLite3D", from: "0.1.0"),
         .package(url: "https://github.com/schwa/MetalCompilerPlugin", from: "0.1.4"),
-        .package(url: "https://github.com/schwa/MetalSprockets", from: "0.1.0"),
+        .package(url: "https://github.com/schwa/MetalSprockets", from: "0.1.7"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.3.0"),
     ],
     targets: [
