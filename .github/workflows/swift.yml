@@ -19,5 +19,12 @@ jobs:
         run: xcodebuild -downloadComponent MetalToolchain
       - name: Trust plugins
         run: defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
-      - run: swift build -v
-      - run: swift test -v
+      - run: swift build -v --disable-sandbox
+      - run: swift test -v --disable-sandbox
+
+  swiftlint:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - run: brew install swiftlint
+      - run: swiftlint --strict
