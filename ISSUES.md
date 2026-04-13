@@ -1,8 +1,12 @@
+# ISSUES.md
+
+---
+
 ## 1: Replace histogram image comparison with GoldenImage package
 status: new
 priority: medium
 kind: none
-created: 2026-01-17T00:00:00+00:00
+created: 2026-01-17T00:00:00Z
 
 The test Support.swift uses a homebrew histogram-based image comparison (vImage, CoreImage, Histogram struct). Replace this with the GoldenImage package which provides PSNR-based comparison. Requires publishing GoldenImage to GitHub first, then adding it as a dependency.
 
@@ -12,13 +16,23 @@ The test Support.swift uses a homebrew histogram-based image comparison (vImage,
 status: closed
 priority: medium
 kind: task
-created: 2026-04-02T18:30:29.267773+00:00
-updated: 2026-04-02T18:43:48.339937+00:00
-closed: 2026-04-02T18:43:48.339937+00:00
+created: 2026-04-02T18:30:29Z
+updated: 2026-04-02T18:43:48Z
+closed: 2026-04-02T18:43:48Z
 
 Once MetalSprockets#305 is complete, remove the locally defined cross-environment macros from `Sources/MetalSprocketsAddOnsShaders/include/Support.h` (TEXTURE2D, DEPTH2D, TEXTURECUBE, SAMPLER, BUFFER, ATTRIBUTE, MS_ENUM) and import them from MetalSprockets instead.
 
 Blocked on MetalSprockets#305.
+
+---
+
+## 3: Demo views render with wrong size/aspect ratio on initial load
+status: new
+priority: medium
+kind: bug
+created: 2026-04-13T05:04:24Z
+
+RenderView-based demos (Spinning Cube, GraphicsContext3D) render with incorrect aspect ratio or empty content on first load. Requires window resize or navigating away and back to fix. Likely caused by RenderView receiving a stale/zero drawable size before the NavigationSplitView detail column finishes layout. May be a DemoKit or MetalSprockets RenderView issue.
 
 ---
 
