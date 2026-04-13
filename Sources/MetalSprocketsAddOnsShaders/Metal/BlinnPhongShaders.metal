@@ -47,9 +47,9 @@ namespace BlinnPhong {
         Fragment out;
         const float4 position = float4(in.position, 1.0);
 
-        const float4 modelVertex = modelViewMatrix * position;
+        const float4 worldVertex = modelMatrix * position;
         out.position = modelViewProjectionMatrix * position;
-        out.worldPosition = float3(modelVertex) / modelVertex.w;
+        out.worldPosition = float3(worldVertex) / worldVertex.w;
         out.normal = normalize(extractNormalMatrix(modelMatrix) * in.normal);
         out.textureCoordinate = in.textureCoordinate;
         out.instance_id = instance_id;

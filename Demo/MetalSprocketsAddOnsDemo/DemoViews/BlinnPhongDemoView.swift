@@ -39,10 +39,10 @@ struct BlinnPhongDemoView: DemoView {
             mesh: MTKMesh.teapot().relabeled("teapot"),
             modelMatrix: .init(translation: [-2.5, 0, 0]),
             material: BlinnPhongMaterial(
-                ambient: .color([0.5, 0.5, 0.5]),
-                diffuse: .color([0.5, 0.5, 0.5]),
-                specular: .color([0.5, 0.5, 0.5]),
-                shininess: 1
+                ambient: .color([0.1, 0.05, 0.05]),
+                diffuse: .color([0.6, 0.2, 0.2]),
+                specular: .color([0.8, 0.8, 0.8]),
+                shininess: 64
             )
         ),
         .init(
@@ -50,10 +50,10 @@ struct BlinnPhongDemoView: DemoView {
             mesh: MTKMesh.teapot().relabeled("teapot"),
             modelMatrix: .init(translation: [2.5, 0, 0]),
             material: BlinnPhongMaterial(
-                ambient: .color([0.5, 0.5, 0.5]),
-                diffuse: .color([0.5, 0.5, 0.5]),
-                specular: .color([0.5, 0.5, 0.5]),
-                shininess: 1
+                ambient: .color([0.05, 0.05, 0.1]),
+                diffuse: .color([0.2, 0.2, 0.6]),
+                specular: .color([0.8, 0.8, 0.8]),
+                shininess: 64
             )
         ),
         .init(
@@ -61,10 +61,10 @@ struct BlinnPhongDemoView: DemoView {
             mesh: MTKMesh.plane(width: 10, height: 10),
             modelMatrix: .init(xRotation: .degrees(270)),
             material: BlinnPhongMaterial(
-                ambient: .color([0.5, 0.5, 0.5]),
-                diffuse: .color([0.5, 0.5, 0.5]),
-                specular: .color([0.5, 0.5, 0.5]),
-                shininess: 1
+                ambient: .color([0.1, 0.1, 0.1]),
+                diffuse: .color([0.4, 0.4, 0.4]),
+                specular: .color([0.3, 0.3, 0.3]),
+                shininess: 32
             )
         )
     ]
@@ -123,9 +123,9 @@ struct BlinnPhongDemoView: DemoView {
         .task {
             do {
                 lighting = try Lighting(
-                    ambientLightColor: [0.1, 0.1, 0.1],
+                    ambientLightColor: [0.15, 0.15, 0.2],
                     lights: [
-                        ([1, 5, 0], Light(type: .point, color: [1, 1, 1], intensity: 50))
+                        ([2, 5, 3], Light(type: .point, color: [1, 1, 1], intensity: 20))
                     ]
                 )
                 let device = _MTLCreateSystemDefaultDevice()
