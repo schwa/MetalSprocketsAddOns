@@ -148,7 +148,7 @@
 			mainGroup = 45C80D282E84475800136D6D;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				45D747DD2F8C836F00A4AB15 /* XCLocalSwiftPackageReference "../../MetalSprocketsAddOns" */,
+				45D747DD2F8C836F00A4AB15 /* XCLocalSwiftPackageReference ".." */,
 				457F5FBF2F8C845B009F4A5D /* XCRemoteSwiftPackageReference "DemoKit" */,
 				457F5FC22F8C8554009F4A5D /* XCRemoteSwiftPackageReference "Interaction3D" */,
 			);
@@ -241,9 +241,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		45D747DD2F8C836F00A4AB15 /* XCLocalSwiftPackageReference "../../MetalSprocketsAddOns" */ = {
+		45D747DD2F8C836F00A4AB15 /* XCLocalSwiftPackageReference ".." */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../MetalSprocketsAddOns;
+			relativePath = ..;
 		};
 /* End XCLocalSwiftPackageReference section */
 
