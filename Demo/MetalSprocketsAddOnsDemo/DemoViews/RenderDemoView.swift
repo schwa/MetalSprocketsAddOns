@@ -12,7 +12,7 @@ struct RenderDemoView: DemoView {
     @State private var sampleCount = 4
     @State private var isPaused = false
     @State private var pausedTime: Float = 0
-    @State private var frameTimingStatistics: FrameTimingStatistics?
+
 
     // Query device for supported MSAA sample counts
     private var supportedSampleCounts: [Int] {
@@ -42,7 +42,7 @@ struct RenderDemoView: DemoView {
         .metalDepthStencilPixelFormat(.depth32Float)
         // MSAA - notice how edges are smoother when enabled
         .metalSampleCount(msaaEnabled ? sampleCount : 1)
-        .onFrameTimingChange { frameTimingStatistics = $0 }
+        .frameTimingOverlay()
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -86,12 +86,7 @@ struct RenderDemoView: DemoView {
                 .foregroundStyle(.white)
                 .padding()
         }
-        .overlay(alignment: .topTrailing) {
-            if let frameTimingStatistics {
-                FrameTimingView(statistics: frameTimingStatistics, options: .all)
-                .padding()
-            }
-        }
+
     }
 }
 

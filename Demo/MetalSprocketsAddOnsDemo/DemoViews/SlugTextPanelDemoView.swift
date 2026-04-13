@@ -21,6 +21,7 @@ struct SlugTextPanelDemoView: DemoView {
         }
         .ignoresSafeArea()
         .metalClearColor(MTLClearColor(red: 0.02, green: 0.02, blue: 0.02, alpha: 1.0))
+        .frameTimingOverlay()
         .onAppear { initializeText() }
         .onDisappear { scene = nil }
         #if os(macOS)

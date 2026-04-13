@@ -62,6 +62,7 @@ struct GridDemoView: DemoView {
             }
         }
         .metalDepthStencilPixelFormat(.depth32Float)
+        .frameTimingOverlay()
         .interactiveCamera(rotation: $cameraRotation, distance: $cameraDistance, target: $cameraTarget)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

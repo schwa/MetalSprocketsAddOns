@@ -34,6 +34,7 @@ struct SlugMatrixRainDemoView: DemoView {
         }
         .ignoresSafeArea()
         .metalClearColor(MTLClearColor(red: 0.051, green: 0.008, blue: 0.031, alpha: 1.0))
+        .frameTimingOverlay()
         .onAppear { initialize() }
         #if os(macOS)
         .overlay {

@@ -18,6 +18,7 @@ struct GraphicsContext3DDemoView: DemoView {
     @State private var showWireframe = false
     @State private var capStyleIndex = 0
     @State private var joinStyleIndex = 0
+    @State private var slugScene: SlugScene?
 
     private var cameraMatrix: simd_float4x4 {
         let rotation = float4x4(cameraRotation)
@@ -125,10 +126,22 @@ struct GraphicsContext3DDemoView: DemoView {
                     viewport: viewport,
                     debugWireframe: showWireframe
                 )
+
+                if let slugScene {
+                    try SlugTextRenderPipeline(
+                        scene: slugScene,
+                        frameConstants: SlugFrameConstants(
+                            viewProjectionMatrix: viewProjection,
+                            viewportSize: drawableSize
+                        )
+                    )
+                }
             }
         }
         .metalDepthStencilPixelFormat(.depth32Float)
+        .frameTimingOverlay()
         .interactiveCamera(rotation: $cameraRotation, distance: $cameraDistance, target: $cameraTarget)
+        .onAppear { initializeSlugText() }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { showInspector.toggle() } label: {
@@ -209,6 +222,48 @@ struct GraphicsContext3DDemoView: DemoView {
             }
             ctx.stroke(path, with: color, style: style)
         }
+    }
+
+    private func initializeSlugText() {
+        guard slugScene == nil else { return }
+        guard let device = MTLCreateSystemDefaultDevice() else { return }
+        let builder = SlugTextMeshBuilder(device: device)
+        let font = CTFontCreateWithName("HelveticaNeue-Bold" as CFString, 24, nil)
+
+        struct Label {
+            var text: String
+            var position: SIMD3<Float>
+            var color: Color
+        }
+
+        let labels: [Label] = [
+            .init(text: "Star", position: [0, 0.5, 0], color: .yellow),
+            .init(text: "Triangle", position: [-1.5, 3.2, -1], color: .cyan),
+            .init(text: "Zigzag", position: [-3, 3.5, 0], color: .red),
+            .init(text: "Square", position: [-1, 3, -2], color: Color(red: 0, green: 0.8, blue: 0.6)),
+            .init(text: "Cube", position: [4, 2.5, 0], color: .orange),
+            .init(text: "Pyramid", position: [-4, 3, 0], color: .purple),
+            .init(text: "Spiral", position: [0, 3.5, 3], color: Color(red: 1, green: 0.4, blue: 0.7)),
+        ]
+
+        for label in labels {
+            var str = AttributedString(label.text)
+            str.foregroundColor = label.color
+            builder.buildMesh(attributedString: str, font: font, maximumSize: CGSize(width: 500, height: 100))
+        }
+
+        guard let scene = try? builder.finalize() else { return }
+
+        let scale: Float = 0.01
+        for (i, label) in labels.enumerated() {
+            let mesh = scene.meshes[i]
+            let centering = float4x4.translation(-Float(mesh.bounds.midX), -Float(mesh.bounds.midY), 0)
+            scene.modelMatrices[i] = float4x4.translation(label.position.x, label.position.y, label.position.z)
+                * float4x4.scale(scale, scale, scale)
+                * centering
+        }
+
+        slugScene = scene
     }
 
     /// Creates a star path on the XZ plane at the given Y height.

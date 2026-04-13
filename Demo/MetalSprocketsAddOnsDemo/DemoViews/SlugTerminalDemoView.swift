@@ -54,6 +54,7 @@ struct SlugTerminalDemoView: DemoView {
         }
         .ignoresSafeArea()
         .metalClearColor(MTLClearColor(red: 0.05, green: 0.05, blue: 0.05, alpha: 1.0))
+        .frameTimingOverlay()
         .onDisappear { scene = nil }
         .overlay {
             if scene != nil {

@@ -19,6 +19,7 @@ struct SlugDebugDemoView: DemoView {
         }
         .ignoresSafeArea()
         .metalClearColor(MTLClearColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1.0))
+        .frameTimingOverlay()
         .onAppear { initializeText() }
         #if os(macOS)
         .overlay {
