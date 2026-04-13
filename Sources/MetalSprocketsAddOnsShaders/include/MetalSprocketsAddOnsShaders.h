@@ -29,3 +29,6 @@ NS_ASSUME_NONNULL_END
 #import "GridShader.h"
 #import "LambertianShader.h"
 #import "SlugShaderTypes.h"
+#import "Lighting.h"
+#import "BlinnPhongShaders.h"
+#import "DebugShaders.h"

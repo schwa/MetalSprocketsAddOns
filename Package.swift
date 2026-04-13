@@ -14,6 +14,7 @@ let package = Package(
         .library(name: "MetalSprocketsAddOnsShaders", targets: ["MetalSprocketsAddOnsShaders"]),
     ],
     dependencies: [
+        .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.0.0"),
         .package(url: "https://github.com/schwa/SwiftEarcut", from: "0.0.1"),
         .package(url: "https://github.com/schwa/GeometryLite3D", from: "0.1.0"),
         .package(url: "https://github.com/schwa/MetalCompilerPlugin", from: "0.1.4"),
@@ -27,6 +28,7 @@ let package = Package(
                 .product(name: "Collections", package: "swift-collections"),
                 .product(name: "GeometryLite3D", package: "GeometryLite3D"),
                 .product(name: "MetalSprockets", package: "MetalSprockets"),
+                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
                 .product(name: "SwiftEarcut", package: "SwiftEarcut"),
                 "MetalSprocketsAddOnsShaders",
                 "MikkTSpace",
