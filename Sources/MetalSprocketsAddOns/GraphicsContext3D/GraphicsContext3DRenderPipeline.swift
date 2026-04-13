@@ -80,9 +80,10 @@ public struct GraphicsContext3DRenderPipeline: Element {
                 }
             }
 
-            let needsRegeneration = previousContext != context || previousViewProjection != viewProjection || previousViewport != viewport
+            let hasValidViewport = viewport.x > 0 && viewport.y > 0
+            let needsRegeneration = hasValidViewport && (previousContext != context || previousViewProjection != viewProjection || previousViewport != viewport)
 
-            if needsRegeneration {
+            if needsRegeneration, let joinDataBuffer, let uniformsBuffer, let fillVertexBuffer {
                 let generator = GeometryGenerator(viewProjection: viewProjection, viewport: viewport)
 
                 var allJoinData: [LineJoinGPUData] = []
@@ -99,26 +100,24 @@ public struct GraphicsContext3DRenderPipeline: Element {
                     }
                 }
 
-                if let buffer = joinDataBuffer, !allJoinData.isEmpty {
+                if !allJoinData.isEmpty {
                     let byteCount = allJoinData.count * MemoryLayout<LineJoinGPUData>.stride
-                    buffer.contents().copyMemory(from: allJoinData, byteCount: byteCount)
+                    joinDataBuffer.contents().copyMemory(from: allJoinData, byteCount: byteCount)
                 }
                 joinCount = allJoinData.count
 
-                if let buffer = fillVertexBuffer, !allFillVertices.isEmpty {
+                if !allFillVertices.isEmpty {
                     let byteCount = allFillVertices.count * MemoryLayout<Vertex>.stride
-                    buffer.contents().copyMemory(from: allFillVertices, byteCount: byteCount)
+                    fillVertexBuffer.contents().copyMemory(from: allFillVertices, byteCount: byteCount)
                 }
                 fillVertexCount = allFillVertices.count
 
-                if let buffer = uniformsBuffer {
-                    var uniforms = LineJoinUniforms(
-                        viewProjection: viewProjection,
-                        viewport: viewport,
-                        _padding: (0, 0)
-                    )
-                    buffer.contents().copyMemory(from: &uniforms, byteCount: MemoryLayout<LineJoinUniforms>.stride)
-                }
+                var uniforms = LineJoinUniforms(
+                    viewProjection: viewProjection,
+                    viewport: viewport,
+                    _padding: (0, 0)
+                )
+                uniformsBuffer.contents().copyMemory(from: &uniforms, byteCount: MemoryLayout<LineJoinUniforms>.stride)
 
                 previousContext = context
                 previousViewProjection = viewProjection

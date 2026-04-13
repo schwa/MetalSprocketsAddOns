@@ -71,16 +71,42 @@ struct GraphicsContext3DDemoView: DemoView {
                 }
                 ctx.stroke(zigzag, with: .red, style: style)
 
-                // A square on the XY plane
+                // A square floating behind
                 let square = Path3D { p in
-                    p.move(to: [-1, -1, -2])
-                    p.addLine(to: [1, -1, -2])
-                    p.addLine(to: [1, 1, -2])
-                    p.addLine(to: [-1, 1, -2])
+                    p.move(to: [-1, 0.5, -2])
+                    p.addLine(to: [1, 0.5, -2])
+                    p.addLine(to: [1, 2.5, -2])
+                    p.addLine(to: [-1, 2.5, -2])
                     p.closeSubpath()
                 }
-                ctx.fill(square, with: .green.opacity(0.3))
-                ctx.stroke(square, with: .green, style: style)
+                ctx.fill(square, with: Color(red: 0.0, green: 0.8, blue: 0.6))
+                ctx.stroke(square, with: Color(red: 0.0, green: 0.8, blue: 0.6), style: style)
+
+                // Wireframe cube
+                Self.strokeCube(ctx: &ctx, center: [4, 1, 0], size: 2, color: .orange, style: style)
+
+                // Wireframe pyramid
+                Self.strokePyramid(ctx: &ctx, center: [-4, 0, 0], base: 2, height: 2.5, color: .purple, style: style)
+
+                // Spiral corkscrew
+                let spiral = Path3D { p in
+                    let turns: Float = 3
+                    let segments = 120
+                    let radius: Float = 1.2
+                    let height: Float = 3.0
+                    let cx: Float = 0
+                    let cz: Float = 3
+                    for i in 0...segments {
+                        let t = Float(i) / Float(segments)
+                        let angle = t * turns * 2 * .pi
+                        let x = cx + cos(angle) * radius
+                        let y = t * height
+                        let z = cz + sin(angle) * radius
+                        if i == 0 { p.move(to: [x, y, z]) }
+                        else { p.addLine(to: [x, y, z]) }
+                    }
+                }
+                ctx.stroke(spiral, with: Color(red: 1, green: 0.4, blue: 0.7), style: style)
             }
 
             try RenderPass {
@@ -132,6 +158,56 @@ struct GraphicsContext3DDemoView: DemoView {
                 }
             }
             .inspectorColumnWidth(min: 250, ideal: 300, max: 400)
+        }
+    }
+
+    static func strokeCube(ctx: inout GraphicsContext3D, center: SIMD3<Float>, size: Float, color: Color, style: MetalSprocketsAddOns.StrokeStyle) {
+        let h = size * 0.5
+        let c = center
+        // 8 vertices
+        let v: [SIMD3<Float>] = [
+            c + [-h, -h, -h], c + [h, -h, -h], c + [h, h, -h], c + [-h, h, -h],  // back face
+            c + [-h, -h, h], c + [h, -h, h], c + [h, h, h], c + [-h, h, h],      // front face
+        ]
+        // 6 faces as closed paths
+        let faces: [[Int]] = [
+            [0, 1, 2, 3], [4, 5, 6, 7],  // back, front
+            [0, 1, 5, 4], [2, 3, 7, 6],  // bottom, top
+            [0, 3, 7, 4], [1, 2, 6, 5],  // left, right
+        ]
+        for face in faces {
+            let path = Path3D { p in
+                p.move(to: v[face[0]])
+                for i in 1..<face.count { p.addLine(to: v[face[i]]) }
+                p.closeSubpath()
+            }
+            ctx.stroke(path, with: color, style: style)
+        }
+    }
+
+    static func strokePyramid(ctx: inout GraphicsContext3D, center: SIMD3<Float>, base: Float, height: Float, color: Color, style: MetalSprocketsAddOns.StrokeStyle) {
+        let h = base * 0.5
+        let apex = center + [0, height, 0]
+        let v: [SIMD3<Float>] = [
+            center + [-h, 0, -h], center + [h, 0, -h],
+            center + [h, 0, h], center + [-h, 0, h],
+        ]
+        // Base
+        let basePath = Path3D { p in
+            p.move(to: v[0])
+            for i in 1..<4 { p.addLine(to: v[i]) }
+            p.closeSubpath()
+        }
+        ctx.stroke(basePath, with: color, style: style)
+        // 4 triangular faces
+        for i in 0..<4 {
+            let path = Path3D { p in
+                p.move(to: v[i])
+                p.addLine(to: v[(i + 1) % 4])
+                p.addLine(to: apex)
+                p.closeSubpath()
+            }
+            ctx.stroke(path, with: color, style: style)
         }
     }
 
