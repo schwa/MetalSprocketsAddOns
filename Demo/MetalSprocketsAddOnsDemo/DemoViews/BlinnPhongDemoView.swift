@@ -36,18 +36,32 @@ struct BlinnPhongDemoView: DemoView {
 
     @State private var lighting: Lighting?
     @State private var skyboxTexture: MTLTexture?
-    @State private var lightPosition: SIMD3<Float> = [0, 3, 5]
+    @State private var lightPosition0: SIMD3<Float> = [0, 3, 5]
+    @State private var lightPosition1: SIMD3<Float> = [0, 1.5, -5]
     @State private var renderOptions: BlinnPhongDemoRenderPass.Options = .all
     @State private var showInspector = true
+    @State private var showWireframe = false
+    @State private var useDebugShading = false
+    @State private var debugMode: DebugShadersMode = .normal
 
-    // OrbitTransformer + LoopTransformer = continuous orbiting light
-    @State private var lightAnimator = TransformerAnimator(
+    // Light 0: slow white orbit at height 3
+    @State private var lightAnimator0 = TransformerAnimator(
         transformer: OrbitTransformer(center: [0, 3, 0], radius: 5, angle: .zero, normal: [0, 1, 0]),
         parameter: \OrbitTransformer.angle,
         from: AngleF.degrees(0),
         to: AngleF.degrees(360),
         duration: 8,
         timingTransformer: LoopTransformer(duration: 8)
+    )
+
+    // Light 1: fast colored orbit at height 1.5, opposite direction
+    @State private var lightAnimator1 = TransformerAnimator(
+        transformer: OrbitTransformer(center: [0, 1.5, 0], radius: 4, angle: .zero, normal: [0, 1, 0]),
+        parameter: \OrbitTransformer.angle,
+        from: AngleF.degrees(360),
+        to: AngleF.degrees(0),
+        duration: 2,
+        timingTransformer: LoopTransformer(duration: 2)
     )
 
     private var cameraMatrix: simd_float4x4 {
@@ -61,7 +75,7 @@ struct BlinnPhongDemoView: DemoView {
     private let models: [Model] = [
         .init(
             id: "teapot-1",
-            mesh: MTKMesh.teapot().relabeled("teapot"),
+            mesh: MTKMesh.teapot(options: [.generateTangentBasis, .generateTextureCoordinatesIfMissing, .useSimpleTextureCoordinates]).relabeled("teapot"),
             modelMatrix: .init(translation: [-2.5, 0, 0]),
             material: BlinnPhongMaterial(
                 ambient: .color([0.1, 0.05, 0.05]),
@@ -72,7 +86,7 @@ struct BlinnPhongDemoView: DemoView {
         ),
         .init(
             id: "teapot-2",
-            mesh: MTKMesh.teapot().relabeled("teapot"),
+            mesh: MTKMesh.teapot(options: [.generateTangentBasis, .generateTextureCoordinatesIfMissing, .useSimpleTextureCoordinates]).relabeled("teapot"),
             modelMatrix: .init(translation: [2.5, 0, 0]),
             material: BlinnPhongMaterial(
                 ambient: .color([0.05, 0.05, 0.1]),
@@ -95,18 +109,30 @@ struct BlinnPhongDemoView: DemoView {
                         drawableSize: drawableSize,
                         skyboxTexture: skyboxTexture,
                         lighting: lighting,
-                        lightPosition: lightPosition,
+                        lightPositions: [lightPosition0, lightPosition1],
                         models: models,
+                        wireframe: showWireframe,
+                        debugMode: useDebugShading ? debugMode : nil,
                         options: renderOptions
                     )
                 }
             }
             .metalDepthStencilPixelFormat(.depth32Float)
             .onChange(of: timeline.date) {
-                // Advance orbit animation and write new light position to GPU buffer
-                lightAnimator.update(at: timeline.date.timeIntervalSinceReferenceDate)
-                lightPosition = lightAnimator.transformer.transform(.zero)
-                lighting?.setLightPosition(lightPosition, at: 0)
+                let t = timeline.date.timeIntervalSinceReferenceDate
+
+                // Light 0: white orbit
+                lightAnimator0.update(at: t)
+                lightPosition0 = lightAnimator0.transformer.transform(.zero)
+                lighting?.setLightPosition(lightPosition0, at: 0)
+
+                // Light 1: colored orbit with hue cycling
+                lightAnimator1.update(at: t)
+                lightPosition1 = lightAnimator1.transformer.transform(.zero)
+                lighting?.setLightPosition(lightPosition1, at: 1)
+                let hue = Float(t.truncatingRemainder(dividingBy: 6) / 6)
+                let color = hueToRGB(hue)
+                lighting?.setLight(Light(type: .point, color: color, intensity: 15), at: 1)
             }
         }
         .interactiveCamera(rotation: $cameraRotation, distance: $cameraDistance, target: $cameraTarget)
@@ -126,6 +152,21 @@ struct BlinnPhongDemoView: DemoView {
                     Toggle("Light Marker", isOn: $renderOptions.bound(.lightMarker))
                     Toggle("Models", isOn: $renderOptions.bound(.models))
                 }
+                Section("Display") {
+                    Toggle("Wireframe", isOn: $showWireframe)
+                }
+                Section("Shading") {
+                    Picker("Mode", selection: $useDebugShading) {
+                        Text("Blinn-Phong").tag(false)
+                        Text("Debug").tag(true)
+                    }
+                    Picker("Debug Mode", selection: $debugMode) {
+                        ForEach(debugModes, id: \.0) { mode, label in
+                            Text(label).tag(mode)
+                        }
+                    }
+                    .disabled(!useDebugShading)
+                }
             }
             .inspectorColumnWidth(min: 250, ideal: 300, max: 400)
         }
@@ -134,7 +175,8 @@ struct BlinnPhongDemoView: DemoView {
                 lighting = try Lighting(
                     ambientLightColor: [0.15, 0.15, 0.2],
                     lights: [
-                        ([0, 3, 5], Light(type: .point, color: [1, 1, 1], intensity: 20))
+                        ([0, 3, 5], Light(type: .point, color: [1, 1, 1], intensity: 20)),
+                        ([0, 1.5, -5], Light(type: .point, color: [1, 0.5, 0.2], intensity: 15))
                     ]
                 )
                 let device = _MTLCreateSystemDefaultDevice()
@@ -163,8 +205,10 @@ struct BlinnPhongDemoRenderPass: Element {
     var drawableSize: CGSize
     var skyboxTexture: MTLTexture
     var lighting: Lighting
-    var lightPosition: SIMD3<Float>
+    var lightPositions: [SIMD3<Float>]
     var models: [BlinnPhongDemoView.Model]
+    var wireframe: Bool = false
+    var debugMode: DebugShadersMode?
     var options: Options = .all
 
     var body: some Element {
@@ -196,15 +240,17 @@ struct BlinnPhongDemoRenderPass: Element {
                     )
                 }
 
-                // 3. Light marker — yellow cross via GraphicsContext3D
+                // 3. Light markers — yellow crosses via GraphicsContext3D
                 if options.contains(.lightMarker) {
                     let lightMarker = GraphicsContext3D { ctx in
                         let s: Float = 0.2
-                        for axis in [SIMD3<Float>(1, 0, 0), SIMD3<Float>(0, 1, 0), SIMD3<Float>(0, 0, 1)] {
-                            ctx.stroke(Path3D { path in
-                                path.move(to: lightPosition - axis * s)
-                                path.addLine(to: lightPosition + axis * s)
-                            }, with: .yellow, lineWidth: 2)
+                        for p in lightPositions {
+                            for axis in [SIMD3<Float>(1, 0, 0), SIMD3<Float>(0, 1, 0), SIMD3<Float>(0, 0, 1)] {
+                                ctx.stroke(Path3D { path in
+                                    path.move(to: p - axis * s)
+                                    path.addLine(to: p + axis * s)
+                                }, with: .yellow, lineWidth: 2)
+                            }
                         }
                     }
                     let viewport = SIMD2<Float>(Float(drawableSize.width), Float(drawableSize.height))
@@ -215,29 +261,80 @@ struct BlinnPhongDemoRenderPass: Element {
                     )
                 }
 
-                // 4. Lit teapots — Blinn-Phong with per-model materials
+                // 4. Models — Blinn-Phong or debug visualization
                 if options.contains(.models), let firstModel = models.first {
-                    try BlinnPhongShader {
-                        try ForEach(models) { model in
-                            try Draw { encoder in
-                                encoder.setVertexBuffers(of: model.mesh)
-                                encoder.draw(model.mesh)
-                            }
-                            .blinnPhongMaterial(model.material)
-                            .blinnPhongMatrices(
-                                projectionMatrix: projectionMatrix,
-                                viewMatrix: viewMatrix,
-                                modelMatrix: model.modelMatrix,
-                                cameraMatrix: cameraMatrix
+                    if let debugMode {
+                        // Debug shader replaces Blinn-Phong
+                        ForEach(models) { model in
+                            let normalMatrix = float3x3(
+                                model.modelMatrix.columns.0.xyz,
+                                model.modelMatrix.columns.1.xyz,
+                                model.modelMatrix.columns.2.xyz
                             )
+                            try DebugRenderPipeline(
+                                modelMatrix: model.modelMatrix,
+                                normalMatrix: normalMatrix,
+                                debugMode: debugMode,
+                                lightPosition: lightPositions.first ?? .zero,
+                                cameraPosition: cameraMatrix.translation,
+                                viewProjectionMatrix: viewProjection
+                            ) {
+                                Draw { encoder in
+                                    if wireframe { encoder.setTriangleFillMode(.lines) }
+                                    encoder.setVertexBuffers(of: model.mesh)
+                                    encoder.draw(model.mesh)
+                                }
+                            }
+                            .vertexDescriptor(model.mesh.vertexDescriptor)
+                            .depthCompare(function: .less, enabled: true)
                         }
-                        .lighting(lighting)
+                    } else {
+                        // Blinn-Phong shading
+                        try BlinnPhongShader {
+                            try ForEach(models) { model in
+                                try Draw { encoder in
+                                    if wireframe { encoder.setTriangleFillMode(.lines) }
+                                    encoder.setVertexBuffers(of: model.mesh)
+                                    encoder.draw(model.mesh)
+                                }
+                                .blinnPhongMaterial(model.material)
+                                .blinnPhongMatrices(
+                                    projectionMatrix: projectionMatrix,
+                                    viewMatrix: viewMatrix,
+                                    modelMatrix: model.modelMatrix,
+                                    cameraMatrix: cameraMatrix
+                                )
+                            }
+                            .lighting(lighting)
+                        }
+                        .vertexDescriptor(firstModel.mesh.vertexDescriptor)
+                        .depthCompare(function: .less, enabled: true)
                     }
-                    .vertexDescriptor(firstModel.mesh.vertexDescriptor)
-                    .depthCompare(function: .less, enabled: true)
                 }
             }
         }
+    }
+}
+
+private let debugModes: [(DebugShadersMode, String)] = [
+    (.normal, "Normal"), (.texCoord, "Tex Coords"), (.tangent, "Tangent"),
+    (.bitangent, "Bitangent"), (.worldPosition, "World Pos"), (.localPosition, "Local Pos"),
+    (.depth, "Depth"), (.faceNormal, "Face Normal"), (.checkerboard, "Checkerboard"),
+    (.uvGrid, "UV Grid"), (.wireframeOverlay, "Wireframe Overlay"),
+    (.frontFacing, "Front Facing"), (.barycentricCoord, "Barycentric")
+]
+
+private func hueToRGB(_ hue: Float) -> SIMD3<Float> {
+    let h = hue * 6
+    let c: Float = 1
+    let x = c * (1 - abs(h.truncatingRemainder(dividingBy: 2) - 1))
+    switch Int(h) % 6 {
+    case 0: return [c, x, 0]
+    case 1: return [x, c, 0]
+    case 2: return [0, c, x]
+    case 3: return [0, x, c]
+    case 4: return [x, 0, c]
+    default: return [c, 0, x]
     }
 }
 
