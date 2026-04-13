@@ -15,7 +15,7 @@ struct BlinnPhongDemoView: DemoView {
     static let metadata = DemoMetadata(
         name: "Blinn-Phong",
         systemImage: "light.max",
-        description: "Blinn-Phong shading with multiple models, skybox, and grid",
+        description: "Blinn-Phong shading with orbiting light, skybox, and grid",
         group: "Rendering"
     )
 
@@ -25,6 +25,15 @@ struct BlinnPhongDemoView: DemoView {
 
     @State private var lighting: Lighting?
     @State private var skyboxTexture: MTLTexture?
+
+    @State private var lightAnimator = TransformerAnimator(
+        transformer: OrbitTransformer(center: [0, 3, 0], radius: 5, angle: .zero, normal: [0, 1, 0]),
+        parameter: \OrbitTransformer.angle,
+        from: AngleF.degrees(0),
+        to: AngleF.degrees(360),
+        duration: 8,
+        timingTransformer: LoopTransformer(duration: 8)
+    )
 
     private var cameraMatrix: simd_float4x4 {
         let rotation = float4x4(cameraRotation)
@@ -59,55 +68,61 @@ struct BlinnPhongDemoView: DemoView {
     ]
 
     var body: some View {
-        RenderView { _, drawableSize in
-            let aspect = drawableSize.height > 0 ? Float(drawableSize.width / drawableSize.height) : 1.0
-            let projectionMatrix = float4x4.perspective(fovY: .pi / 4, aspect: aspect, near: 0.1, far: 1_000.0)
-            let viewMatrix = cameraMatrix.inverse
+        TimelineView(.animation) { timeline in
+            RenderView { _, drawableSize in
+                let aspect = drawableSize.height > 0 ? Float(drawableSize.width / drawableSize.height) : 1.0
+                let projectionMatrix = float4x4.perspective(fovY: .pi / 4, aspect: aspect, near: 0.1, far: 1_000.0)
+                let viewMatrix = cameraMatrix.inverse
 
-            try RenderPass {
-                if let skyboxTexture {
-                    try SkyboxRenderPipeline(
+                try RenderPass {
+                    if let skyboxTexture {
+                        try SkyboxRenderPipeline(
+                            projectionMatrix: projectionMatrix,
+                            cameraMatrix: cameraMatrix,
+                            rotation: simd_quatf(angle: .pi, axis: [0, 1, 0]),
+                            texture: skyboxTexture
+                        )
+                    }
+
+                    GridShader(
                         projectionMatrix: projectionMatrix,
                         cameraMatrix: cameraMatrix,
-                        rotation: simd_quatf(angle: .pi, axis: [0, 1, 0]),
-                        texture: skyboxTexture
+                        highlightedLines: [
+                            .init(axis: .x, position: 0, width: 0.03, color: [1, 0.2, 0.2, 1]),
+                            .init(axis: .y, position: 0, width: 0.03, color: [0.2, 0.4, 1, 1])
+                        ],
+                        backfaceColor: [1, 0, 1, 1]
                     )
-                }
 
-                GridShader(
-                    projectionMatrix: projectionMatrix,
-                    cameraMatrix: cameraMatrix,
-                    highlightedLines: [
-                        .init(axis: .x, position: 0, width: 0.03, color: [1, 0.2, 0.2, 1]),
-                        .init(axis: .y, position: 0, width: 0.03, color: [0.2, 0.4, 1, 1])
-                    ],
-                    backfaceColor: [1, 0, 1, 1]
-                )
-
-                if let lighting, let firstModel = models.first {
-                    try BlinnPhongShader {
-                        try ForEach(models) { model in
-                            try Draw { encoder in
-                                encoder.setVertexBuffers(of: model.mesh)
-                                encoder.draw(model.mesh)
+                    if let lighting, let firstModel = models.first {
+                        try BlinnPhongShader {
+                            try ForEach(models) { model in
+                                try Draw { encoder in
+                                    encoder.setVertexBuffers(of: model.mesh)
+                                    encoder.draw(model.mesh)
+                                }
+                                .blinnPhongMaterial(model.material)
+                                .blinnPhongMatrices(
+                                    projectionMatrix: projectionMatrix,
+                                    viewMatrix: viewMatrix,
+                                    modelMatrix: model.modelMatrix,
+                                    cameraMatrix: cameraMatrix
+                                )
                             }
-                            .blinnPhongMaterial(model.material)
-                            .blinnPhongMatrices(
-                                projectionMatrix: projectionMatrix,
-                                viewMatrix: viewMatrix,
-                                modelMatrix: model.modelMatrix,
-                                cameraMatrix: cameraMatrix
-                            )
+                            .lighting(lighting)
                         }
-                        .lighting(lighting)
+                        .vertexDescriptor(firstModel.mesh.vertexDescriptor)
+                        .depthCompare(function: .less, enabled: true)
                     }
-                    .vertexDescriptor(firstModel.mesh.vertexDescriptor)
-                    .depthCompare(function: .less, enabled: true)
                 }
-
+            }
+            .metalDepthStencilPixelFormat(.depth32Float)
+            .onChange(of: timeline.date) {
+                lightAnimator.update(at: timeline.date.timeIntervalSinceReferenceDate)
+                let lightPosition = lightAnimator.transformer.transform(.zero)
+                lighting?.setLightPosition(lightPosition, at: 0)
             }
         }
-        .metalDepthStencilPixelFormat(.depth32Float)
         .interactiveCamera(rotation: $cameraRotation, distance: $cameraDistance, target: $cameraTarget)
         .frameTimingOverlay()
         .task {
@@ -115,7 +130,7 @@ struct BlinnPhongDemoView: DemoView {
                 lighting = try Lighting(
                     ambientLightColor: [0.15, 0.15, 0.2],
                     lights: [
-                        ([2, 5, 3], Light(type: .point, color: [1, 1, 1], intensity: 20))
+                        ([0, 3, 5], Light(type: .point, color: [1, 1, 1], intensity: 20))
                     ]
                 )
                 let device = _MTLCreateSystemDefaultDevice()

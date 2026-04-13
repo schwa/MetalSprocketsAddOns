@@ -38,6 +38,20 @@ public extension Lighting {
     }
 }
 
+public extension Lighting {
+    /// Update the position of a light at the given index.
+    func setLightPosition(_ position: SIMD3<Float>, at index: Int) {
+        lightPositions.contents().advanced(by: index * MemoryLayout<SIMD3<Float>>.stride)
+            .assumingMemoryBound(to: SIMD3<Float>.self).pointee = position
+    }
+
+    /// Update the light value at the given index.
+    func setLight(_ light: Light, at index: Int) {
+        lights.contents().advanced(by: index * MemoryLayout<Light>.stride)
+            .assumingMemoryBound(to: Light.self).pointee = light
+    }
+}
+
 public extension Element {
     func lighting(_ lighting: Lighting) throws -> some Element {
         self

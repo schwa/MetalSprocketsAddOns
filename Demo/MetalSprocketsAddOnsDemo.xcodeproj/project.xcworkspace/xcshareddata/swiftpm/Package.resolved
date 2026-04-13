@@ -25,7 +25,7 @@
       "location" : "https://github.com/schwa/Interaction3D",
       "state" : {
         "branch" : "main",
-        "revision" : "753de0a2417644314b58486bfd041fa6816a7af6"
+        "revision" : "8b20e8932c6aeb98a18e4846995e358844850a79"
       }
     },
     {
@@ -44,6 +44,15 @@
       "state" : {
         "revision" : "20125f181f8571eca25ae9b5e160628f4e44177e",
         "version" : "0.1.7"
+      }
+    },
+    {
+      "identity" : "spacemouse",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/schwa/SpaceMouse",
+      "state" : {
+        "branch" : "main",
+        "revision" : "d1e7e25a8358fb440067d5ea03e79c308830ad6c"
       }
     },
     {
