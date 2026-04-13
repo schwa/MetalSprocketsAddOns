@@ -23,6 +23,7 @@ struct DebugShaderDemoView: DemoView {
     @State private var cameraTarget: SIMD3<Float> = [0, 1, 0]
 
     @State private var debugMode: DebugShadersMode = .normal
+    @State private var showInspector = true
 
     let teapot = MTKMesh.teapot(options: [.generateTangentBasis, .generateTextureCoordinatesIfMissing, .useSimpleTextureCoordinates])
 
@@ -41,16 +42,13 @@ struct DebugShaderDemoView: DemoView {
             let viewProjectionMatrix = projectionMatrix * viewMatrix
 
             try RenderPass(label: "Debug") {
-                try AxisLinesRenderPipeline(
-                    mvpMatrix: viewProjectionMatrix,
-                    viewMatrix: viewMatrix,
+                GridShader(
                     projectionMatrix: projectionMatrix,
-                    viewportSize: SIMD2<Float>(Float(drawableSize.width), Float(drawableSize.height))
-                )
-
-                AxisAlignedWireframeBoxesRenderPipeline(
-                    mvpMatrix: viewProjectionMatrix,
-                    boxes: [.init(min: [-10, -10, -10], max: [10, 10, 10], color: [1, 1, 1, 1])]
+                    cameraMatrix: cameraMatrix,
+                    highlightedLines: [
+                        .init(axis: .x, position: 0, width: 0.03, color: [1, 0.2, 0.2, 1]),
+                        .init(axis: .y, position: 0, width: 0.03, color: [0.2, 0.4, 1, 1])
+                    ]
                 )
 
                 try DebugRenderPipeline(
@@ -75,8 +73,16 @@ struct DebugShaderDemoView: DemoView {
         .frameTimingOverlay()
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
+                Button { showInspector.toggle() } label: {
+                    Label("Inspector", systemImage: "sidebar.trailing")
+                }
+            }
+        }
+        .inspector(isPresented: $showInspector) {
+            Form {
                 DebugModePicker(debugMode: $debugMode)
             }
+            .inspectorColumnWidth(min: 250, ideal: 300, max: 400)
         }
     }
 }

@@ -13,7 +13,7 @@ struct GridDemoView: DemoView {
     @State private var cameraRotation: simd_quatf = simd_quatf(angle: -.pi / 6, axis: [1, 0, 0])
     @State private var cameraDistance: Float = 10
     @State private var cameraTarget: SIMD3<Float> = .zero
-    @State private var showInspector = false
+    @State private var showInspector = true
 
     // Grid parameters
     @State private var minorLineWidth: Float = 0.01

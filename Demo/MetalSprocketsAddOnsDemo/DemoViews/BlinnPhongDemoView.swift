@@ -74,7 +74,6 @@ struct BlinnPhongDemoView: DemoView {
             let aspect = drawableSize.height > 0 ? Float(drawableSize.width / drawableSize.height) : 1.0
             let projectionMatrix = float4x4.perspective(fovY: .pi / 4, aspect: aspect, near: 0.1, far: 1_000.0)
             let viewMatrix = cameraMatrix.inverse
-            let viewProjectionMatrix = projectionMatrix * viewMatrix
 
             try RenderPass {
                 if let skyboxTexture {
@@ -85,7 +84,14 @@ struct BlinnPhongDemoView: DemoView {
                     )
                 }
 
-                GridShader(projectionMatrix: projectionMatrix, cameraMatrix: cameraMatrix)
+                GridShader(
+                    projectionMatrix: projectionMatrix,
+                    cameraMatrix: cameraMatrix,
+                    highlightedLines: [
+                        .init(axis: .x, position: 0, width: 0.03, color: [1, 0.2, 0.2, 1]),
+                        .init(axis: .y, position: 0, width: 0.03, color: [0.2, 0.4, 1, 1])
+                    ]
+                )
 
                 if let lighting, let firstModel = models.first {
                     try BlinnPhongShader {
@@ -108,12 +114,6 @@ struct BlinnPhongDemoView: DemoView {
                     .depthCompare(function: .less, enabled: true)
                 }
 
-                try AxisLinesRenderPipeline(
-                    mvpMatrix: viewProjectionMatrix,
-                    viewMatrix: viewMatrix,
-                    projectionMatrix: projectionMatrix,
-                    viewportSize: SIMD2<Float>(Float(drawableSize.width), Float(drawableSize.height))
-                )
             }
         }
         .metalDepthStencilPixelFormat(.depth32Float)

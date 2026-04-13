@@ -13,7 +13,7 @@ struct GraphicsContext3DDemoView: DemoView {
     @State private var cameraRotation: simd_quatf = simd_quatf(angle: -.pi / 6, axis: [1, 0, 0])
     @State private var cameraDistance: Float = 8
     @State private var cameraTarget: SIMD3<Float> = .zero
-    @State private var showInspector = false
+    @State private var showInspector = true
     @State private var lineWidth: Float = 3.0
     @State private var showWireframe = false
     @State private var capStyleIndex = 0
