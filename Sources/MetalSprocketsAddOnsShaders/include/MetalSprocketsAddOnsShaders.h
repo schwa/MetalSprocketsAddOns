@@ -28,3 +28,4 @@ NS_ASSUME_NONNULL_END
 #import "WireframeShader.h"
 #import "GridShader.h"
 #import "LambertianShader.h"
+#import "SlugShaderTypes.h"

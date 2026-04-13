@@ -8,10 +8,20 @@ import MetalSprocketsUI
 
 @main
 struct MetalSprocketsAddOnsDemoApp: App {
-    static let demos: [any DemoView.Type] = [
-        RenderDemoView.self,
-        GridDemoView.self,
-    ]
+    static let demos: [any DemoView.Type] = {
+        var demos: [any DemoView.Type] = [
+            RenderDemoView.self,
+            GridDemoView.self,
+            SlugDebugDemoView.self,
+            SlugTextPanelDemoView.self,
+            SlugSpinningSphereDemoView.self,
+            SlugMatrixRainDemoView.self,
+        ]
+        #if os(macOS)
+        demos.append(SlugTerminalDemoView.self)
+        #endif
+        return demos
+    }()
 
     var body: some Scene {
         #if os(visionOS)
