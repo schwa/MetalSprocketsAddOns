@@ -80,6 +80,7 @@ struct BlinnPhongDemoView: DemoView {
                     try SkyboxRenderPipeline(
                         projectionMatrix: projectionMatrix,
                         cameraMatrix: cameraMatrix,
+                        rotation: simd_quatf(angle: .pi, axis: [0, 1, 0]),
                         texture: skyboxTexture
                     )
                 }
