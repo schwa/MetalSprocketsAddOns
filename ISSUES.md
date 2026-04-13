@@ -102,12 +102,16 @@ Add ray traced shadow support using Metal ray tracing APIs. Build MTLPrimitiveAc
 ---
 
 ## 10: Shadow map: fix shadow acne / self-shadowing on teapot surfaces
-status: new
+status: closed
 priority: high
 kind: bug
 created: 2026-04-13T18:47:31Z
+updated: 2026-04-13T22:46:01Z
+closed: 2026-04-13T22:46:01Z
 
 With shadow debug enabled, teapot surfaces facing the light show as magenta (shadowed) due to self-shadowing artifacts. The bias direction in sample_compare needs to be corrected — subtracting bias makes it worse, adding bias breaks shadows entirely. Need to investigate proper bias strategy (e.g., slope-scale bias or receiver-plane bias).
+
+- `2026-04-13T22:46:01Z`: Shadow acne resolved by hardware depth bias (setDepthBias + slopeScale) in the shadow map depth pass, with UI sliders for tuning. Shadows are now decoupled from Blinn-Phong into a screen-space shadow mask pass.
 
 ---
 
@@ -213,6 +217,23 @@ kind: enhancement
 created: 2026-04-13T22:03:19Z
 
 The shadow mask pass currently uses a fullscreen triangle with a raster pipeline and alpha blending. Replace with a compute shader that reads the scene depth texture and shadow map, computes the shadow factor, and writes directly to the color texture (read-modify-write). This avoids the overhead of a render pass and blending setup, and is more natural for a screen-space post-process on Apple Silicon.
+
+---
+
+## 17: Shadow map: support multiple lights using depth2d_array
+status: new
+priority: medium
+kind: feature
+created: 2026-04-13T22:49:47Z
+
+Support shadow maps for multiple lights. Use a depth2d_array texture to store all shadow maps, pass light view-projection matrices as an array, and loop over all lights in the ShadowMaskPass shader to combine shadow factors.
+
+Changes needed:
+- ShadowMap: allocate depth2d_array with one slice per light
+- ShadowMapDepthPass: render each light's depth into its own array slice
+- ShadowMaskPass shader: accept depth2d_array + array of light VP matrices, loop and multiply shadow factors
+- ShadowMapParameters: extend to hold multiple light matrices and light count
+- Demo: add a second light with its own shadow
 
 ---
 
