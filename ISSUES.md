@@ -41,8 +41,9 @@ status: new
 priority: medium
 kind: bug
 created: 2026-04-13T05:07:02Z
+updated: 2026-04-13T05:10:47Z
 
-Fill geometry in GraphicsContext3D renders as solid white regardless of the color passed to ctx.fill(). Strokes render correctly with the right colors. The fill vertex buffer data appears to not carry color values to the shader. Visible in the GraphicsContext3D demo: star fill should be yellow, square fill should be teal — both render white. Likely a buffer binding or data copy issue in GraphicsContext3DRenderPipeline.
+Fill geometry in GraphicsContext3D renders as white when using fractional alpha (e.g. opacity 0.3). With full opacity the color is correct. The fill render pipeline has no blending enabled — alpha values are written to the framebuffer but don't affect compositing, resulting in near-white output for low-alpha fills. Need to enable alpha blending via renderPipelineDescriptorModifier on the fill pipeline.
 
 ---
 
