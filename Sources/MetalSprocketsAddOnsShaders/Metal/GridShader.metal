@@ -1,10 +1,9 @@
 #include "MetalSprocketsAddOnsShaders.h"
+#include "GridShader.h"
 
 using namespace metal;
 
 namespace GridShader {
-
-    float pristineGrid(float2 uv, float2 lineWidth);
 
     // Vertex Input
     struct VertexInput {
@@ -29,51 +28,93 @@ namespace GridShader {
         return out;
     }
 
-    // Fragment Shader - Simple Anti-Aliased Grid
-    fragment float4 fragment_main(
-        VertexOutput in [[stage_in]],
-        constant float2 &gridScale [[buffer(1)]],
-        constant float4 &gridColor [[buffer(3)]],
-        constant float4 &backgroundColor [[buffer(4)]]
-    ) {
-        float2 gridMS = in.uv * 1.0 / gridScale;
-        float2 gridLines = abs(fract(gridMS) - 0.5) / fwidth(gridMS);
-        float grid = min(gridLines.x, gridLines.y); // Take the smaller of the two axes
-        grid = 1.0 - smoothstep(0.5, 0.6, grid);    // Smooth the transition
-        return mix(backgroundColor, gridColor, grid);
-
-        //                                      float2 gridLineWidth =
-        //                                      float2(0.005, 0.995); // Line
-        //                                      width control float gridVal =
-        //                                      pristineGrid(in.uv,
-        //                                      gridLineWidth); return
-        //                                      float4(gridVal, gridVal,
-        //                                      gridVal, 1.0); // Grayscale grid
-        //                                      output
-    }
-
+    // "Pristine Grid" from Ben Golus
+    // https://bgolus.medium.com/the-best-darn-grid-shader-yet-727f9278b9d8
     float pristineGrid(float2 uv, float2 lineWidth) {
         lineWidth = saturate(lineWidth);
 
-        const float4 uvDerivatives = float4(dfdx(uv), dfdy(uv));
-        const float2 uvLengthDerivatives = float2(length(uvDerivatives.xz), length(uvDerivatives.yw));
+        float4 uvDDXY = float4(dfdx(uv), dfdy(uv));
+        float2 uvDeriv = float2(length(uvDDXY.xz), length(uvDDXY.yw));
 
-        const bool2 invertLine = lineWidth > 0.5;
-        const float2 targetWidth = select(lineWidth, 1.0 - lineWidth, invertLine);
+        bool2 invertLine = lineWidth > 0.5;
+        float2 targetWidth = select(lineWidth, 1.0 - lineWidth, invertLine);
 
-        const float2 drawWidth = clamp(targetWidth, uvLengthDerivatives, 0.5);
-        const float2 lineAntialiasing = max(uvLengthDerivatives, 0.000001) * 1.5;
+        float2 drawWidth = clamp(targetWidth, uvDeriv, 0.5);
+        float2 lineAA = max(uvDeriv, 0.000001) * 1.5;
 
-        float2 gridMS = abs(fract(uv) * 2.0 - 1.0);
-        gridMS = select(1.0 - gridMS, gridMS, invertLine);
+        float2 gridUV = abs(fract(uv) * 2.0 - 1.0);
+        gridUV = select(1.0 - gridUV, gridUV, invertLine);
 
-        float2 gridSmooth = smoothstep(drawWidth + lineAntialiasing, drawWidth - lineAntialiasing, gridMS);
-        gridSmooth *= saturate(targetWidth / drawWidth);
+        float2 grid2 = smoothstep(drawWidth + lineAA, drawWidth - lineAA, gridUV);
+        grid2 *= saturate(targetWidth / drawWidth);
+        grid2 = mix(grid2, targetWidth, saturate(uvDeriv * 2.0 - 1.0));
+        grid2 = select(grid2, 1.0 - grid2, invertLine);
 
-        gridSmooth = mix(gridSmooth, targetWidth, saturate(uvLengthDerivatives * 2.0 - 1.0));
-        gridSmooth = select(gridSmooth, 1.0 - gridSmooth, invertLine);
+        return mix(grid2.x, 1.0, grid2.y);
+    }
 
-        return mix(gridSmooth.x, 1.0, gridSmooth.y);
+    // Pristine single-axis line at a specific position.
+    // Same anti-aliasing approach as pristineGrid but for one non-repeating line.
+    float pristineLine(float uv, float position, float lineWidth, float uvDeriv) {
+        lineWidth = saturate(lineWidth);
+
+        float drawWidth = max(lineWidth, uvDeriv);
+        float lineAA = max(uvDeriv, 0.000001) * 1.5;
+
+        float dist = abs(uv - position) * 2.0;
+
+        float line = smoothstep(drawWidth + lineAA, drawWidth - lineAA, dist);
+        line *= saturate(lineWidth / drawWidth);
+
+        return line;
+    }
+
+    // Fragment Shader
+    fragment float4 fragment_main(
+        VertexOutput in [[stage_in]],
+        constant float2 &gridScale [[buffer(1)]],
+        constant float2 &lineWidth [[buffer(2)]],
+        constant float4 &gridColor [[buffer(3)]],
+        constant float4 &backgroundColor [[buffer(4)]],
+        constant GridHighlightedLines &highlightedLines [[buffer(5)]],
+        constant GridMajorDivision &majorDivision [[buffer(6)]]
+    ) {
+        float2 scaledUV = in.uv / gridScale;
+
+        // Minor grid
+        float grid = pristineGrid(scaledUV, lineWidth);
+        float4 color = mix(backgroundColor, gridColor, grid);
+
+        // Major grid subdivision
+        if (majorDivision.interval > 0) {
+            float divisor = float(majorDivision.interval);
+            float2 majorUV = scaledUV / divisor;
+            float majorGrid = pristineGrid(majorUV, majorDivision.lineWidth);
+            float majorAlpha = majorGrid * majorDivision.color.a;
+            color = mix(color, float4(majorDivision.color.rgb, 1.0), majorAlpha);
+        }
+
+        // Derivative lengths for highlighted lines
+        float4 uvDDXY = float4(dfdx(scaledUV), dfdy(scaledUV));
+        float2 uvDeriv = float2(length(uvDDXY.xz), length(uvDDXY.yw));
+
+        // Blend highlighted lines on top
+        int count = min(highlightedLines.count, GRID_MAX_HIGHLIGHTED_LINES);
+        for (int i = 0; i < count; i++) {
+            constant auto &hl = highlightedLines.lines[i];
+
+            float coverage;
+            if (hl.axis == 0) {
+                coverage = pristineLine(scaledUV.x, hl.position, hl.width, uvDeriv.x);
+            } else {
+                coverage = pristineLine(scaledUV.y, hl.position, hl.width, uvDeriv.y);
+            }
+
+            float alpha = coverage * hl.color.a;
+            color = mix(color, float4(hl.color.rgb, 1.0), alpha);
+        }
+
+        return color;
     }
 
 } // namespace GridShader
