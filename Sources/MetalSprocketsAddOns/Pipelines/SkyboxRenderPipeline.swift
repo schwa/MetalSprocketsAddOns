@@ -48,12 +48,17 @@ public struct SkyboxRenderPipeline: Element {
                     [1, -1, -1], [1, 1, -1], [1, 1, 1],
                     [1, -1, -1], [1, 1, 1], [1, -1, 1]
                 ]
-                .map { $0 * 50 }
+                .map { $0 * 500 }
                 Draw { encoder in
                     encoder.setVertexUnsafeBytes(of: positions, index: 0)
                     encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: positions.count)
                 }
-                .parameter("modelViewProjectionMatrix", functionType: .vertex, value: projectionMatrix * cameraMatrix.inverse * float4x4(rotation))
+                .parameter("modelViewProjectionMatrix", functionType: .vertex, value: {
+                    // Strip translation from view matrix so camera movement doesn't affect skybox
+                    var viewMatrix = cameraMatrix.inverse
+                    viewMatrix.columns.3 = [0, 0, 0, 1]
+                    return projectionMatrix * viewMatrix * float4x4(rotation)
+                }())
                 .parameter("texture", texture: texture)
             }
             .vertexDescriptor(try vertexShader.inferredVertexDescriptor())
