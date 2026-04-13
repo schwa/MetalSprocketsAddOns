@@ -57,3 +57,13 @@ generateFillGeometry() projects 3D points onto XY (drops Z) for earcut triangula
 
 ---
 
+## 6: Integrate Slug text rendering into GraphicsContext3D
+status: new
+priority: low
+kind: feature
+created: 2026-04-13T05:26:59Z
+
+Add a text drawing API to GraphicsContext3D (e.g. ctx.text("label", at: position, font:, color:)) that uses Slug for GPU-rendered text. Would allow placing text labels in 3D scenes without manually managing SlugScene/SlugTextMeshBuilder alongside the graphics context.
+
+---
+
