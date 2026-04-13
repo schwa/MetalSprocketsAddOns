@@ -110,6 +110,7 @@ struct TrivialMeshDemoView: DemoView {
                 let icoSphere = TrivialMesh.icoSphere()
                 let cubeSphere = TrivialMesh.cubeSphere()
 
+                // swiftlint:disable indentation_width
                 models = [
                     // Spheres — back row
                     .init(id: "uvSphere", mesh: Mesh(sphere, device: device), modelMatrix: .init(translation: [-2, 0, -4]),
@@ -139,6 +140,7 @@ struct TrivialMeshDemoView: DemoView {
                     .init(id: "hemisphere", mesh: Mesh(hemisphere, device: device), modelMatrix: .init(translation: [4, 0, 0]),
                           material: .init(ambient: .color([0.4, 0.3, 0.4]), diffuse: .color([0.7, 0.5, 0.7]), specular: .color([1, 1, 1]), shininess: 100))
                 ]
+                // swiftlint:enable indentation_width
 
                 lighting = try Lighting(
                     ambientLightColor: [0.3, 0.3, 0.3],
