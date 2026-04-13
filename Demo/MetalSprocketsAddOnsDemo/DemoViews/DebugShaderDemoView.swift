@@ -91,40 +91,10 @@ struct DebugShaderDemoView: DemoView {
 private struct DebugModePicker: View {
     @Binding var debugMode: DebugShadersMode
 
-    let debugModes: [(DebugShadersMode, String)] = [
-        (.normal, "Normal"),
-        (.texCoord, "Texture Coordinates"),
-        (.tangent, "Tangent"),
-        (.bitangent, "Bitangent"),
-        (.worldPosition, "World Position"),
-        (.localPosition, "Local Position"),
-        (.uvDistortion, "UV Distortion"),
-        (.tbnMatrix, "TBN Matrix"),
-        (.vertexID, "Vertex ID"),
-        (.faceNormal, "Face Normal"),
-        (.uvDerivatives, "UV Derivatives"),
-        (.checkerboard, "Checkerboard"),
-        (.uvGrid, "UV Grid"),
-        (.depth, "Depth"),
-        (.wireframeOverlay, "Wireframe Overlay"),
-        (.normalDeviation, "Normal Deviation"),
-        (.amplificationID, "Amplification ID"),
-        (.instanceID, "Instance ID"),
-        (.quadThread, "Quad Thread"),
-        (.simdGroup, "SIMD Group"),
-        (.barycentricCoord, "Barycentric Coord"),
-        (.frontFacing, "Front Facing"),
-        (.sampleID, "Sample ID"),
-        (.pointCoord, "Point Coord"),
-        (.distanceToLight, "Distance to Light"),
-        (.distanceToOrigin, "Distance to Origin"),
-        (.distanceToCamera, "Distance to Camera")
-    ]
-
     var body: some View {
         Picker("Debug Mode", selection: $debugMode) {
-            ForEach(debugModes, id: \.0) { mode, label in
-                Text(label).tag(mode)
+            ForEach(DebugShadersMode.allCases, id: \.self) { mode in
+                Text(mode.description).tag(mode)
             }
         }
         .pickerStyle(.menu)

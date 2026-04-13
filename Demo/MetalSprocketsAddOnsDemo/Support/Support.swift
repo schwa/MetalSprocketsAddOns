@@ -1,5 +1,15 @@
+import DemoKit
+import GeometryLite3D
+import Interaction3D
 import Metal
+import MetalKit
+import MetalSprockets
+import MetalSprocketsAddOns
+import MetalSprocketsAddOnsShaders
+import MetalSprocketsSupport
+import MetalSprocketsUI
 import simd
+import SwiftUI
 
 // Swift counterpart of VertexIn in Shaders.metal.
 // Layout must match exactly - alternatively, define structs in a .h file and import
@@ -105,5 +115,64 @@ extension float4x4 {
             SIMD4<Float>(0, 0, z, -1),
             SIMD4<Float>(0, 0, w, 0)
         ))
+    }
+}
+
+
+extension DebugShadersMode: @retroactive CaseIterable {
+    public static var allCases: [DebugShadersMode] {
+        [.normal, .texCoord, .tangent, .bitangent, .worldPosition, .localPosition,
+         .uvDistortion, .tbnMatrix, .vertexID, .faceNormal, .uvDerivatives,
+         .checkerboard, .uvGrid, .depth, .wireframeOverlay, .normalDeviation,
+         .amplificationID, .instanceID, .quadThread, .simdGroup, .barycentricCoord,
+         .frontFacing, .sampleID, .pointCoord, .distanceToLight, .distanceToOrigin,
+         .distanceToCamera]
+    }
+
+    var description: String {
+        switch self {
+        case .normal: "Normal"
+        case .texCoord: "Tex Coords"
+        case .tangent: "Tangent"
+        case .bitangent: "Bitangent"
+        case .worldPosition: "World Position"
+        case .localPosition: "Local Position"
+        case .uvDistortion: "UV Distortion"
+        case .tbnMatrix: "TBN Matrix"
+        case .vertexID: "Vertex ID"
+        case .faceNormal: "Face Normal"
+        case .uvDerivatives: "UV Derivatives"
+        case .checkerboard: "Checkerboard"
+        case .uvGrid: "UV Grid"
+        case .depth: "Depth"
+        case .wireframeOverlay: "Wireframe Overlay"
+        case .normalDeviation: "Normal Deviation"
+        case .amplificationID: "Amplification ID"
+        case .instanceID: "Instance ID"
+        case .quadThread: "Quad Thread"
+        case .simdGroup: "SIMD Group"
+        case .barycentricCoord: "Barycentric"
+        case .frontFacing: "Front Facing"
+        case .sampleID: "Sample ID"
+        case .pointCoord: "Point Coord"
+        case .distanceToLight: "Distance to Light"
+        case .distanceToOrigin: "Distance to Origin"
+        case .distanceToCamera: "Distance to Camera"
+        default: "Unknown"
+        }
+    }
+}
+
+func hueToRGB(_ hue: Float) -> SIMD3<Float> {
+    let h = hue * 6
+    let c: Float = 1
+    let x = c * (1 - abs(h.truncatingRemainder(dividingBy: 2) - 1))
+    switch Int(h) % 6 {
+    case 0: return [c, x, 0]
+    case 1: return [x, c, 0]
+    case 2: return [0, c, x]
+    case 3: return [0, x, c]
+    case 4: return [x, 0, c]
+    default: return [c, 0, x]
     }
 }

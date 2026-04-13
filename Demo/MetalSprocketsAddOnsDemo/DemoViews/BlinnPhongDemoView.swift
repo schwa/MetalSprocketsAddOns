@@ -161,8 +161,8 @@ struct BlinnPhongDemoView: DemoView {
                         Text("Debug").tag(true)
                     }
                     Picker("Debug Mode", selection: $debugMode) {
-                        ForEach(debugModes, id: \.0) { mode, label in
-                            Text(label).tag(mode)
+                        ForEach(DebugShadersMode.allCases, id: \.self) { mode in
+                            Text(mode.description).tag(mode)
                         }
                     }
                     .disabled(!useDebugShading)
@@ -316,27 +316,6 @@ struct BlinnPhongDemoRenderPass: Element {
     }
 }
 
-private let debugModes: [(DebugShadersMode, String)] = [
-    (.normal, "Normal"), (.texCoord, "Tex Coords"), (.tangent, "Tangent"),
-    (.bitangent, "Bitangent"), (.worldPosition, "World Pos"), (.localPosition, "Local Pos"),
-    (.depth, "Depth"), (.faceNormal, "Face Normal"), (.checkerboard, "Checkerboard"),
-    (.uvGrid, "UV Grid"), (.wireframeOverlay, "Wireframe Overlay"),
-    (.frontFacing, "Front Facing"), (.barycentricCoord, "Barycentric")
-]
-
-private func hueToRGB(_ hue: Float) -> SIMD3<Float> {
-    let h = hue * 6
-    let c: Float = 1
-    let x = c * (1 - abs(h.truncatingRemainder(dividingBy: 2) - 1))
-    switch Int(h) % 6 {
-    case 0: return [c, x, 0]
-    case 1: return [x, c, 0]
-    case 2: return [0, c, x]
-    case 3: return [0, x, c]
-    case 4: return [x, 0, c]
-    default: return [c, 0, x]
-    }
-}
 
 #Preview {
     BlinnPhongDemoView()
