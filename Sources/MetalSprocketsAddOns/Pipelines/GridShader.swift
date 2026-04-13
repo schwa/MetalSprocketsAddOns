@@ -95,7 +95,7 @@ public struct GridShader: Element {
 
     public var body: some Element {
         get throws {
-            try RenderPipeline(vertexShader: vertexShader, fragmentShader: fragmentShader) {
+            try RenderPipeline(label: "Grid", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 let modelMatrix = float4x4(xRotation: .degrees(90))
                 let modelViewProjectionMatrix = projectionMatrix * cameraMatrix.inverse * modelMatrix
                 Draw { encoder in

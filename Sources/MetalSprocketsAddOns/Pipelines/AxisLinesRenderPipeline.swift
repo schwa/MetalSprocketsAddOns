@@ -44,7 +44,7 @@ public struct AxisLinesRenderPipeline: Element {
 
     public var body: some Element {
         get throws {
-            try RenderPipeline(vertexShader: vertexShader, fragmentShader: fragmentShader) {
+            try RenderPipeline(label: "AxisLines", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 Draw { encoder in
                     let uniforms = AxisLinesUniforms(
                         mvpMatrix: mvpMatrix,

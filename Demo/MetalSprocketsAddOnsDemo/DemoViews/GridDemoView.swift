@@ -42,7 +42,7 @@ struct GridDemoView: DemoView {
             let aspect = drawableSize.height > 0 ? Float(drawableSize.width / drawableSize.height) : 1.0
             let projectionMatrix = float4x4.perspective(fovY: .pi / 4, aspect: aspect, near: 0.1, far: 1000.0)
 
-            try RenderPass {
+            try RenderPass(label: "Infinite Grid") {
                 GridShader(
                     projectionMatrix: projectionMatrix,
                     cameraMatrix: cameraMatrix,

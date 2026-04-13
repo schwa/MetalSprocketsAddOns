@@ -33,7 +33,7 @@ struct RenderDemoView: DemoView {
             let transform = projectionMatrix * viewMatrix * modelMatrix
 
             // RenderPass creates a render command encoder, contains one or more pipelines
-            try RenderPass {
+            try RenderPass(label: "Spinning Cube") {
                 try DemoCubeRenderPipeline(transform: transform, time: time)
             }
         }

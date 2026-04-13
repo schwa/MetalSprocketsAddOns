@@ -42,7 +42,7 @@ struct TrivialMeshDemoView: DemoView {
             let projectionMatrix = float4x4.perspective(fovY: .pi / 4, aspect: aspect, near: 0.1, far: 1_000.0)
             let viewMatrix = cameraMatrix.inverse
 
-            try RenderPass {
+            try RenderPass(label: "TrivialMesh Demo") {
                 if let skyboxTexture {
                     try SkyboxRenderPipeline(
                         projectionMatrix: projectionMatrix,

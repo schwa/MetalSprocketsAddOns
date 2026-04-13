@@ -160,7 +160,7 @@ private struct MatrixRainContent: View {
                 near: -1, far: 1
             )
             let frameConstants = SlugFrameConstants(viewProjectionMatrix: vpMatrix, viewportSize: size)
-            try RenderPass {
+            try RenderPass(label: "Slug Matrix Rain") {
                 try SlugTextRenderPipeline(scene: scene, frameConstants: frameConstants)
             }
         }

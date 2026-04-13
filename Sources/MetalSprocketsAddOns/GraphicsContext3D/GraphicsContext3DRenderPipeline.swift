@@ -129,7 +129,7 @@ public struct GraphicsContext3DRenderPipeline: Element {
             }
 
             return try Group {
-                try MeshRenderPipeline(objectShader: objectShader, meshShader: meshShader, fragmentShader: meshFragmentShader) {
+                try MeshRenderPipeline(label: "GraphicsContext3D Stroke", objectShader: objectShader, meshShader: meshShader, fragmentShader: meshFragmentShader) {
                     Draw { encoder in
                         encoder.withDebugGroup("GraphicsContext3D Stroke Mesh Shader (joinCount: \(joinCount))") {
                             guard joinCount > 0 else {
@@ -150,7 +150,7 @@ public struct GraphicsContext3DRenderPipeline: Element {
                 }
                 .depthCompare(function: .less, enabled: true)
 
-                try RenderPipeline(vertexShader: fillVertexShader, fragmentShader: fillFragmentShader) {
+                try RenderPipeline(label: "GraphicsContext3D Fill", vertexShader: fillVertexShader, fragmentShader: fillFragmentShader) {
                     Draw { encoder in
                         encoder.withDebugGroup("GraphicsContext3D Fill Geometry (fillVertexCount: \(fillVertexCount))") {
                             guard fillVertexCount > 0 else {

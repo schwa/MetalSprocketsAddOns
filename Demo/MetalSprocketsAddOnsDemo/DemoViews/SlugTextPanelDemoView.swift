@@ -71,7 +71,7 @@ private struct SlugTextPanelRenderView: View {
                 viewportSize: size
             )
 
-            try RenderPass {
+            try RenderPass(label: "Slug Text Panel") {
                 try SlugTextRenderPipeline(scene: scene, frameConstants: frameConstants, wireframe: wireframe)
             }
         }

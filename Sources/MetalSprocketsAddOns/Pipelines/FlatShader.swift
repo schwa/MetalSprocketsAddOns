@@ -46,7 +46,7 @@ public struct FlatShader <Content>: Element where Content: Element {
         get throws {
             let textureSpecifierArgumentBuffer = textureSpecifier.toArgumentBuffer()
 
-            try RenderPipeline(vertexShader: vertexShader, fragmentShader: fragmentShader) {
+            try RenderPipeline(label: "FlatShader", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 content
                     .parameter("modelViewProjection", value: modelViewProjection)
                     .parameter("specifier", value: textureSpecifierArgumentBuffer)

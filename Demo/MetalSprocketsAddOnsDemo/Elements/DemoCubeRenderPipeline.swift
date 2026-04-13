@@ -19,7 +19,7 @@ struct DemoCubeRenderPipeline: Element {
     var body: some Element {
         get throws {
             // RenderPipeline binds shaders and configures pipeline state
-            try RenderPipeline(vertexShader: shaderLibrary.vertexMain, fragmentShader: shaderLibrary.fragmentMain) {
+            try RenderPipeline(label: "Demo Cube", vertexShader: shaderLibrary.vertexMain, fragmentShader: shaderLibrary.fragmentMain) {
                 // Draw gives direct access to MTLRenderCommandEncoder
                 Draw { encoder in
                     var transform = transform

@@ -39,7 +39,7 @@ public struct LambertianShader <Content>: Element where Content: Element {
                 modelMatrix.columns.2.xyz
             )
 
-            return try RenderPipeline(vertexShader: vertexShader, fragmentShader: fragmentShader) {
+            return try RenderPipeline(label: "Lambertian", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 content
                     .parameter("modelViewProjectionMatrix", value: modelViewProjectionMatrix)
                     .parameter("modelMatrix", value: modelMatrix)
@@ -96,7 +96,7 @@ public struct LambertianShaderInstanced <Content>: Element where Content: Elemen
                 )
             }
 
-            return try RenderPipeline(vertexShader: vertexShader, fragmentShader: fragmentShader) {
+            return try RenderPipeline(label: "Lambertian Instanced", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 content
                     .parameter("modelViewProjectionMatrices", values: modelViewProjectionMatrices)
                     .parameter("modelMatrices", values: modelMatrices)

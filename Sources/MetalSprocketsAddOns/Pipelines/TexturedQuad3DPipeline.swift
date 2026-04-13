@@ -28,7 +28,7 @@ public struct TexturedQuad3DPipeline: Element {
 
     public var body: some Element {
         get throws {
-            try RenderPipeline(vertexShader: vertexShader, fragmentShader: fragmentShader) {
+            try RenderPipeline(label: "TexturedQuad3D", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 Draw { encoder in
                     encoder.setVertexBytes(vertices, length: MemoryLayout<SIMD3<Float>>.stride * vertices.count, index: 0)
                     encoder.setVertexBytes(textureCoords, length: MemoryLayout<SIMD2<Float>>.stride * textureCoords.count, index: 1)

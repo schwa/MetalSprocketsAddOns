@@ -80,6 +80,7 @@ public struct SlugTextRenderPipeline: Element {
     public var body: some Element {
         get throws {
             try RenderPipeline(
+                label: "SlugText",
                 vertexShader: shaderLibrary.slug_vertex,
                 fragmentShader: wireframe ? shaderLibrary.slug_wireframe_fragment : shaderLibrary.slug_fragment
             ) {

@@ -22,7 +22,7 @@ public struct WireframeRenderPipeline: Element {
 
     public var body: some Element {
         get throws {
-            try RenderPipeline(vertexShader: vertexShader, fragmentShader: fragmentShader) {
+            try RenderPipeline(label: "Wireframe", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 let uniforms = WireframeUniforms(modelViewProjectionMatrix: mvpMatrix, wireframeColor: wireframeColor)
                 Draw { encoder in
                     encoder.setTriangleFillMode(.lines)

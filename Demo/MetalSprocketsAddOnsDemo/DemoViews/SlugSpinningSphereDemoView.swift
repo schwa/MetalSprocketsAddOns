@@ -180,7 +180,7 @@ private struct SpinningSphereContent: View {
             let aspectRatio = size.height > 0 ? Float(size.width / size.height) : 1.0
             let vpMatrix = float4x4.perspectiveReverseZInfinite(fovY: .pi / 2, aspect: aspectRatio, near: 0.01)
             let frameConstants = SlugFrameConstants(viewProjectionMatrix: vpMatrix, viewportSize: size)
-            try RenderPass {
+            try RenderPass(label: "Slug Spinning Sphere") {
                 try SlugTextRenderPipeline(scene: scene, frameConstants: frameConstants)
             }
         }

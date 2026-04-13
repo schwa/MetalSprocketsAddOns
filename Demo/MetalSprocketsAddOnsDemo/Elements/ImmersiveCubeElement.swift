@@ -30,7 +30,7 @@ struct ImmersiveCubeContent: Element, @unchecked Sendable {
 
     nonisolated var body: some Element {
         get throws {
-            try RenderPipeline(vertexShader: shaderLibrary.vertexImmersive, fragmentShader: shaderLibrary.fragmentMain) {
+            try RenderPipeline(label: "Immersive Cube", vertexShader: shaderLibrary.vertexImmersive, fragmentShader: shaderLibrary.fragmentMain) {
                 Draw { encoder in
                     // Vertex amplification renders geometry twice (once per eye) in a single draw call.
                     var viewMappings = (0 ..< context.viewCount).map { MTLVertexAmplificationViewMapping(viewportArrayIndexOffset: UInt32($0), renderTargetArrayIndexOffset: UInt32($0)) }

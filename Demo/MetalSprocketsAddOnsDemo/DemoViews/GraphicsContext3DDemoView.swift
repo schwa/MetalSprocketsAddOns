@@ -166,7 +166,7 @@ struct GraphicsContext3DDemoView: DemoView {
                 ctx.stroke(spiral, with: Color(red: 1, green: 0.4, blue: 0.7), style: style)
             }
 
-            try RenderPass {
+            try RenderPass(label: "GraphicsContext3D Demo") {
                 GridShader(
                     projectionMatrix: projectionMatrix,
                     cameraMatrix: cameraMatrix,

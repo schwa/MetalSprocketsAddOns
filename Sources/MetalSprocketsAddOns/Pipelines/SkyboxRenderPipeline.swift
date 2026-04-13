@@ -34,7 +34,7 @@ public struct SkyboxRenderPipeline: Element {
         get throws {
             let inverseVP = inverseViewProjectionMatrix
 
-            try RenderPipeline(vertexShader: vertexShader, fragmentShader: fragmentShader) {
+            try RenderPipeline(label: "Skybox", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 Draw { encoder in
                     encoder.setFragmentTexture(texture, index: 0)
                     encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)

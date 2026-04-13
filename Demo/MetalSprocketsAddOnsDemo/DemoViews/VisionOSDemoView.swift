@@ -22,7 +22,7 @@ struct VisionOSDemoView: View {
                     let projectionMatrix = float4x4.perspective(fovY: .pi / 4, aspect: aspect, near: 0.1, far: 100.0)
                     let transform = projectionMatrix * viewMatrix * modelMatrix
 
-                    try RenderPass {
+                    try RenderPass(label: "VisionOS Demo") {
                         try DemoCubeRenderPipeline(transform: transform, time: time)
                     }
                 }

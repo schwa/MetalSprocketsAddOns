@@ -62,7 +62,7 @@ struct MobileDemoView: View {
                 let modelMatrix = float4x4.translation(0, -0.25, -2) * cubeRotationMatrix(time: TimeInterval(time)) * float4x4.scale(0.25, 0.25, 0.25)
                 let transform = projectionMatrix * viewMatrix * modelMatrix
 
-                try RenderPass {
+                try RenderPass(label: "Mobile Demo") {
                     YCbCrBillboardRenderPass(textureY: textureY, textureCbCr: textureCbCr, textureCoordinates: textureCoordinates)
                     try DemoCubeRenderPipeline(transform: transform, time: time)
                 }

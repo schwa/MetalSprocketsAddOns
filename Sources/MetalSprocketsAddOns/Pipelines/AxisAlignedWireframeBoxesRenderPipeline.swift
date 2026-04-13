@@ -22,7 +22,7 @@ public struct AxisAlignedWireframeBoxesRenderPipeline: Element {
 
     public var body: some Element {
         get throws {
-            try RenderPipeline(vertexShader: vertexShader, fragmentShader: fragmentShader) {
+            try RenderPipeline(label: "AxisAlignedWireframeBoxes", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 Draw { encoder in
                     let uniforms = BoxesUniforms(mvpMatrix: mvpMatrix, nudge: nudge)
                     encoder.setVertexBytes([uniforms], length: MemoryLayout<BoxesUniforms>.size, index: 0)

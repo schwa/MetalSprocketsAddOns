@@ -213,7 +213,7 @@ struct BlinnPhongDemoRenderPass: Element {
 
     var body: some Element {
         get throws {
-            try RenderPass {
+            try RenderPass(label: "Blinn-Phong Demo") {
                 let viewMatrix = cameraMatrix.inverse
                 let viewProjection = projectionMatrix * viewMatrix
 

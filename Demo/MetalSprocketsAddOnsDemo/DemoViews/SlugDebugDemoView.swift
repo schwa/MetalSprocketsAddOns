@@ -75,7 +75,7 @@ private struct SlugDebugRenderView: View {
                 viewportSize: size
             )
 
-            try RenderPass {
+            try RenderPass(label: "Slug Debug") {
                 try SlugTextRenderPipeline(scene: scene, frameConstants: frameConstants)
             }
         }

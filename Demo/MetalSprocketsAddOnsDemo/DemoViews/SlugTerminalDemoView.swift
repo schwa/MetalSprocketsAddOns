@@ -349,7 +349,7 @@ private struct TerminalRenderView: View {
             let aspectRatio = size.height > 0 ? Float(size.width / size.height) : 1.0
             let vpMatrix = camera.projectionMatrix(aspectRatio: aspectRatio) * camera.viewMatrix()
             let frameConstants = SlugFrameConstants(viewProjectionMatrix: vpMatrix, viewportSize: size)
-            try RenderPass {
+            try RenderPass(label: "Slug Terminal") {
                 try SlugTextRenderPipeline(scene: scene, frameConstants: frameConstants)
             }
         }
