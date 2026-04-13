@@ -67,3 +67,73 @@ Add a text drawing API to GraphicsContext3D (e.g. ctx.text("label", at: position
 
 ---
 
+## 7: GraphicsContext3D does not render until window is resized
+status: new
+priority: high
+kind: bug
+created: 2026-04-13T17:21:37Z
+
+GraphicsContext3D content is completely invisible on initial load. Requires a window resize to trigger rendering. Affects both the standalone GraphicsContext3D demo and the BlinnPhong demo light marker. Possibly related to #3 (wrong size/aspect on initial load) but this is a complete rendering failure, not just wrong aspect.
+
+---
+
+## 8: Shadow map (rasterization-based) shadows
+status: new
+priority: medium
+kind: feature
+created: 2026-04-13T17:48:11Z
+
+Add shadow mapping support using a traditional rasterization approach. Render depth from the light's POV into a shadow map texture, then sample it in the fragment shader to determine shadow visibility. This avoids ray tracing entirely and can reuse existing pipeline patterns. Integrates with the existing Lighting and BlinnPhong infrastructure.
+
+---
+
+## 9: Ray traced shadows
+status: new
+priority: medium
+kind: feature
+created: 2026-04-13T17:48:18Z
+
+Add ray traced shadow support using Metal ray tracing APIs. Build MTLPrimitiveAccelerationStructure from meshes and MTLInstanceAccelerationStructure for the scene. Cast shadow rays in the fragment shader against the acceleration structure to determine visibility. Provides higher quality shadows than shadow maps (no aliasing, no acne, correct for all geometry). Requires new MetalSprockets Element wrappers for acceleration structure management and resource binding.
+
+---
+
+## 10: Shadow map: fix shadow acne / self-shadowing on teapot surfaces
+status: new
+priority: high
+kind: bug
+created: 2026-04-13T18:47:31Z
+
+With shadow debug enabled, teapot surfaces facing the light show as magenta (shadowed) due to self-shadowing artifacts. The bias direction in sample_compare needs to be corrected — subtracting bias makes it worse, adding bias breaks shadows entirely. Need to investigate proper bias strategy (e.g., slope-scale bias or receiver-plane bias).
+
+---
+
+## 11: Shadow map: decouple shadow sampling from Blinn-Phong shader
+status: new
+priority: medium
+kind: feature
+created: 2026-04-13T18:47:37Z
+
+Shadow mapping is currently baked into the Blinn-Phong fragment shader via the SHADOW_MAP_ENABLED function constant. It should be factored out into a composable pass or modifier so it can work with any lighting model (e.g., FlatShader or custom shaders).
+
+---
+
+## 12: Shadow map: sample_compare logic may be inverted
+status: new
+priority: high
+kind: bug
+created: 2026-04-13T18:47:44Z
+
+The comparison sampler uses .lessEqual and sample_compare returns 1.0 when storedDepth <= compareDepth. The current logic treats 1.0 as lit, but the teapots appear mostly magenta (shadowed) on light-facing surfaces. The comparison direction or the interpretation of the result may need to be inverted. Related to shadow acne issue #10.
+
+---
+
+## 13: Shadow map demo: floor is too dark
+status: new
+priority: medium
+kind: bug
+created: 2026-04-13T18:47:51Z
+
+Even with ambient light bumped to [0.3, 0.3, 0.35] and light intensity at 150, the ground plane appears too dark. The quadratic attenuation in the Blinn-Phong shader (1.0 / (1.0 + 0.09*d² + 0.032*d⁴)) heavily attenuates at the orbit distance (~7 units). Consider making attenuation configurable or using a less aggressive falloff.
+
+---
+
