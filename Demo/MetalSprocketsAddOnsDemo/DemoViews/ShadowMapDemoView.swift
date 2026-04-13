@@ -40,8 +40,15 @@ struct ShadowMapDemoView: DemoView {
     @State private var lightPosition: SIMD3<Float> = [0, 5, 5]
     @State private var renderOptions: ShadowMapDemoRenderPass.Options = .all
     @State private var showInspector = true
-    @State private var shadowBias: Float = 0.005
+    @State private var depthBias: Float = 2.0
+    @State private var slopeScale: Float = 6.0
+    @State private var shadowMapResolution: Int = 2_048
+    @State private var useInverseZ: Bool = true
+
     @State private var shadowDebug: Bool = false
+    @State private var ambientLight: Float = 0.4
+    @State private var lightIntensity: Float = 200
+    @State private var paused: Bool = false
 
     // Orbiting light
     @State private var lightAnimator = TransformerAnimator(
@@ -89,14 +96,20 @@ struct ShadowMapDemoView: DemoView {
     // Ground plane
     private let groundMesh = MTKMesh.plane(width: 20, height: 20).relabeled("ground")
 
-    private let groundModelMatrix: float4x4 = .init(simd_quatf(angle: -.pi / 2, axis: [1, 0, 0]))
+    private let groundModelMatrix: float4x4 = .init(simd_quatf(angle: .pi / 2, axis: [1, 0, 0]))
 
-    private let groundMaterial = BlinnPhongMaterial(
-        ambient: .color([0.3, 0.3, 0.3]),
-        diffuse: .color([0.7, 0.7, 0.7]),
-        specular: .color([0.2, 0.2, 0.2]),
-        shininess: 16
-    )
+    @State private var groundColor: Color = .gray
+
+    private var groundMaterial: BlinnPhongMaterial {
+        let resolved = groundColor.resolve(in: .init())
+        let rgb = SIMD3<Float>(Float(resolved.linearRed), Float(resolved.linearGreen), Float(resolved.linearBlue))
+        return BlinnPhongMaterial(
+            ambient: .color(rgb * 0.4),
+            diffuse: .color(rgb),
+            specular: .color([0.2, 0.2, 0.2]),
+            shininess: 16
+        )
+    }
 
     var body: some View {
         TimelineView(.animation) { timeline in
@@ -105,7 +118,8 @@ struct ShadowMapDemoView: DemoView {
                     // Update shadow map from current light position
                     let updatedShadowMap: ShadowMap = {
                         var sm = shadowMap
-                        sm.bias = shadowBias
+                        sm.depthBias = depthBias
+                        sm.slopeScale = slopeScale
                         sm.updateDirectionalLight(
                             position: lightPosition,
                             target: [0, 0, 0],
@@ -135,13 +149,29 @@ struct ShadowMapDemoView: DemoView {
                     )
                 }
             }
+            .id("\(useInverseZ)-\(shadowDebug)") // Workaround: force RenderView recreation to clear cached state (MetalSprockets#314)
             .metalDepthStencilPixelFormat(.depth32Float)
+            .metalDepthStencilAttachmentTextureUsage([.renderTarget, .shaderRead])
             .metalClearColor(MTLClearColor(red: 0.4, green: 0.4, blue: 0.4, alpha: 1))
             .onChange(of: timeline.date) {
-                lightAnimator.update(at: timeline.date.timeIntervalSinceReferenceDate)
-                lightPosition = lightAnimator.transformer.transform(.zero)
-                lighting?.setLightPosition(lightPosition, at: 0)
+                if !paused {
+                    lightAnimator.update(at: timeline.date.timeIntervalSinceReferenceDate)
+                    lightPosition = lightAnimator.transformer.transform(.zero)
+                    lighting?.setLightPosition(lightPosition, at: 0)
+                }
             }
+        }
+        .onChange(of: ambientLight) {
+            lighting?.ambientLightColor = [ambientLight, ambientLight, ambientLight]
+        }
+        .onChange(of: lightIntensity) {
+            lighting?.setLight(Light(type: .point, color: [1, 1, 1], intensity: lightIntensity), at: 0)
+        }
+        .onChange(of: shadowMapResolution) {
+            shadowMap = try? ShadowMap(resolution: shadowMapResolution, useInverseZ: useInverseZ)
+        }
+        .onChange(of: useInverseZ) {
+            shadowMap = try? ShadowMap(resolution: shadowMapResolution, useInverseZ: useInverseZ)
         }
         .interactiveCamera(rotation: $cameraRotation, distance: $cameraDistance, target: $cameraTarget)
         .frameTimingOverlay()
@@ -159,16 +189,57 @@ struct ShadowMapDemoView: DemoView {
                     Toggle("Light Marker", isOn: $renderOptions.bound(.lightMarker))
                     Toggle("Models", isOn: $renderOptions.bound(.models))
                     Toggle("Shadows", isOn: $renderOptions.bound(.shadows))
+                    Toggle("Pause", isOn: $paused)
+                }
+                Section("Ground") {
+                    ColorPicker("Color", selection: $groundColor)
+                }
+                Section("Lighting") {
+                    HStack {
+                        Text("Ambient")
+                        Slider(value: $ambientLight, in: 0...1)
+                    }
+                    Text(String(format: "%.2f", ambientLight))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        Text("Intensity")
+                        Slider(value: $lightIntensity, in: 1...1000)
+                    }
+                    Text(String(format: "%.0f", lightIntensity))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
                 }
                 Section("Shadow Map") {
                     HStack {
-                        Text("Bias")
-                        Slider(value: $shadowBias, in: 0.0001...0.02)
+                        Text("Depth Bias")
+                        Slider(value: $depthBias, in: 0...10)
                     }
-                    Text(String(format: "%.4f", shadowBias))
+                    Text(String(format: "%.1f", depthBias))
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
+                    HStack {
+                        Text("Slope Scale")
+                        Slider(value: $slopeScale, in: 0...10)
+                    }
+                    Text(String(format: "%.1f", slopeScale))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                    Picker("Resolution", selection: $shadowMapResolution) {
+                        Text("128").tag(128)
+                        Text("256").tag(256)
+                        Text("512").tag(512)
+                        Text("1024").tag(1_024)
+                        Text("2048").tag(2_048)
+                        Text("4096").tag(4_096)
+                    }
+                    Toggle("Inverse Z", isOn: $useInverseZ)
                     Toggle("Debug", isOn: $shadowDebug)
+
+                    if let shadowMap {
+                        DepthTextureView(depthTexture: shadowMap.depthTexture)
+                            .aspectRatio(1, contentMode: .fit)
+                    }
                 }
             }
             .inspectorColumnWidth(min: 250, ideal: 300, max: 400)
@@ -176,12 +247,12 @@ struct ShadowMapDemoView: DemoView {
         .task {
             do {
                 lighting = try Lighting(
-                    ambientLightColor: [0.3, 0.3, 0.35],
+                    ambientLightColor: [ambientLight, ambientLight, ambientLight],
                     lights: [
-                        ([0, 5, 5], Light(type: .point, color: [1, 1, 1], intensity: 150))
+                        ([0, 5, 5], Light(type: .point, color: [1, 1, 1], intensity: lightIntensity))
                     ]
                 )
-                shadowMap = try ShadowMap(resolution: 2_048, bias: 0.005)
+                shadowMap = try ShadowMap(resolution: shadowMapResolution, useInverseZ: useInverseZ)
             } catch {
                 fatalError("Failed to initialize ShadowMap demo: \(error)")
             }
@@ -214,6 +285,9 @@ struct ShadowMapDemoRenderPass: Element {
     var options: Options = .all
     var shadowDebug: Bool = false
 
+    @MSEnvironment(\.renderPassDescriptor)
+    var renderPassDescriptor
+
     var body: some Element {
         get throws {
             let shadowsEnabled = options.contains(.shadows)
@@ -240,7 +314,7 @@ struct ShadowMapDemoRenderPass: Element {
             }
 
             // Pass 2: Main scene render pass
-            try RenderPass {
+            try RenderPass(label: "Main Scene") {
                 let viewMatrix = cameraMatrix.inverse
                 let viewProjection = projectionMatrix * viewMatrix
 
@@ -280,9 +354,9 @@ struct ShadowMapDemoRenderPass: Element {
                     )
                 }
 
-                // Lit models (teapots + ground) with shadow map
+                // Lit models (teapots + ground) — NO shadow awareness
                 if options.contains(.models), let firstTeapot = teapots.first {
-                    try BlinnPhongShader(shadowMapEnabled: shadowsEnabled, shadowDebug: shadowDebug) {
+                    try BlinnPhongShader {
                         try Group {
                             // Teapots
                             try ForEach(teapots) { model in
@@ -313,10 +387,35 @@ struct ShadowMapDemoRenderPass: Element {
                             )
                         }
                         .lighting(lighting)
-                        .shadowMap(shadowsEnabled ? shadowMap : nil)
                     }
                     .vertexDescriptor(firstTeapot.mesh.vertexDescriptor)
                     .depthCompare(function: .less, enabled: true)
+                }
+            }
+            .renderPassDescriptorModifier { descriptor in
+                // Ensure depth is stored so shadow mask pass can read it
+                descriptor.depthAttachment.storeAction = .store
+            }
+
+            // Pass 3: Shadow mask overlay — reads scene depth + shadow map, darkens shadowed areas
+            if shadowsEnabled, let sceneDepthTexture = renderPassDescriptor?.depthAttachment.texture {
+                let viewMatrix = cameraMatrix.inverse
+                let viewProjection = projectionMatrix * viewMatrix
+                let inverseVP = viewProjection.inverse
+
+                try RenderPass(label: "Shadow Mask") {
+                    try ShadowMaskPass(
+                        sceneDepthTexture: sceneDepthTexture,
+                        shadowMap: shadowMap,
+                        inverseViewProjection: inverseVP,
+                        debug: shadowDebug
+                    )
+                }
+                .renderPassDescriptorModifier { descriptor in
+                    // Keep existing color, no depth needed
+                    descriptor.colorAttachments[0].loadAction = .load
+                    descriptor.depthAttachment.loadAction = .dontCare
+                    descriptor.depthAttachment.storeAction = .dontCare
                 }
             }
         }

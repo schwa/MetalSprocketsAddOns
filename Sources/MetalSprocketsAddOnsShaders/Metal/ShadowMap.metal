@@ -60,12 +60,12 @@ namespace ShadowMap {
             return 1.0;
         }
 
-        // PCF 3×3 kernel using sample_compare
-        // sampler compareFunction is .lessEqual → returns 1.0 when storedDepth <= compareDepth
-        // storedDepth <= currentDepth means nothing closer blocks the light → lit
+        // PCF 3×3 kernel using sample_compare (inverse Z)
+        // sampler compareFunction is .greaterEqual → returns 1.0 when storedDepth >= compareDepth
+        // With inverse Z, closer = higher depth. storedDepth >= currentDepth means lit.
         float shadow = 0.0;
         float texelSize = 1.0 / shadowParams.mapSize;
-        float compareDepth = currentDepth - shadowParams.bias;
+        float compareDepth = currentDepth;
         for (int x = -1; x <= 1; x++) {
             for (int y = -1; y <= 1; y++) {
                 float2 offset = float2(float(x), float(y)) * texelSize;

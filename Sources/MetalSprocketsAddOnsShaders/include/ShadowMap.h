@@ -6,8 +6,6 @@
 struct ShadowMapParameters {
     /// Light's view-projection matrix (maps world space → light clip space).
     simd_float4x4 lightViewProjectionMatrix;
-    /// Shadow bias to prevent acne artifacts.
-    float bias;
     /// Shadow map resolution (width == height assumed square).
     float mapSize;
 };

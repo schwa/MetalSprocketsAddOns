@@ -78,12 +78,16 @@ GraphicsContext3D content is completely invisible on initial load. Requires a wi
 ---
 
 ## 8: Shadow map (rasterization-based) shadows
-status: new
+status: closed
 priority: medium
 kind: feature
 created: 2026-04-13T17:48:11Z
+updated: 2026-04-13T19:44:23Z
+closed: 2026-04-13T19:44:23Z
 
 Add shadow mapping support using a traditional rasterization approach. Render depth from the light's POV into a shadow map texture, then sample it in the fragment shader to determine shadow visibility. This avoids ray tracing entirely and can reuse existing pipeline patterns. Integrates with the existing Lighting and BlinnPhong infrastructure.
+
+- `2026-04-13T19:44:23Z`: Basic shadow mapping working: depth pass renders from light POV, PCF sampling in Blinn-Phong shader, debug visualization toggle. Remaining issues tracked in #10, #11, #12, #13.
 
 ---
 
@@ -108,32 +112,107 @@ With shadow debug enabled, teapot surfaces facing the light show as magenta (sha
 ---
 
 ## 11: Shadow map: decouple shadow sampling from Blinn-Phong shader
-status: new
+status: closed
 priority: medium
 kind: feature
 created: 2026-04-13T18:47:37Z
+updated: 2026-04-13T22:03:02Z
+closed: 2026-04-13T22:03:02Z
 
-Shadow mapping is currently baked into the Blinn-Phong fragment shader via the SHADOW_MAP_ENABLED function constant. It should be factored out into a composable pass or modifier so it can work with any lighting model (e.g., FlatShader or custom shaders).
+Decouple shadow mapping from Blinn-Phong into a screen-space shadow mask pass.
+
+Pipeline:
+1. Shadow map depth pass (from light's POV) — unchanged
+2. Main color pass (Blinn-Phong or any shader — no shadow awareness)
+3. Shadow mask pass (fullscreen quad, reads scene depth buffer + shadow map, outputs single-channel mask)
+4. Composite pass (multiply color buffer by shadow mask)
+
+Benefits:
+- Lighting shaders stay clean — no shadow map parameters, textures, samplers, or function constants
+- Shadow technique is swappable (PCF, VSM, PCSS, etc.) without touching lighting code
+- Temporal accumulation or blur on the mask is easy to add
+- Works with any lighting model (Blinn-Phong, flat, PBR, etc.)
+
+Tradeoff: extra pass + bandwidth, but cheap on Apple Silicon tile-based architecture.
+
+Requires: access to scene depth buffer as a texture in the shadow mask pass.
+
+- `2026-04-13T22:03:02Z`: Implemented screen-space shadow mask pass. Shadow sampling is fully decoupled from Blinn-Phong: scene renders without shadow awareness, then a fullscreen ShadowMaskPass reads scene depth + shadow map and overlays shadows via alpha blending. Debug mode shows magenta overlay. All shadow code removed from BlinnPhongShaders.metal and BlinnPhongShader.swift.
 
 ---
 
 ## 12: Shadow map: sample_compare logic may be inverted
-status: new
+status: closed
 priority: high
 kind: bug
 created: 2026-04-13T18:47:44Z
+updated: 2026-04-13T20:02:39Z
+closed: 2026-04-13T20:02:39Z
 
 The comparison sampler uses .lessEqual and sample_compare returns 1.0 when storedDepth <= compareDepth. The current logic treats 1.0 as lit, but the teapots appear mostly magenta (shadowed) on light-facing surfaces. The comparison direction or the interpretation of the result may need to be inverted. Related to shadow acne issue #10.
+
+- `2026-04-13T20:02:39Z`: Comparison logic is correct — the apparent issue was caused by the floor normal pointing down (#13), not inverted sample_compare.
 
 ---
 
 ## 13: Shadow map demo: floor is too dark
-status: new
+status: closed
 priority: medium
 kind: bug
 created: 2026-04-13T18:47:51Z
+updated: 2026-04-13T20:02:45Z
+closed: 2026-04-13T20:02:45Z
 
 Even with ambient light bumped to [0.3, 0.3, 0.35] and light intensity at 150, the ground plane appears too dark. The quadratic attenuation in the Blinn-Phong shader (1.0 / (1.0 + 0.09*d² + 0.032*d⁴)) heavily attenuates at the orbit distance (~7 units). Consider making attenuation configurable or using a less aggressive falloff.
+
+- `2026-04-13T20:02:45Z`: Fixed: floor normal was [0,-1,0] (facing down) due to wrong rotation direction. Flipped to +π/2 so normal is [0,1,0]. Also switched to Unreal-style inverse-square attenuation and added editable ambient/intensity sliders.
+
+---
+
+## 14: Use inverse Z (reversed depth buffer) by default
+status: closed
+priority: medium
+kind: enhancement
+labels: rendering, depth-buffer, graphics, precision
+created: 2026-04-13T19:58:58Z
+updated: 2026-04-13T21:37:03Z
+closed: 2026-04-13T21:37:03Z
+
+Switch shadow map depth buffer to inverse Z (reversed depth). Changes needed:
+- Shadow map orthographic projection: map near→1.0, far→0.0 instead of near→0.0, far→1.0
+- Clear depth: 0.0 instead of 1.0
+- Depth compare function: .greater instead of .less in the shadow depth pass
+- Comparison sampler: .greaterEqual instead of .lessEqual
+- sample_compare interpretation stays the same (1.0 = lit)
+- Border color: .opaqueBlack instead of .opaqueWhite (fragments outside shadow map = depth 0.0 = far = lit)
+
+Scope: shadow map only for now. Main scene depth pass is controlled by MetalSprockets/RenderView.
+
+- `2026-04-13T21:37:03Z`: Inverse Z working: greaterEqual depth compare and sampler, negated depth bias for inverse Z, clear depth 0.0, border color opaqueBlack. Added DepthTextureView for live shadow map preview in inspector.
+
+---
+
+## 15: Support shadows with multiple lights and texture arrays
+status: new
+priority: medium
+kind: feature
+labels: shadows, lighting, rendering, texture-array
+created: 2026-04-13T20:03:45Z
+
+Add support for shadow rendering when using multiple light sources. Investigate and implement texture arrays to efficiently manage shadow maps for multiple lights (e.g., shadow map atlases or array textures). This may include:
+- Shadow casting/receiving for multiple simultaneous lights
+- Texture array implementation for shadow maps
+- Performance considerations for multi-light shadow rendering
+
+---
+
+## 16: ShadowMaskPass: use compute shader instead of fullscreen quad rasterization
+status: new
+priority: low
+kind: enhancement
+created: 2026-04-13T22:03:19Z
+
+The shadow mask pass currently uses a fullscreen triangle with a raster pipeline and alpha blending. Replace with a compute shader that reads the scene depth texture and shadow map, computes the shadow factor, and writes directly to the color texture (read-modify-write). This avoids the overhead of a render pass and blending setup, and is more natural for a screen-space post-process on Apple Silicon.
 
 ---
 

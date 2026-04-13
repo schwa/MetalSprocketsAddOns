@@ -19,20 +19,30 @@ public struct ShadowMap {
     /// The light's view-projection matrix.
     public var lightViewProjectionMatrix: simd_float4x4
 
-    /// Shadow bias to prevent acne.
-    public var bias: Float
+    /// Constant depth bias to prevent acne.
+    public var depthBias: Float
+
+    /// Slope-scale depth bias — scales with the surface slope relative to the light.
+    public var slopeScale: Float
 
     /// The resolution of the shadow map (square).
     public let resolution: Int
+
+    /// Whether to use inverse Z (reversed depth buffer) for better precision.
+    public let useInverseZ: Bool
 
     /// Creates a new shadow map with the given resolution.
     ///
     /// - Parameters:
     ///   - resolution: Width and height of the shadow map texture (default 2048).
-    ///   - bias: Depth bias to prevent shadow acne (default 0.005).
-    public init(resolution: Int = 2_048, bias: Float = 0.005) throws {
+    ///   - depthBias: Constant depth bias to prevent shadow acne.
+    ///   - slopeScale: Slope-scale depth bias.
+    ///   - useInverseZ: Use inverse Z (reversed depth) for better precision (default true).
+    public init(resolution: Int = 2_048, depthBias: Float = 2.0, slopeScale: Float = 2.0, useInverseZ: Bool = true) throws {
         self.resolution = resolution
-        self.bias = bias
+        self.depthBias = depthBias
+        self.slopeScale = slopeScale
+        self.useInverseZ = useInverseZ
         self.lightViewProjectionMatrix = .identity
 
         let device = _MTLCreateSystemDefaultDevice()
@@ -54,10 +64,10 @@ public struct ShadowMap {
         let samplerDescriptor = MTLSamplerDescriptor()
         samplerDescriptor.minFilter = .linear
         samplerDescriptor.magFilter = .linear
-        samplerDescriptor.compareFunction = .lessEqual
+        samplerDescriptor.compareFunction = useInverseZ ? .greaterEqual : .lessEqual
         samplerDescriptor.sAddressMode = .clampToBorderColor
         samplerDescriptor.tAddressMode = .clampToBorderColor
-        samplerDescriptor.borderColor = .opaqueWhite
+        samplerDescriptor.borderColor = useInverseZ ? .opaqueBlack : .opaqueWhite
         sampler = try device.makeSamplerState(descriptor: samplerDescriptor)
             .orThrow(.resourceCreationFailure("Failed to create shadow map sampler"))
     }
@@ -86,7 +96,8 @@ public struct ShadowMap {
             bottom: -orthoSize,
             top: orthoSize,
             near: near,
-            far: far
+            far: far,
+            inverseZ: useInverseZ
         )
         lightViewProjectionMatrix = lightProjection * lightView
     }
@@ -95,7 +106,6 @@ public struct ShadowMap {
     public func toParameters() -> ShadowMapParameters {
         ShadowMapParameters(
             lightViewProjectionMatrix: lightViewProjectionMatrix,
-            bias: bias,
             mapSize: Float(resolution)
         )
     }
@@ -140,13 +150,21 @@ public struct ShadowMapDepthPass<Content>: Element where Content: Element {
 
     public var body: some Element {
         get throws {
+            let biasSign: Float = shadowMap.useInverseZ ? -1 : 1
+            let depthBias = shadowMap.depthBias * biasSign
+            let slopeScale = shadowMap.slopeScale * biasSign
+            let useInverseZ = shadowMap.useInverseZ
             try RenderPass(label: "Shadow Map Depth") {
-                try RenderPipeline(vertexShader: vertexShader, fragmentShader: fragmentShader) {
+                try RenderPipeline(label: "Shadow Map Depth", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                     content
                         .parameter("lightViewProjectionMatrix", functionType: .vertex, value: shadowMap.lightViewProjectionMatrix)
                 }
+                .onWorkloadEnter { environmentValues in
+                    let encoder = environmentValues.renderCommandEncoder!
+                    encoder.setDepthBias(depthBias, slopeScale: slopeScale, clamp: 0)
+                }
                 .vertexDescriptor(vertexDescriptor)
-                .depthCompare(function: .less, enabled: true)
+                .depthCompare(function: useInverseZ ? .greaterEqual : .lessEqual, enabled: true)
                 .renderPipelineDescriptorModifier { descriptor in
                     descriptor.colorAttachments[0].pixelFormat = .invalid
                     descriptor.depthAttachmentPixelFormat = .depth32Float
@@ -159,27 +177,9 @@ public struct ShadowMapDepthPass<Content>: Element where Content: Element {
                 descriptor.colorAttachments[0].storeAction = .dontCare
                 descriptor.depthAttachment.texture = shadowMap.depthTexture
                 descriptor.depthAttachment.loadAction = .clear
-                descriptor.depthAttachment.clearDepth = 1.0
+                descriptor.depthAttachment.clearDepth = shadowMap.useInverseZ ? 0.0 : 1.0
                 descriptor.depthAttachment.storeAction = .store
             }
-        }
-    }
-}
-
-// MARK: - Element extensions for shadow map consumption
-
-public extension Element {
-    /// Attaches shadow map parameters and texture to this element for use in lit fragment shaders.
-    @ElementBuilder
-    func shadowMap(_ shadowMap: ShadowMap?) -> some Element {
-        if let shadowMap {
-            self
-                .parameter("shadowMapParams", value: shadowMap.toParameters())
-                .parameter("shadowMapTexture", functionType: .fragment, texture: shadowMap.depthTexture)
-                .parameter("shadowMapSampler", functionType: .fragment, samplerState: shadowMap.sampler)
-        }
-        else {
-            self
         }
     }
 }
@@ -202,13 +202,21 @@ extension float4x4 {
     }
 
     /// Creates an orthographic projection matrix.
-    static func orthographic(left: Float, right: Float, bottom: Float, top: Float, near: Float, far: Float) -> float4x4 {
+    /// - Parameter inverseZ: When true, near maps to 1.0 and far maps to 0.0 (reversed depth).
+    static func orthographic(left: Float, right: Float, bottom: Float, top: Float, near: Float, far: Float, inverseZ: Bool = true) -> float4x4 {
         let sx = 2.0 / (right - left)
         let sy = 2.0 / (top - bottom)
-        let sz = 1.0 / (near - far)  // negate: view-space Z is negative for objects in front
+        let sz: Float
+        let tz: Float
+        if inverseZ {
+            sz = 1.0 / (far - near)   // inverse Z: near → 1, far → 0
+            tz = far / (far - near)
+        } else {
+            sz = 1.0 / (near - far)   // standard Z: near → 0, far → 1
+            tz = near / (near - far)
+        }
         let tx = -(right + left) / (right - left)
         let ty = -(top + bottom) / (top - bottom)
-        let tz = near / (near - far)
 
         return float4x4(columns: (
             SIMD4(sx, 0, 0, 0),

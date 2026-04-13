@@ -6,10 +6,6 @@ using namespace metal;
 
 namespace BlinnPhong {
 
-    // Function constant to enable/disable shadow mapping at pipeline creation time.
-    constant bool SHADOW_MAP_ENABLED [[function_constant(0)]];
-    constant bool SHADOW_DEBUG [[function_constant(1)]];
-
     struct Vertex {
         simd_float3 position ATTRIBUTE(0);
         simd_float3 normal ATTRIBUTE(1);
@@ -24,8 +20,7 @@ namespace BlinnPhong {
         float shininess,
         float3 ambientColor,
         float3 diffuseColor,
-        float3 specularColor,
-        float shadowFactor = 1.0
+        float3 specularColor
     );
 
     // ----------------------------------------------------------------------
@@ -65,10 +60,7 @@ namespace BlinnPhong {
         Fragment in [[stage_in]],
         constant LightingArgumentBuffer &lighting [[buffer(1)]],
         constant BlinnPhongMaterialArgumentBuffer *material [[buffer(2)]],
-        constant float4x4 &cameraMatrix [[buffer(3)]],
-        constant ShadowMapParameters &shadowMapParams [[buffer(4), function_constant(SHADOW_MAP_ENABLED)]],
-        depth2d<float, access::sample> shadowMapTexture [[texture(0), function_constant(SHADOW_MAP_ENABLED)]],
-        sampler shadowMapSampler [[sampler(0), function_constant(SHADOW_MAP_ENABLED)]]
+        constant float4x4 &cameraMatrix [[buffer(3)]]
     ) {
         uint instance_id = in.instance_id;
 
@@ -78,22 +70,10 @@ namespace BlinnPhong {
 
         auto cameraPosition = cameraMatrix.columns[3].xyz;
 
-        // Compute shadow factor if shadow mapping is enabled
-        float shadowFactor = 1.0;
-        if (SHADOW_MAP_ENABLED) {
-            shadowFactor = ShadowMap::sampleShadow(
-                in.worldPosition, shadowMapParams, shadowMapTexture, shadowMapSampler
-            );
-        }
-
         float3 color = CalculateBlinnPhong(
             in.worldPosition, cameraPosition, in.normal, lighting, material[instance_id].shininess, ambientColor,
-            diffuseColor, specularColor, shadowFactor
+            diffuseColor, specularColor
         );
-        // Debug: visualize shadow factor as magenta(shadowed) → green(lit)
-        if (SHADOW_DEBUG) {
-            color = mix(float3(1.0, 0.0, 1.0), float3(0.0, 1.0, 0.0), shadowFactor);
-        }
         return float4(color, 1.0);
     }
 
@@ -109,8 +89,7 @@ namespace BlinnPhong {
         const float shininess,
         const float3 ambientColor,
         const float3 diffuseColor,
-        const float3 specularColor,
-        const float shadowFactor
+        const float3 specularColor
     ) {
         const bool phongMode = false; // Use Blinn-Phong shading by default
         float3 accumulatedDiffuseColor = float3(0.0);
@@ -131,7 +110,11 @@ namespace BlinnPhong {
                 continue;
             }
 
-            const float attenuation = 1.0 / (1.0 + 0.09 * distanceSquared + 0.032 * distanceSquared * distanceSquared);
+            // Unreal-style inverse-square attenuation with smooth range falloff
+            const float distance = sqrt(distanceSquared);
+            const float rangeRatio = distance / light.range;
+            const float rangeFalloff = saturate(1.0 - rangeRatio * rangeRatio * rangeRatio * rangeRatio);
+            const float attenuation = (rangeFalloff * rangeFalloff) / (distanceSquared + 1.0);
 
             float specular = 0.0;
 
@@ -145,8 +128,8 @@ namespace BlinnPhong {
 
             const float3 lightContribution = light.color * light.intensity * attenuation;
 
-            accumulatedDiffuseColor += diffuseColor * lambertian * lightContribution * shadowFactor;
-            accumulatedSpecularColor += specularColor * specular * lightContribution * shadowFactor;
+            accumulatedDiffuseColor += diffuseColor * lambertian * lightContribution;
+            accumulatedSpecularColor += specularColor * specular * lightContribution;
         }
 
         return lighting.ambientLightColor * ambientColor + accumulatedDiffuseColor + accumulatedSpecularColor;
