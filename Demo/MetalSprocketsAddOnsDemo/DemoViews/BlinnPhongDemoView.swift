@@ -11,7 +11,17 @@ import MetalSprocketsUI
 import simd
 import SwiftUI
 
+/// Combines four render pipelines (skybox, grid, GraphicsContext3D, Blinn-Phong)
+/// with animated lighting driven by Interaction3D's transformer system.
 struct BlinnPhongDemoView: DemoView {
+
+    struct Model: Identifiable {
+        var id: String
+        var mesh: MTKMesh
+        var modelMatrix: float4x4
+        var material: BlinnPhongMaterial
+    }
+
     static let metadata = DemoMetadata(
         name: "Blinn-Phong",
         systemImage: "light.max",
@@ -19,13 +29,16 @@ struct BlinnPhongDemoView: DemoView {
         group: "Rendering"
     )
 
+    // Camera — driven by `.interactiveCamera()` (turntable orbit + zoom + pan)
     @State private var cameraRotation = simd_quatf(angle: -.pi / 6, axis: [1, 0, 0])
     @State private var cameraDistance: Float = 10
     @State private var cameraTarget: SIMD3<Float> = [0, 1, 0]
 
     @State private var lighting: Lighting?
     @State private var skyboxTexture: MTLTexture?
+    @State private var lightPosition: SIMD3<Float> = [0, 3, 5]
 
+    // OrbitTransformer + LoopTransformer = continuous orbiting light
     @State private var lightAnimator = TransformerAnimator(
         transformer: OrbitTransformer(center: [0, 3, 0], radius: 5, angle: .zero, normal: [0, 1, 0]),
         parameter: \OrbitTransformer.angle,
@@ -42,6 +55,7 @@ struct BlinnPhongDemoView: DemoView {
         return translation * rotation * distance
     }
 
+    // Two teapots with distinct Blinn-Phong materials sharing one render pipeline
     private let models: [Model] = [
         .init(
             id: "teapot-1",
@@ -70,56 +84,25 @@ struct BlinnPhongDemoView: DemoView {
     var body: some View {
         TimelineView(.animation) { timeline in
             RenderView { _, drawableSize in
-                let aspect = drawableSize.height > 0 ? Float(drawableSize.width / drawableSize.height) : 1.0
-                let projectionMatrix = float4x4.perspective(fovY: .pi / 4, aspect: aspect, near: 0.1, far: 1_000.0)
-                let viewMatrix = cameraMatrix.inverse
-
-                try RenderPass {
-                    if let skyboxTexture {
-                        try SkyboxRenderPipeline(
-                            projectionMatrix: projectionMatrix,
-                            cameraMatrix: cameraMatrix,
-                            rotation: simd_quatf(angle: .pi, axis: [0, 1, 0]),
-                            texture: skyboxTexture
-                        )
-                    }
-
-                    GridShader(
+                if let lighting, let skyboxTexture {
+                    let aspect = drawableSize.height > 0 ? Float(drawableSize.width / drawableSize.height) : 1.0
+                    let projectionMatrix = float4x4.perspective(fovY: .pi / 4, aspect: aspect, near: 0.1, far: 1_000.0)
+                    BlinnPhongDemoRenderPass(
                         projectionMatrix: projectionMatrix,
                         cameraMatrix: cameraMatrix,
-                        highlightedLines: [
-                            .init(axis: .x, position: 0, width: 0.03, color: [1, 0.2, 0.2, 1]),
-                            .init(axis: .y, position: 0, width: 0.03, color: [0.2, 0.4, 1, 1])
-                        ],
-                        backfaceColor: [1, 0, 1, 1]
+                        drawableSize: drawableSize,
+                        skyboxTexture: skyboxTexture,
+                        lighting: lighting,
+                        lightPosition: lightPosition,
+                        models: models
                     )
-
-                    if let lighting, let firstModel = models.first {
-                        try BlinnPhongShader {
-                            try ForEach(models) { model in
-                                try Draw { encoder in
-                                    encoder.setVertexBuffers(of: model.mesh)
-                                    encoder.draw(model.mesh)
-                                }
-                                .blinnPhongMaterial(model.material)
-                                .blinnPhongMatrices(
-                                    projectionMatrix: projectionMatrix,
-                                    viewMatrix: viewMatrix,
-                                    modelMatrix: model.modelMatrix,
-                                    cameraMatrix: cameraMatrix
-                                )
-                            }
-                            .lighting(lighting)
-                        }
-                        .vertexDescriptor(firstModel.mesh.vertexDescriptor)
-                        .depthCompare(function: .less, enabled: true)
-                    }
                 }
             }
             .metalDepthStencilPixelFormat(.depth32Float)
             .onChange(of: timeline.date) {
+                // Advance orbit animation and write new light position to GPU buffer
                 lightAnimator.update(at: timeline.date.timeIntervalSinceReferenceDate)
-                let lightPosition = lightAnimator.transformer.transform(.zero)
+                lightPosition = lightAnimator.transformer.transform(.zero)
                 lighting?.setLightPosition(lightPosition, at: 0)
             }
         }
@@ -143,11 +126,82 @@ struct BlinnPhongDemoView: DemoView {
     }
 }
 
-private struct Model: Identifiable {
-    var id: String
-    var mesh: MTKMesh
-    var modelMatrix: float4x4
-    var material: BlinnPhongMaterial
+/// Composable render pass combining skybox, grid, light marker, and Blinn-Phong lit geometry.
+struct BlinnPhongDemoRenderPass: Element {
+    var projectionMatrix: simd_float4x4
+    var cameraMatrix: simd_float4x4
+    var drawableSize: CGSize
+    var skyboxTexture: MTLTexture
+    var lighting: Lighting
+    var lightPosition: SIMD3<Float>
+    var models: [BlinnPhongDemoView.Model]
+
+    var body: some Element {
+        get throws {
+            try RenderPass {
+                let viewMatrix = cameraMatrix.inverse
+                let viewProjection = projectionMatrix * viewMatrix
+
+                // 1. Skybox — fullscreen cubemap background
+                try SkyboxRenderPipeline(
+                    projectionMatrix: projectionMatrix,
+                    cameraMatrix: cameraMatrix,
+                    rotation: simd_quatf(angle: .pi, axis: [0, 1, 0]),
+                    texture: skyboxTexture
+                )
+
+                // 2. Grid — infinite ground plane with colored axis lines
+                GridShader(
+                    projectionMatrix: projectionMatrix,
+                    cameraMatrix: cameraMatrix,
+                    highlightedLines: [
+                        .init(axis: .x, position: 0, width: 0.03, color: [1, 0.2, 0.2, 1]),
+                        .init(axis: .y, position: 0, width: 0.03, color: [0.2, 0.4, 1, 1])
+                    ],
+                    backfaceColor: [1, 0, 1, 1]
+                )
+
+                // 3. Light marker — yellow cross via GraphicsContext3D
+                let lightMarker = GraphicsContext3D { ctx in
+                    let s: Float = 0.2
+                    for axis in [SIMD3<Float>(1, 0, 0), SIMD3<Float>(0, 1, 0), SIMD3<Float>(0, 0, 1)] {
+                        ctx.stroke(Path3D { path in
+                            path.move(to: lightPosition - axis * s)
+                            path.addLine(to: lightPosition + axis * s)
+                        }, with: .yellow, lineWidth: 2)
+                    }
+                }
+                let viewport = SIMD2<Float>(Float(drawableSize.width), Float(drawableSize.height))
+                GraphicsContext3DRenderPipeline(
+                    context: lightMarker,
+                    viewProjection: viewProjection,
+                    viewport: viewport
+                )
+
+                // 4. Lit teapots — Blinn-Phong with per-model materials
+                if let firstModel = models.first {
+                    try BlinnPhongShader {
+                        try ForEach(models) { model in
+                            try Draw { encoder in
+                                encoder.setVertexBuffers(of: model.mesh)
+                                encoder.draw(model.mesh)
+                            }
+                            .blinnPhongMaterial(model.material)
+                            .blinnPhongMatrices(
+                                projectionMatrix: projectionMatrix,
+                                viewMatrix: viewMatrix,
+                                modelMatrix: model.modelMatrix,
+                                cameraMatrix: cameraMatrix
+                            )
+                        }
+                        .lighting(lighting)
+                    }
+                    .vertexDescriptor(firstModel.mesh.vertexDescriptor)
+                    .depthCompare(function: .less, enabled: true)
+                }
+            }
+        }
+    }
 }
 
 #Preview {
