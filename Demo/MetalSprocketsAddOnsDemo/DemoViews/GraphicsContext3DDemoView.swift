@@ -89,6 +89,62 @@ struct GraphicsContext3DDemoView: DemoView {
                 // Wireframe pyramid
                 Self.strokePyramid(ctx: &ctx, center: [-4, 0, 0], base: 2, height: 2.5, color: .purple, style: style)
 
+                // Hexagon on the ground
+                let hexagon = Path3D { p in
+                    for i in 0..<6 {
+                        let angle = Float(i) / 6.0 * 2 * .pi
+                        let pt = SIMD3<Float>(cos(angle) * 1.5 + 6, 0, sin(angle) * 1.5 - 3)
+                        if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
+                    }
+                    p.closeSubpath()
+                }
+                ctx.fill(hexagon, with: Color(red: 0.6, green: 0.3, blue: 0.8))
+
+                // Arrow shape on the XY plane
+                let arrow = Path3D { p in
+                    p.move(to: [-6, 1, -3])
+                    p.addLine(to: [-4.5, 1, -3])
+                    p.addLine(to: [-4.5, 0.5, -3])
+                    p.addLine(to: [-3.5, 1.5, -3])
+                    p.addLine(to: [-4.5, 2.5, -3])
+                    p.addLine(to: [-4.5, 2, -3])
+                    p.addLine(to: [-6, 2, -3])
+                    p.closeSubpath()
+                }
+                ctx.fill(arrow, with: Color(red: 0.2, green: 0.6, blue: 1.0))
+
+                // L-shape on the XY plane
+                let lShape = Path3D { p in
+                    p.move(to: [5, 0.5, -3])
+                    p.addLine(to: [7, 0.5, -3])
+                    p.addLine(to: [7, 1.5, -3])
+                    p.addLine(to: [6, 1.5, -3])
+                    p.addLine(to: [6, 3, -3])
+                    p.addLine(to: [5, 3, -3])
+                    p.closeSubpath()
+                }
+                ctx.fill(lShape, with: Color(red: 1.0, green: 0.5, blue: 0.0))
+
+                // Cross / plus shape on the XY plane
+                let cross = Path3D { p in
+                    let cx: Float = 0, cy: Float = 1.5, cz: Float = -4
+                    let arm: Float = 0.8, half: Float = 0.3
+                    p.move(to: [cx - half, cy + arm, cz])
+                    p.addLine(to: [cx + half, cy + arm, cz])
+                    p.addLine(to: [cx + half, cy + half, cz])
+                    p.addLine(to: [cx + arm, cy + half, cz])
+                    p.addLine(to: [cx + arm, cy - half, cz])
+                    p.addLine(to: [cx + half, cy - half, cz])
+                    p.addLine(to: [cx + half, cy - arm, cz])
+                    p.addLine(to: [cx - half, cy - arm, cz])
+                    p.addLine(to: [cx - half, cy - half, cz])
+                    p.addLine(to: [cx - arm, cy - half, cz])
+                    p.addLine(to: [cx - arm, cy + half, cz])
+                    p.addLine(to: [cx - half, cy + half, cz])
+                    p.closeSubpath()
+                }
+                ctx.fill(cross, with: Color(red: 0.9, green: 0.2, blue: 0.2))
+
                 // Spiral corkscrew
                 let spiral = Path3D { p in
                     let turns: Float = 3
@@ -244,6 +300,10 @@ struct GraphicsContext3DDemoView: DemoView {
             .init(text: "Cube", position: [4, 2.5, 0], color: .orange),
             .init(text: "Pyramid", position: [-4, 3, 0], color: .purple),
             .init(text: "Spiral", position: [0, 3.5, 3], color: Color(red: 1, green: 0.4, blue: 0.7)),
+            .init(text: "Hexagon", position: [6, 0.5, -3], color: .purple),
+            .init(text: "Arrow", position: [-5, 3, -3], color: Color(red: 0.2, green: 0.6, blue: 1.0)),
+            .init(text: "L-Shape", position: [5.5, 3.5, -3], color: .orange),
+            .init(text: "Cross", position: [0, 3, -4], color: .red),
         ]
 
         for label in labels {

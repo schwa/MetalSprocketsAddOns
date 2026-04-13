@@ -11,15 +11,6 @@
       }
     },
     {
-      "identity" : "earcut-swift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/schwa/earcut-swift",
-      "state" : {
-        "revision" : "84309d9350a3e818412c4c13156af5d95d761147",
-        "version" : "0.1.0"
-      }
-    },
-    {
       "identity" : "geometrylite3d",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/GeometryLite3D",
@@ -98,6 +89,15 @@
       "state" : {
         "revision" : "0687f71944021d616d34d922343dcef086855920",
         "version" : "600.0.1"
+      }
+    },
+    {
+      "identity" : "swiftearcut",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/schwa/SwiftEarcut",
+      "state" : {
+        "branch" : "main",
+        "revision" : "ebb45ca2e575a2ba43b50e2b5c13f7bc3ffa289d"
       }
     },
     {

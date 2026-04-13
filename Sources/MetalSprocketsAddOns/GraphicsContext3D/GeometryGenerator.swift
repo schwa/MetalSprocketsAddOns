@@ -1,5 +1,5 @@
 import CoreGraphics
-import earcut
+import SwiftEarcut
 import MetalSprocketsAddOnsShaders
 import simd
 
@@ -91,7 +91,7 @@ internal struct GeometryGenerator {
         }
 
         let projectedPoints = points.map { SIMD2<Float>($0.x, $0.y) }
-        let indices = earcut(polygons: [projectedPoints])
+        let indices = earcut(polygon: [projectedPoints])
 
         var vertices: [Vertex] = []
         for i in stride(from: 0, to: indices.count, by: 3) {

@@ -14,7 +14,7 @@ let package = Package(
         .library(name: "MetalSprocketsAddOnsShaders", targets: ["MetalSprocketsAddOnsShaders"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/schwa/earcut-swift", from: "0.1.0"),
+        .package(url: "https://github.com/schwa/SwiftEarcut", branch: "main"),
         .package(url: "https://github.com/schwa/GeometryLite3D", from: "0.1.0"),
         .package(url: "https://github.com/schwa/MetalCompilerPlugin", from: "0.1.4"),
         .package(url: "https://github.com/schwa/MetalSprockets", from: "0.1.7"),
@@ -27,13 +27,10 @@ let package = Package(
                 .product(name: "Collections", package: "swift-collections"),
                 .product(name: "GeometryLite3D", package: "GeometryLite3D"),
                 .product(name: "MetalSprockets", package: "MetalSprockets"),
-                .product(name: "earcut", package: "earcut-swift"),
+                .product(name: "SwiftEarcut", package: "SwiftEarcut"),
                 "MetalSprocketsAddOnsShaders",
                 "MikkTSpace",
             ],
-            swiftSettings: [
-                .interoperabilityMode(.Cxx)
-            ]
         ),
         .target(
             name: "MetalSprocketsAddOnsShaders",
@@ -54,9 +51,6 @@ let package = Package(
             resources: [
                 .copy("Golden Images")
             ],
-            swiftSettings: [
-                .interoperabilityMode(.Cxx)
-            ]
         ),
         .target(
             name: "MikkTSpace",
