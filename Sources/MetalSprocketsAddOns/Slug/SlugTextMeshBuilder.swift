@@ -108,9 +108,11 @@ public final class SlugTextMeshBuilder {
         )
         let framePath = CGPath(rect: CGRect(origin: .zero, size: suggestedSize), transform: nil)
         let frame = CTFramesetterCreateFrame(framesetter, CFRange(location: 0, length: 0), framePath, nil)
-        let lines = CTFrameGetLines(frame) as! [CTLine]
+        let lines = CTFrameGetLines(frame) as! [CTLine] // swiftlint:disable:this force_cast
 
-        guard !lines.isEmpty else { return appendEmptyMesh() }
+        guard !lines.isEmpty else {
+            return appendEmptyMesh()
+        }
 
         // Get line origins
         var lineOrigins = [CGPoint](repeating: .zero, count: lines.count)
@@ -122,10 +124,10 @@ public final class SlugTextMeshBuilder {
         // FIRST PASS: Collect all glyphs per font and insert them all at once
         var glyphsByFont: [String: [CGGlyph]] = [:]
         for line in lines {
-            let runs = CTLineGetGlyphRuns(line) as! [CTRun]
+            let runs = CTLineGetGlyphRuns(line) as! [CTRun] // swiftlint:disable:this force_cast
             for run in runs {
-                let attrs = CTRunGetAttributes(run) as! [CFString: Any]
-                let font = attrs[kCTFontAttributeName] as! CTFont
+                let attrs = CTRunGetAttributes(run) as! [CFString: Any] // swiftlint:disable:this force_cast
+                let font = attrs[kCTFontAttributeName] as! CTFont // swiftlint:disable:this force_cast
                 let fontName = CTFontCopyPostScriptName(font) as String
 
                 let glyphCount = CTRunGetGlyphCount(run)
@@ -150,11 +152,11 @@ public final class SlugTextMeshBuilder {
         // SECOND PASS: Build vertices and submeshes
         for (lineIdx, line) in lines.enumerated() {
             let lineOrigin = lineOrigins[lineIdx]
-            let runs = CTLineGetGlyphRuns(line) as! [CTRun]
+            let runs = CTLineGetGlyphRuns(line) as! [CTRun] // swiftlint:disable:this force_cast
 
             for run in runs {
-                let attrs = CTRunGetAttributes(run) as! [CFString: Any]
-                let font = attrs[kCTFontAttributeName] as! CTFont
+                let attrs = CTRunGetAttributes(run) as! [CFString: Any] // swiftlint:disable:this force_cast
+                let font = attrs[kCTFontAttributeName] as! CTFont // swiftlint:disable:this force_cast
                 let fontSize = CTFontGetSize(font)
 
                 // Get PostScript font name
@@ -180,7 +182,7 @@ public final class SlugTextMeshBuilder {
 
                 if let color = colorValue {
                     if CFGetTypeID(color as CFTypeRef) == CGColor.typeID {
-                        fgColor = (color as! CGColor)
+                        fgColor = (color as! CGColor) // swiftlint:disable:this force_cast
                     } else {
                         #if canImport(AppKit)
                         if let nsColor = color as? NSColor {
@@ -195,9 +197,9 @@ public final class SlugTextMeshBuilder {
                 }
 
                 if let fgColor,
-                   let linearSRGB = CGColorSpace(name: CGColorSpace.linearSRGB),
-                   let linearColor = fgColor.converted(to: linearSRGB, intent: .defaultIntent, options: nil),
-                   let components = linearColor.components {
+                    let linearSRGB = CGColorSpace(name: CGColorSpace.linearSRGB),
+                    let linearColor = fgColor.converted(to: linearSRGB, intent: .defaultIntent, options: nil),
+                    let components = linearColor.components {
                     let n = linearColor.numberOfComponents
                     if n >= 4 {
                         runColor = SIMD4(Float(components[0]), Float(components[1]), Float(components[2]), Float(components[3]))
@@ -281,7 +283,9 @@ public final class SlugTextMeshBuilder {
             }
         }
 
-        guard !vertices.isEmpty else { return appendEmptyMesh() }
+        guard !vertices.isEmpty else {
+            return appendEmptyMesh()
+        }
 
         // Append to shared arrays, offsetting indices to be global
         let globalVertexOffset = UInt32(allVertices.count)
@@ -391,7 +395,9 @@ public final class SlugTextMeshBuilder {
             let fullRange = NSRange(location: 0, length: attributedString.length)
 
             attributedString.enumerateAttributes(in: fullRange, options: []) { attrs, range, _ in
-                guard let font = attrs[.font] as? PlatformFont else { return }
+                guard let font = attrs[.font] as? PlatformFont else {
+                    return
+                }
 
                 let substring = attributedString.attributedSubstring(from: range).string
                 let ctFont = font as CTFont
@@ -425,8 +431,11 @@ public final class SlugTextMeshBuilder {
     private var fontTexturePairs: [(curveTexture: MTLTexture, bandTexture: MTLTexture)] {
         orderedFontNames.compactMap { name in
             guard let atlas = fontAtlasCache[name],
-                  let curve = atlas.curveTexture,
-                  let band = atlas.bandTexture else { return nil }
+                let curve = atlas.curveTexture,
+                let band = atlas.bandTexture
+            else {
+                return nil
+            }
             return (curve, band)
         }
     }
@@ -555,7 +564,9 @@ public extension SlugTextMeshBuilder {
             indices.append(baseIndex + 3)
         }
 
-        guard !vertices.isEmpty else { return appendEmptyMesh() }
+        guard !vertices.isEmpty else {
+            return appendEmptyMesh()
+        }
 
         let globalVertexOffset = UInt32(allVertices.count)
         allVertices.append(contentsOf: vertices)

@@ -148,9 +148,8 @@ public struct GridShader: Element {
             buffer.lineWidth = majorDivision.lineWidth
             buffer.color = majorDivision.color
             return buffer
-        } else {
-            // interval = 0 disables major division in the shader
-            return GridMajorDivision()
         }
+        // interval = 0 disables major division in the shader
+        return GridMajorDivision()
     }
 }

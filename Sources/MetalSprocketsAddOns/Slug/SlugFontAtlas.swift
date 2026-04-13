@@ -84,11 +84,9 @@ internal final class SlugFontAtlas {
     /// Ensures the given glyphs are in the atlas, uploading textures if needed.
     func insertGlyphs(_ glyphs: [CGGlyph]) {
         var didUpdate = false
-        for glyph in glyphs {
-            if glyphCache[glyph] == nil {
-                ensureGlyph(glyph)
-                didUpdate = true
-            }
+        for glyph in glyphs where glyphCache[glyph] == nil {
+            ensureGlyph(glyph)
+            didUpdate = true
         }
         if didUpdate {
             uploadTextures()

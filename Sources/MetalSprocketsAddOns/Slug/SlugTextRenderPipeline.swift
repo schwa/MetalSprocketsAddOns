@@ -1,6 +1,7 @@
 import Metal
 import MetalSprockets
 import MetalSprocketsAddOnsShaders
+import MetalSprocketsSupport
 import simd
 
 /// A MetalSprockets render pipeline for text rendering using the Slug algorithm.
@@ -57,15 +58,21 @@ public struct SlugTextRenderPipeline: Element {
         self.shaderLibrary = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders())
 
         // Create font texture entries buffer
-        let device = MTLCreateSystemDefaultDevice()!
+        let device = _MTLCreateSystemDefaultDevice()
         let entries = scene.fontTexturePairs.map { pair in
             FontTexturesEntry(
                 curveTextureID: pair.curveTexture.gpuResourceID,
                 bandTextureID: pair.bandTexture.gpuResourceID
             )
         }
-        self.fontTextureBuffer = entries.withUnsafeBufferPointer { ptr in
-            device.makeBuffer(bytes: ptr.baseAddress!, length: ptr.count * MemoryLayout<FontTexturesEntry>.stride, options: .storageModeShared)!
+        self.fontTextureBuffer = try entries.withUnsafeBufferPointer { ptr in
+            guard let baseAddress = ptr.baseAddress else {
+                throw MetalSprocketsError.resourceCreationFailure("Empty font texture entries")
+            }
+            guard let buffer = device.makeBuffer(bytes: baseAddress, length: ptr.count * MemoryLayout<FontTexturesEntry>.stride, options: .storageModeShared) else {
+                throw MetalSprocketsError.resourceCreationFailure("Failed to create font texture buffer")
+            }
+            return buffer
         }
         fontTextureBuffer.label = "Slug Font Textures"
     }
@@ -82,10 +89,10 @@ public struct SlugTextRenderPipeline: Element {
 
                     // Vertex amplification for stereo rendering
                     if amplificationCount > 1 {
-                        var viewMappings = (0..<amplificationCount).map {
+                        var viewMappings = (0..<amplificationCount).map { index in
                             MTLVertexAmplificationViewMapping(
-                                viewportArrayIndexOffset: UInt32($0),
-                                renderTargetArrayIndexOffset: UInt32($0)
+                                viewportArrayIndexOffset: UInt32(index),
+                                renderTargetArrayIndexOffset: UInt32(index)
                             )
                         }
                         encoder.setVertexAmplificationCount(amplificationCount, viewMappings: &viewMappings)
@@ -99,14 +106,17 @@ public struct SlugTextRenderPipeline: Element {
                     }
 
                     // Tell Metal about the textures referenced in argument buffer
-                    let allTextures: [MTLResource] = scene.fontTexturePairs.flatMap {
-                        [$0.curveTexture as MTLResource, $0.bandTexture as MTLResource]
+                    let allTextures: [MTLResource] = scene.fontTexturePairs.flatMap { pair in
+                        [pair.curveTexture as MTLResource, pair.bandTexture as MTLResource]
                     }
                     encoder.useResources(allTextures, usage: .read, stages: .fragment)
 
                     // Pass view constants array
                     viewConstants.withUnsafeBufferPointer { ptr in
-                        encoder.setVertexBytes(ptr.baseAddress!, length: ptr.count * MemoryLayout<SlugFrameConstants>.stride, index: 1)
+                        guard let baseAddress = ptr.baseAddress else {
+                            return
+                        }
+                        encoder.setVertexBytes(baseAddress, length: ptr.count * MemoryLayout<SlugFrameConstants>.stride, index: 1)
                     }
 
                     // ONE draw call for everything

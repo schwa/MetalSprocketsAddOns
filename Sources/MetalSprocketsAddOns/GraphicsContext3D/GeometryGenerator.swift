@@ -1,7 +1,7 @@
 import CoreGraphics
-import SwiftEarcut
 import MetalSprocketsAddOnsShaders
 import simd
+import SwiftEarcut
 
 internal struct Vertex {
     // periphery:ignore - used in Metal shader
