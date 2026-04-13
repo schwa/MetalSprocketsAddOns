@@ -36,3 +36,13 @@ RenderView-based demos (Spinning Cube, GraphicsContext3D) render with incorrect 
 
 ---
 
+## 4: GraphicsContext3D fill renders as white instead of specified color
+status: new
+priority: medium
+kind: bug
+created: 2026-04-13T05:07:02Z
+
+Fill geometry in GraphicsContext3D renders as solid white regardless of the color passed to ctx.fill(). Strokes render correctly with the right colors. The fill vertex buffer data appears to not carry color values to the shader. Visible in the GraphicsContext3D demo: star fill should be yellow, square fill should be teal — both render white. Likely a buffer binding or data copy issue in GraphicsContext3DRenderPipeline.
+
+---
+
