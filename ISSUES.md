@@ -92,12 +92,60 @@ Add shadow mapping support using a traditional rasterization approach. Render de
 ---
 
 ## 9: Ray traced shadows
-status: new
+status: closed
 priority: medium
 kind: feature
 created: 2026-04-13T17:48:18Z
+updated: 2026-04-13T23:03:52Z
+closed: 2026-04-13T23:03:52Z
 
 Add ray traced shadow support using Metal ray tracing APIs. Build MTLPrimitiveAccelerationStructure from meshes and MTLInstanceAccelerationStructure for the scene. Cast shadow rays in the fragment shader against the acceleration structure to determine visibility. Provides higher quality shadows than shadow maps (no aliasing, no acne, correct for all geometry). Requires new MetalSprockets Element wrappers for acceleration structure management and resource binding.
+
+- `2026-04-13T23:03:52Z`: Implemented ray traced shadows using Metal ray tracing APIs
+- `2026-04-13T23:11:15Z`: ## Design Overview
+
+### Architecture
+
+The feature follows the same pattern as the existing shadow map implementation (depth pass → scene pass → shadow mask overlay), but replaces the shadow map with ray tracing for the visibility test.
+
+**Two public types:**
+
+1. **AccelerationStructureManager** — CPU-side builder that owns the Metal acceleration structures
+2. **RayTracedShadowMaskPass** — MetalSprockets Element that does the actual shadow rendering
+
+### How it works
+
+**Build phase (once, or when geometry changes):**
+- Takes an array of MTKMesh and an array of Instance (mesh index + transform)
+- Builds one MTLPrimitiveAccelerationStructure per unique mesh from its vertex/index buffers
+- Combines them into a single MTLInstanceAccelerationStructure with per-instance transforms
+- This is done synchronously on a dedicated command queue (separate from rendering)
+
+**Render phase (every frame):**
+1. Scene renders normally with Blinn-Phong lighting (no shadow awareness needed)
+2. Depth attachment is stored
+3. RayTracedShadowMaskPass runs as a fullscreen triangle post-process:
+   - Reads scene depth texture
+   - Reconstructs world position from depth + inverse view-projection matrix
+   - Casts a ray from the surface point toward the light
+   - Uses intersector with accept_any_intersection(true) for early-out (we only need hit/miss, not closest hit)
+   - Outputs black with alpha = shadow darkness, blended multiplicatively over the scene
+
+### Key design decisions
+
+- **Post-process approach** (same as ShadowMaskPass) rather than per-material shadow sampling. This means any shader can receive shadows without modification — you just add the pass after your scene render.
+- **accept_any_intersection(true)** — since we only care whether something blocks the light, not what, the intersector can bail on the first hit. Much faster than finding the closest intersection.
+- **Ray biased along direction** — a small constant bias (0.001) along the ray direction prevents self-intersection artifacts (the ray tracing equivalent of shadow acne).
+- **@unchecked Sendable on AccelerationStructureManager** — the Metal objects it holds are thread-safe for read access during rendering, and mutation (rebuild/update) is expected to happen on one thread before rendering begins.
+- **updateInstances()** — allows rebuilding just the instance acceleration structure when only transforms change (e.g., animated objects), without rebuilding the per-mesh primitive structures.
+
+### Tradeoffs vs shadow maps
+
+- **Quality**: Shadow maps have aliasing, acne, peter-panning. Ray traced shadows are pixel-perfect with no artifacts.
+- **Performance**: Shadow maps are cheap (one extra depth pass). Ray tracing is more expensive (per-pixel ray cast).
+- **Geometry**: Shadow maps work with any rasterizable geometry. Ray tracing needs acceleration structures built from triangle meshes.
+- **Soft shadows**: Shadow maps use PCF approximation. Ray traced would need multiple rays (not implemented yet — single ray = hard shadows).
+- **Dynamic geometry**: Shadow maps just re-render the depth pass. Ray tracing must rebuild/refit acceleration structures.
 
 ---
 

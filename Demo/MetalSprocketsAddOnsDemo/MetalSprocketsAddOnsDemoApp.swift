@@ -14,6 +14,7 @@ struct MetalSprocketsAddOnsDemoApp: App {
             GridDemoView.self,
             BlinnPhongDemoView.self,
             ShadowMapDemoView.self,
+            RayTracedShadowDemoView.self,
             DebugShaderDemoView.self,
             TrivialMeshDemoView.self,
             GraphicsContext3DDemoView.self,
