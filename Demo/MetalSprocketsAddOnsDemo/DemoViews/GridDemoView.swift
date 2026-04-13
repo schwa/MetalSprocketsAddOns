@@ -58,7 +58,7 @@ struct GridDemoView: DemoView {
                         lineWidth: SIMD2<Float>(repeating: majorLineWidth),
                         color: SIMD4<Float>(majorBrightness, majorBrightness, majorBrightness, 1)
                     ) : nil,
-                    backfaceColor: [1, 0, 0, 1]
+                    backfaceColor: [1, 0, 1, 1]
                 )
             }
         }

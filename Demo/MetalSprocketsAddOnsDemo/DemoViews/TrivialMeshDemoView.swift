@@ -59,7 +59,7 @@ struct TrivialMeshDemoView: DemoView {
                         .init(axis: .x, position: 0, width: 0.03, color: [1, 0.2, 0.2, 1]),
                         .init(axis: .y, position: 0, width: 0.03, color: [0.2, 0.4, 1, 1])
                     ],
-                    backfaceColor: [1, 0, 0, 1]
+                    backfaceColor: [1, 0, 1, 1]
                 )
 
                 if let lighting, let firstModel = models.first {
@@ -124,31 +124,31 @@ struct TrivialMeshDemoView: DemoView {
                 // swiftlint:disable indentation_width
                 models = [
                     // Spheres — back row
-                    .init(id: "uvSphere", mesh: Mesh(sphere, device: device), modelMatrix: .init(translation: [-2, 0, -4]),
+                    .init(id: "uvSphere", mesh: Mesh(sphere, device: device), modelMatrix: .init(translation: [-2, 1, -4]),
                           material: .init(ambient: .color([0.4, 0.3, 0.3]), diffuse: .color([0.7, 0.5, 0.5]), specular: .color([1, 1, 1]), shininess: 100)),
-                    .init(id: "icoSphere", mesh: Mesh(icoSphere, device: device), modelMatrix: .init(translation: [0, 0, -4]),
+                    .init(id: "icoSphere", mesh: Mesh(icoSphere, device: device), modelMatrix: .init(translation: [0, 1, -4]),
                           material: .init(ambient: .color([0.3, 0.4, 0.3]), diffuse: .color([0.5, 0.7, 0.5]), specular: .color([1, 1, 1]), shininess: 100)),
-                    .init(id: "cubeSphere", mesh: Mesh(cubeSphere, device: device), modelMatrix: .init(translation: [2, 0, -4]),
+                    .init(id: "cubeSphere", mesh: Mesh(cubeSphere, device: device), modelMatrix: .init(translation: [2, 1, -4]),
                           material: .init(ambient: .color([0.3, 0.3, 0.4]), diffuse: .color([0.5, 0.5, 0.7]), specular: .color([1, 1, 1]), shininess: 100)),
                     // Platonic solids — middle-back row
-                    .init(id: "tetrahedron", mesh: Mesh(tetrahedron, device: device), modelMatrix: .init(translation: [-4, 0, -2]),
+                    .init(id: "tetrahedron", mesh: Mesh(tetrahedron, device: device), modelMatrix: .init(translation: [-4, 1, -2]),
                           material: .init(ambient: .color([0.5, 0.2, 0.2]), diffuse: .color([0.8, 0.2, 0.2]), specular: .color([1, 1, 1]), shininess: 64)),
-                    .init(id: "cube", mesh: Mesh(box, device: device), modelMatrix: .init(translation: [-2, 0, -2]),
+                    .init(id: "cube", mesh: Mesh(box, device: device), modelMatrix: .init(translation: [-2, 1, -2]),
                           material: .init(ambient: .color([0.2, 0.2, 0.5]), diffuse: .color([0.2, 0.2, 0.8]), specular: .color([1, 1, 1]), shininess: 32)),
-                    .init(id: "octahedron", mesh: Mesh(octahedron, device: device), modelMatrix: .init(translation: [0, 0, -2]),
+                    .init(id: "octahedron", mesh: Mesh(octahedron, device: device), modelMatrix: .init(translation: [0, 1, -2]),
                           material: .init(ambient: .color([0.2, 0.5, 0.2]), diffuse: .color([0.2, 0.8, 0.2]), specular: .color([1, 1, 1]), shininess: 128)),
-                    .init(id: "dodecahedron", mesh: Mesh(dodecahedron, device: device), modelMatrix: .init(translation: [2, 0, -2]),
+                    .init(id: "dodecahedron", mesh: Mesh(dodecahedron, device: device), modelMatrix: .init(translation: [2, 1, -2]),
                           material: .init(ambient: .color([0.5, 0.3, 0.5]), diffuse: .color([0.8, 0.4, 0.8]), specular: .color([1, 1, 1]), shininess: 96)),
-                    .init(id: "icosahedron", mesh: Mesh(icosahedron, device: device), modelMatrix: .init(translation: [4, 0, -2]),
+                    .init(id: "icosahedron", mesh: Mesh(icosahedron, device: device), modelMatrix: .init(translation: [4, 1, -2]),
                           material: .init(ambient: .color([0.3, 0.4, 0.5]), diffuse: .color([0.4, 0.6, 0.8]), specular: .color([1, 1, 1]), shininess: 80)),
                     // Curved shapes — middle row
-                    .init(id: "torus", mesh: Mesh(torus, device: device), modelMatrix: .init(translation: [-1, 0, 0]),
+                    .init(id: "torus", mesh: Mesh(torus, device: device), modelMatrix: .init(translation: [-1, 1, 0]),
                           material: .init(ambient: .color([0.3, 0.3, 0.4]), diffuse: .color([0.5, 0.5, 0.7]), specular: .color([1, 1, 1]), shininess: 100)),
-                    .init(id: "capsule", mesh: Mesh(capsule, device: device), modelMatrix: .init(translation: [1, 0, 0]),
+                    .init(id: "capsule", mesh: Mesh(capsule, device: device), modelMatrix: .init(translation: [1, 1, 0]),
                           material: .init(ambient: .color([0.4, 0.4, 0.3]), diffuse: .color([0.7, 0.7, 0.5]), specular: .color([1, 1, 1]), shininess: 100)),
-                    .init(id: "cone", mesh: Mesh(cone, device: device), modelMatrix: .init(translation: [-4, 0, 0]),
+                    .init(id: "cone", mesh: Mesh(cone, device: device), modelMatrix: .init(translation: [-4, 1, 0]),
                           material: .init(ambient: .color([0.3, 0.4, 0.3]), diffuse: .color([0.5, 0.7, 0.5]), specular: .color([1, 1, 1]), shininess: 100)),
-                    .init(id: "hemisphere", mesh: Mesh(hemisphere, device: device), modelMatrix: .init(translation: [4, 0, 0]),
+                    .init(id: "hemisphere", mesh: Mesh(hemisphere, device: device), modelMatrix: .init(translation: [4, 1, 0]),
                           material: .init(ambient: .color([0.4, 0.3, 0.4]), diffuse: .color([0.7, 0.5, 0.7]), specular: .color([1, 1, 1]), shininess: 100))
                 ]
                 // swiftlint:enable indentation_width

@@ -82,7 +82,8 @@ namespace GridShader {
         bool front_facing [[front_facing]]
     ) {
         // If backfaceColor alpha > 0 and this is a back face, return the backface color
-        if (!front_facing && backfaceColor.a > 0.0) {
+        // Note: front_facing is inverted because the grid quad is rotated 90° around X
+        if (front_facing && backfaceColor.a > 0.0) {
             return backfaceColor;
         }
         float2 scaledUV = in.uv / gridScale;

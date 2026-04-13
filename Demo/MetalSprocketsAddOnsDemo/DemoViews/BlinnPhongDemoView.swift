@@ -55,17 +55,6 @@ struct BlinnPhongDemoView: DemoView {
                 specular: .color([0.8, 0.8, 0.8]),
                 shininess: 64
             )
-        ),
-        .init(
-            id: "floor-1",
-            mesh: MTKMesh.plane(width: 10, height: 10),
-            modelMatrix: .init(xRotation: .degrees(270)),
-            material: BlinnPhongMaterial(
-                ambient: .color([0.1, 0.1, 0.1]),
-                diffuse: .color([0.4, 0.4, 0.4]),
-                specular: .color([0.3, 0.3, 0.3]),
-                shininess: 32
-            )
         )
     ]
 
@@ -92,7 +81,7 @@ struct BlinnPhongDemoView: DemoView {
                         .init(axis: .x, position: 0, width: 0.03, color: [1, 0.2, 0.2, 1]),
                         .init(axis: .y, position: 0, width: 0.03, color: [0.2, 0.4, 1, 1])
                     ],
-                    backfaceColor: [1, 0, 0, 1]
+                    backfaceColor: [1, 0, 1, 1]
                 )
 
                 if let lighting, let firstModel = models.first {

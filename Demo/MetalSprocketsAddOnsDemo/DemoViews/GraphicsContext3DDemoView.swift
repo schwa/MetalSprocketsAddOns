@@ -46,7 +46,7 @@ struct GraphicsContext3DDemoView: DemoView {
 
             let context = GraphicsContext3D { ctx in
                 // A star shape on the XZ ground plane
-                let starPath = Self.starPath(points: 5, outerRadius: 2.0, innerRadius: 0.8, y: 0)
+                let starPath = Self.starPath(points: 5, outerRadius: 2.0, innerRadius: 0.8, y: 0.1)
                 ctx.fill(starPath, with: .yellow.opacity(0.3))
                 ctx.stroke(starPath, with: .yellow, style: style)
 
@@ -87,13 +87,13 @@ struct GraphicsContext3DDemoView: DemoView {
                 Self.strokeCube(ctx: &ctx, center: [4, 1, 0], size: 2, color: .orange, style: style)
 
                 // Wireframe pyramid
-                Self.strokePyramid(ctx: &ctx, center: [-4, 0, 0], base: 2, height: 2.5, color: .purple, style: style)
+                Self.strokePyramid(ctx: &ctx, center: [-4, 0.1, 0], base: 2, height: 2.5, color: .purple, style: style)
 
                 // Hexagon on the ground
                 let hexagon = Path3D { p in
                     for i in 0..<6 {
                         let angle = Float(i) / 6.0 * 2 * .pi
-                        let pt = SIMD3<Float>(cos(angle) * 1.5 + 6, 0, sin(angle) * 1.5 - 3)
+                        let pt = SIMD3<Float>(cos(angle) * 1.5 + 6, 0.1, sin(angle) * 1.5 - 3)
                         if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
                     }
                     p.closeSubpath()
@@ -174,7 +174,7 @@ struct GraphicsContext3DDemoView: DemoView {
                         .init(axis: .x, position: 0, width: 0.03, color: [1, 0.2, 0.2, 0.5]),
                         .init(axis: .y, position: 0, width: 0.03, color: [0.2, 0.4, 1, 0.5])
                     ],
-                    backfaceColor: [1, 0, 0, 1]
+                    backfaceColor: [1, 0, 1, 1]
                 )
 
                 GraphicsContext3DRenderPipeline(

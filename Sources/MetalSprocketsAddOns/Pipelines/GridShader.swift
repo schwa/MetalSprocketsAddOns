@@ -99,6 +99,8 @@ public struct GridShader: Element {
                 let modelMatrix = float4x4(xRotation: .degrees(90))
                 let modelViewProjectionMatrix = projectionMatrix * cameraMatrix.inverse * modelMatrix
                 Draw { encoder in
+                    // Push grid slightly back in depth to avoid z-fighting with coplanar geometry
+                    encoder.setDepthBias(1, slopeScale: 1, clamp: 0)
                     let positions: [Packed3<Float>] = [
                         [-1, 1, 0], [-1, -1, 0], [1, 1, 0], [1, -1, 0]
                     ]
