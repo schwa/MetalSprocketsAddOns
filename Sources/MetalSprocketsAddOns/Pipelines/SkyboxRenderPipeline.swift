@@ -1,4 +1,3 @@
-import GeometryLite3D
 import Metal
 import MetalSprockets
 import simd
@@ -25,43 +24,24 @@ public struct SkyboxRenderPipeline: Element {
         fragmentShader = try shaderLibrary.fragment_main
     }
 
+    private var inverseViewProjectionMatrix: simd_float4x4 {
+        var viewMatrix = cameraMatrix.inverse
+        viewMatrix.columns.3 = [0, 0, 0, 1]
+        return (projectionMatrix * viewMatrix * float4x4(rotation)).inverse
+    }
+
     public var body: some Element {
         get throws {
+            let inverseVP = inverseViewProjectionMatrix
+
             try RenderPipeline(vertexShader: vertexShader, fragmentShader: fragmentShader) {
-                let positions: [Packed3<Float>] = [
-                    // Front face (z = -1)
-                    [1, -1, -1], [-1, -1, -1], [-1, 1, -1],
-                    [1, -1, -1], [-1, 1, -1], [1, 1, -1],
-                    // Back face (z = 1)
-                    [1, -1, 1], [-1, 1, 1], [-1, -1, 1],
-                    [1, -1, 1], [1, 1, 1], [-1, 1, 1],
-                    // Bottom face (y = -1)
-                    [1, -1, -1], [1, -1, 1], [-1, -1, 1],
-                    [1, -1, -1], [-1, -1, 1], [-1, -1, -1],
-                    // Top face (y = 1)
-                    [1, 1, -1], [-1, 1, -1], [-1, 1, 1],
-                    [1, 1, -1], [-1, 1, 1], [1, 1, 1],
-                    // Left face (x = -1)
-                    [-1, -1, -1], [-1, -1, 1], [-1, 1, 1],
-                    [-1, -1, -1], [-1, 1, 1], [-1, 1, -1],
-                    // Right face (x = 1)
-                    [1, -1, -1], [1, 1, -1], [1, 1, 1],
-                    [1, -1, -1], [1, 1, 1], [1, -1, 1]
-                ]
-                .map { $0 * 500 }
                 Draw { encoder in
-                    encoder.setVertexUnsafeBytes(of: positions, index: 0)
-                    encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: positions.count)
+                    encoder.setFragmentTexture(texture, index: 0)
+                    encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
                 }
-                .parameter("modelViewProjectionMatrix", functionType: .vertex, value: {
-                    // Strip translation from view matrix so camera movement doesn't affect skybox
-                    var viewMatrix = cameraMatrix.inverse
-                    viewMatrix.columns.3 = [0, 0, 0, 1]
-                    return projectionMatrix * viewMatrix * float4x4(rotation)
-                }())
-                .parameter("texture", texture: texture)
+                .parameter("inverseViewProjectionMatrix", functionType: .vertex, value: inverseVP)
+                .parameter("inverseViewProjectionMatrix", functionType: .fragment, value: inverseVP)
             }
-            .vertexDescriptor(try vertexShader.inferredVertexDescriptor())
         }
     }
 }
