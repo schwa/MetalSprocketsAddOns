@@ -77,8 +77,14 @@ namespace GridShader {
         constant float4 &gridColor [[buffer(3)]],
         constant float4 &backgroundColor [[buffer(4)]],
         constant GridHighlightedLines &highlightedLines [[buffer(5)]],
-        constant GridMajorDivision &majorDivision [[buffer(6)]]
+        constant GridMajorDivision &majorDivision [[buffer(6)]],
+        constant float4 &backfaceColor [[buffer(7)]],
+        bool front_facing [[front_facing]]
     ) {
+        // If backfaceColor alpha > 0 and this is a back face, return the backface color
+        if (!front_facing && backfaceColor.a > 0.0) {
+            return backfaceColor;
+        }
         float2 scaledUV = in.uv / gridScale;
 
         // Minor grid

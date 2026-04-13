@@ -57,7 +57,8 @@ struct GridDemoView: DemoView {
                         interval: majorInterval,
                         lineWidth: SIMD2<Float>(repeating: majorLineWidth),
                         color: SIMD4<Float>(majorBrightness, majorBrightness, majorBrightness, 1)
-                    ) : nil
+                    ) : nil,
+                    backfaceColor: [1, 0, 0, 1]
                 )
             }
         }

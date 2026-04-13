@@ -69,6 +69,7 @@ public struct GridShader: Element {
     var gridScale: SIMD2<Float>
     var highlightedLines: [HighlightedLine]
     var majorDivision: MajorDivision?
+    var backfaceColor: SIMD4<Float>
 
     public init(
         projectionMatrix: simd_float4x4,
@@ -78,7 +79,8 @@ public struct GridShader: Element {
         backgroundColor: SIMD4<Float> = SIMD4<Float>(0.1, 0.1, 0.1, 1),
         gridScale: SIMD2<Float> = SIMD2<Float>(1, 1),
         highlightedLines: [HighlightedLine] = [],
-        majorDivision: MajorDivision? = nil
+        majorDivision: MajorDivision? = nil,
+        backfaceColor: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 0)
     ) {
         self.projectionMatrix = projectionMatrix
         self.cameraMatrix = cameraMatrix
@@ -88,6 +90,7 @@ public struct GridShader: Element {
         self.gridScale = gridScale
         self.highlightedLines = highlightedLines
         self.majorDivision = majorDivision
+        self.backfaceColor = backfaceColor
     }
 
     public var body: some Element {
@@ -115,8 +118,10 @@ public struct GridShader: Element {
                 .parameter("lineWidth", value: lineWidth)
                 .parameter("highlightedLines", value: highlightedLinesBuffer)
                 .parameter("majorDivision", value: majorDivisionBuffer)
+                .parameter("backfaceColor", value: backfaceColor)
             }
             .vertexDescriptor(try vertexShader.inferredVertexDescriptor())
+            .depthCompare(function: .less, enabled: true)
         }
     }
 

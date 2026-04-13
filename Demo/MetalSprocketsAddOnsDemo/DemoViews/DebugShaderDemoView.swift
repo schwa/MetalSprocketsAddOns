@@ -48,7 +48,8 @@ struct DebugShaderDemoView: DemoView {
                     highlightedLines: [
                         .init(axis: .x, position: 0, width: 0.03, color: [1, 0.2, 0.2, 1]),
                         .init(axis: .y, position: 0, width: 0.03, color: [0.2, 0.4, 1, 1])
-                    ]
+                    ],
+                    backfaceColor: [1, 0, 0, 1]
                 )
 
                 try DebugRenderPipeline(
