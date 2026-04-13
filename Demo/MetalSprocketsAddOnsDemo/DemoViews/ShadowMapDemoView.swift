@@ -37,7 +37,7 @@ struct ShadowMapDemoView: DemoView {
 
     @State private var lighting: Lighting?
     @State private var shadowMap: ShadowMap?
-    @State private var lightPosition: SIMD3<Float> = [0, 5, 5]
+    @State private var lightPositions: [SIMD3<Float>] = [[0, 5, 5], [0, 5, -5]]
     @State private var renderOptions: ShadowMapDemoRenderPass.Options = .all
     @State private var showInspector = true
     @State private var depthBias: Float = 2.0
@@ -50,14 +50,22 @@ struct ShadowMapDemoView: DemoView {
     @State private var lightIntensity: Float = 200
     @State private var paused: Bool = false
 
-    // Orbiting light
-    @State private var lightAnimator = TransformerAnimator(
+    // Orbiting lights
+    @State private var lightAnimator0 = TransformerAnimator(
         transformer: OrbitTransformer(center: [0, 5, 0], radius: 7, angle: .zero, normal: [0, 1, 0]),
         parameter: \OrbitTransformer.angle,
         from: AngleF.degrees(0),
         to: AngleF.degrees(360),
         duration: 10,
         timingTransformer: LoopTransformer(duration: 10)
+    )
+    @State private var lightAnimator1 = TransformerAnimator(
+        transformer: OrbitTransformer(center: [0, 5, 0], radius: 7, angle: .zero, normal: [0, 1, 0]),
+        parameter: \OrbitTransformer.angle,
+        from: AngleF.degrees(180),
+        to: AngleF.degrees(540),
+        duration: 15,
+        timingTransformer: LoopTransformer(duration: 15)
     )
 
     private var cameraMatrix: simd_float4x4 {
@@ -115,18 +123,21 @@ struct ShadowMapDemoView: DemoView {
         TimelineView(.animation) { timeline in
             RenderView { _, drawableSize in
                 if let lighting, let shadowMap {
-                    // Update shadow map from current light position
+                    // Update shadow map from current light positions
                     let updatedShadowMap: ShadowMap = {
                         var sm = shadowMap
                         sm.depthBias = depthBias
                         sm.slopeScale = slopeScale
-                        sm.updateDirectionalLight(
-                            position: lightPosition,
-                            target: [0, 0, 0],
-                            orthoSize: 15,
-                            near: 0.1,
-                            far: 30
-                        )
+                        for i in 0..<lightPositions.count {
+                            sm.updateDirectionalLight(
+                                at: i,
+                                position: lightPositions[i],
+                                target: [0, 0, 0],
+                                orthoSize: 15,
+                                near: 0.1,
+                                far: 30
+                            )
+                        }
                         return sm
                     }()
 
@@ -138,7 +149,7 @@ struct ShadowMapDemoView: DemoView {
                         cameraMatrix: cameraMatrix,
                         drawableSize: drawableSize,
                         lighting: lighting,
-                        lightPosition: lightPosition,
+                        lightPositions: lightPositions,
                         shadowMap: updatedShadowMap,
                         teapots: teapots,
                         groundMesh: groundMesh,
@@ -155,9 +166,13 @@ struct ShadowMapDemoView: DemoView {
             .metalClearColor(MTLClearColor(red: 0.4, green: 0.4, blue: 0.4, alpha: 1))
             .onChange(of: timeline.date) {
                 if !paused {
-                    lightAnimator.update(at: timeline.date.timeIntervalSinceReferenceDate)
-                    lightPosition = lightAnimator.transformer.transform(.zero)
-                    lighting?.setLightPosition(lightPosition, at: 0)
+                    let t = timeline.date.timeIntervalSinceReferenceDate
+                    lightAnimator0.update(at: t)
+                    lightAnimator1.update(at: t)
+                    lightPositions[0] = lightAnimator0.transformer.transform(.zero)
+                    lightPositions[1] = lightAnimator1.transformer.transform(.zero)
+                    lighting?.setLightPosition(lightPositions[0], at: 0)
+                    lighting?.setLightPosition(lightPositions[1], at: 1)
                 }
             }
         }
@@ -168,10 +183,10 @@ struct ShadowMapDemoView: DemoView {
             lighting?.setLight(Light(type: .point, color: [1, 1, 1], intensity: lightIntensity), at: 0)
         }
         .onChange(of: shadowMapResolution) {
-            shadowMap = try? ShadowMap(resolution: shadowMapResolution, useInverseZ: useInverseZ)
+            shadowMap = try? ShadowMap(resolution: shadowMapResolution, lightCount: 2, useInverseZ: useInverseZ)
         }
         .onChange(of: useInverseZ) {
-            shadowMap = try? ShadowMap(resolution: shadowMapResolution, useInverseZ: useInverseZ)
+            shadowMap = try? ShadowMap(resolution: shadowMapResolution, lightCount: 2, useInverseZ: useInverseZ)
         }
         .interactiveCamera(rotation: $cameraRotation, distance: $cameraDistance, target: $cameraTarget)
         .frameTimingOverlay()
@@ -237,8 +252,17 @@ struct ShadowMapDemoView: DemoView {
                     Toggle("Debug", isOn: $shadowDebug)
 
                     if let shadowMap {
-                        DepthTextureView(depthTexture: shadowMap.depthTexture)
-                            .aspectRatio(1, contentMode: .fit)
+                        ForEach(0..<shadowMap.lightCount, id: \.self) { i in
+                            if let sliceView = shadowMap.depthTexture.makeTextureView(
+                                pixelFormat: .depth32Float,
+                                textureType: .type2D,
+                                levels: 0..<1,
+                                slices: i..<(i + 1)
+                            ) {
+                                DepthTextureView(depthTexture: sliceView)
+                                    .aspectRatio(1, contentMode: .fit)
+                            }
+                        }
                     }
                 }
             }
@@ -249,10 +273,11 @@ struct ShadowMapDemoView: DemoView {
                 lighting = try Lighting(
                     ambientLightColor: [ambientLight, ambientLight, ambientLight],
                     lights: [
-                        ([0, 5, 5], Light(type: .point, color: [1, 1, 1], intensity: lightIntensity))
+                        ([0, 5, 5], Light(type: .point, color: [1, 0.9, 0.8], intensity: lightIntensity)),
+                        ([0, 5, -5], Light(type: .point, color: [0.8, 0.9, 1], intensity: lightIntensity))
                     ]
                 )
-                shadowMap = try ShadowMap(resolution: shadowMapResolution, useInverseZ: useInverseZ)
+                shadowMap = try ShadowMap(resolution: shadowMapResolution, lightCount: 2, useInverseZ: useInverseZ)
             } catch {
                 fatalError("Failed to initialize ShadowMap demo: \(error)")
             }
@@ -276,7 +301,7 @@ struct ShadowMapDemoRenderPass: Element {
     var cameraMatrix: simd_float4x4
     var drawableSize: CGSize
     var lighting: Lighting
-    var lightPosition: SIMD3<Float>
+    var lightPositions: [SIMD3<Float>]
     var shadowMap: ShadowMap
     var teapots: [ShadowMapDemoView.Model]
     var groundMesh: MTKMesh
@@ -331,19 +356,21 @@ struct ShadowMapDemoRenderPass: Element {
                     )
                 }
 
-                // Light marker
+                // Light markers
                 if options.contains(.lightMarker) {
                     let lightMarker = GraphicsContext3D { ctx in
                         let s: Float = 0.3
-                        for axis in [SIMD3<Float>(1, 0, 0), SIMD3<Float>(0, 1, 0), SIMD3<Float>(0, 0, 1)] {
-                            ctx.stroke(
-                                Path3D { path in
-                                    path.move(to: lightPosition - axis * s)
-                                    path.addLine(to: lightPosition + axis * s)
-                                },
-                                with: .yellow,
-                                lineWidth: 2
-                            )
+                        for pos in lightPositions {
+                            for axis in [SIMD3<Float>(1, 0, 0), SIMD3<Float>(0, 1, 0), SIMD3<Float>(0, 0, 1)] {
+                                ctx.stroke(
+                                    Path3D { path in
+                                        path.move(to: pos - axis * s)
+                                        path.addLine(to: pos + axis * s)
+                                    },
+                                    with: .yellow,
+                                    lineWidth: 2
+                                )
+                            }
                         }
                     }
                     let viewport = SIMD2<Float>(Float(drawableSize.width), Float(drawableSize.height))

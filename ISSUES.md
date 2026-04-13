@@ -197,16 +197,20 @@ Scope: shadow map only for now. Main scene depth pass is controlled by MetalSpro
 ---
 
 ## 15: Support shadows with multiple lights and texture arrays
-status: new
+status: closed
 priority: medium
 kind: feature
 labels: shadows, lighting, rendering, texture-array
 created: 2026-04-13T20:03:45Z
+updated: 2026-04-13T22:50:23Z
+closed: 2026-04-13T22:50:23Z
 
 Add support for shadow rendering when using multiple light sources. Investigate and implement texture arrays to efficiently manage shadow maps for multiple lights (e.g., shadow map atlases or array textures). This may include:
 - Shadow casting/receiving for multiple simultaneous lights
 - Texture array implementation for shadow maps
 - Performance considerations for multi-light shadow rendering
+
+- `2026-04-13T22:50:23Z`: Duplicate of #17 which has more detailed implementation plan.
 
 ---
 
@@ -221,10 +225,12 @@ The shadow mask pass currently uses a fullscreen triangle with a raster pipeline
 ---
 
 ## 17: Shadow map: support multiple lights using depth2d_array
-status: new
+status: closed
 priority: medium
 kind: feature
 created: 2026-04-13T22:49:47Z
+updated: 2026-04-13T23:04:03Z
+closed: 2026-04-13T23:04:03Z
 
 Support shadow maps for multiple lights. Use a depth2d_array texture to store all shadow maps, pass light view-projection matrices as an array, and loop over all lights in the ShadowMaskPass shader to combine shadow factors.
 
@@ -234,6 +240,8 @@ Changes needed:
 - ShadowMaskPass shader: accept depth2d_array + array of light VP matrices, loop and multiply shadow factors
 - ShadowMapParameters: extend to hold multiple light matrices and light count
 - Demo: add a second light with its own shadow
+
+- `2026-04-13T23:04:03Z`: Implemented: depth2d_array with one slice per light, separate depth passes per light, ShadowMapParameters extended with per-light matrices, sampleShadow loops over all lights and multiplies shadow factors. Demo has two orbiting lights with warm/cool colors and independent shadow maps visible in inspector.
 
 ---
 

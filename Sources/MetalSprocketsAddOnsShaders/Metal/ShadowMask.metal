@@ -25,7 +25,7 @@ namespace ShadowMask {
     [[fragment]] float4 fragment_main(
         VertexOut in [[stage_in]],
         depth2d<float, access::sample> sceneDepth [[texture(0)]],
-        depth2d<float, access::sample> shadowMapTexture [[texture(1)]],
+        depth2d_array<float, access::sample> shadowMapTexture [[texture(1)]],
         sampler shadowMapSampler [[sampler(0)]],
         constant float4x4 &inverseViewProjection [[buffer(0)]],
         constant ShadowMapParameters &shadowMapParams [[buffer(1)]]
