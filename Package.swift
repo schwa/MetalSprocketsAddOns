@@ -14,7 +14,7 @@ let package = Package(
         .library(name: "MetalSprocketsAddOnsShaders", targets: ["MetalSprocketsAddOnsShaders"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/schwa/SwiftEarcut", branch: "main"),
+        .package(url: "https://github.com/schwa/SwiftEarcut", from: "0.0.1"),
         .package(url: "https://github.com/schwa/GeometryLite3D", from: "0.1.0"),
         .package(url: "https://github.com/schwa/MetalCompilerPlugin", from: "0.1.4"),
         .package(url: "https://github.com/schwa/MetalSprockets", from: "0.1.7"),

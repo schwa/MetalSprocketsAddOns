@@ -96,8 +96,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/SwiftEarcut",
       "state" : {
-        "branch" : "main",
-        "revision" : "ebb45ca2e575a2ba43b50e2b5c13f7bc3ffa289d"
+        "revision" : "ebb45ca2e575a2ba43b50e2b5c13f7bc3ffa289d",
+        "version" : "0.0.1"
       }
     },
     {
