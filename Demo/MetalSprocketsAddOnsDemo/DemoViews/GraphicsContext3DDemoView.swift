@@ -1,0 +1,155 @@
+import DemoKit
+import Interaction3D
+import MetalSprockets
+import MetalSprocketsAddOns
+import MetalSprocketsSupport
+import MetalSprocketsUI
+import simd
+import SwiftUI
+
+struct GraphicsContext3DDemoView: DemoView {
+    static let metadata = DemoMetadata(name: "Graphics Context 3D", systemImage: "scribble", description: "3D stroked and filled paths with pixel-perfect line widths", group: "Rendering")
+
+    @State private var cameraRotation: simd_quatf = simd_quatf(angle: -.pi / 6, axis: [1, 0, 0])
+    @State private var cameraDistance: Float = 8
+    @State private var cameraTarget: SIMD3<Float> = .zero
+    @State private var showInspector = false
+    @State private var lineWidth: Float = 3.0
+    @State private var showWireframe = false
+    @State private var capStyleIndex = 0
+    @State private var joinStyleIndex = 0
+
+    private var cameraMatrix: simd_float4x4 {
+        let rotation = float4x4(cameraRotation)
+        let translation = float4x4.translation(cameraTarget.x, cameraTarget.y, cameraTarget.z)
+        let distance = float4x4.translation(0, 0, cameraDistance)
+        return translation * rotation * distance
+    }
+
+    private var lineCap: CGLineCap {
+        [.butt, .round, .square][capStyleIndex]
+    }
+
+    private var lineJoin: CGLineJoin {
+        [.miter, .round, .bevel][joinStyleIndex]
+    }
+
+    var body: some View {
+        RenderView { _, drawableSize in
+            let aspect = drawableSize.height > 0 ? Float(drawableSize.width / drawableSize.height) : 1.0
+            let projectionMatrix = float4x4.perspective(fovY: .pi / 4, aspect: aspect, near: 0.1, far: 1000.0)
+            let viewProjection = projectionMatrix * cameraMatrix.inverse
+            let viewport = SIMD2<Float>(Float(drawableSize.width), Float(drawableSize.height))
+
+            let style = StrokeStyle(lineWidth: CGFloat(lineWidth), lineCap: lineCap, lineJoin: lineJoin)
+
+            let context = GraphicsContext3D { ctx in
+                // A star shape on the XZ ground plane
+                let starPath = Self.starPath(points: 5, outerRadius: 2.0, innerRadius: 0.8, y: 0)
+                ctx.fill(starPath, with: .yellow.opacity(0.3))
+                ctx.stroke(starPath, with: .yellow, style: style)
+
+                // A triangle floating above
+                let triPath = Path3D { p in
+                    p.move(to: [-1.5, 2, -1])
+                    p.addLine(to: [1.5, 2, -1])
+                    p.addLine(to: [0, 2, 1.5])
+                    p.closeSubpath()
+                }
+                ctx.fill(triPath, with: .cyan.opacity(0.3))
+                ctx.stroke(triPath, with: .cyan, style: style)
+
+                // An open zigzag path
+                let zigzag = Path3D { p in
+                    p.move(to: [-3, 1, 0])
+                    p.addLine(to: [-2, 3, 0.5])
+                    p.addLine(to: [-1, 1, -0.5])
+                    p.addLine(to: [0, 3, 0])
+                    p.addLine(to: [1, 1, 0.5])
+                    p.addLine(to: [2, 3, -0.5])
+                    p.addLine(to: [3, 1, 0])
+                }
+                ctx.stroke(zigzag, with: .red, style: style)
+
+                // A square on the XY plane
+                let square = Path3D { p in
+                    p.move(to: [-1, -1, -2])
+                    p.addLine(to: [1, -1, -2])
+                    p.addLine(to: [1, 1, -2])
+                    p.addLine(to: [-1, 1, -2])
+                    p.closeSubpath()
+                }
+                ctx.fill(square, with: .green.opacity(0.3))
+                ctx.stroke(square, with: .green, style: style)
+            }
+
+            try RenderPass {
+                GridShader(
+                    projectionMatrix: projectionMatrix,
+                    cameraMatrix: cameraMatrix,
+                    highlightedLines: [
+                        .init(axis: .x, position: 0, width: 0.03, color: [1, 0.2, 0.2, 0.5]),
+                        .init(axis: .y, position: 0, width: 0.03, color: [0.2, 0.4, 1, 0.5]),
+                    ]
+                )
+
+                GraphicsContext3DRenderPipeline(
+                    context: context,
+                    viewProjection: viewProjection,
+                    viewport: viewport,
+                    debugWireframe: showWireframe
+                )
+            }
+        }
+        .metalDepthStencilPixelFormat(.depth32Float)
+        .interactiveCamera(rotation: $cameraRotation, distance: $cameraDistance, target: $cameraTarget)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showInspector.toggle() } label: {
+                    Label("Inspector", systemImage: "sidebar.trailing")
+                }
+            }
+        }
+        .inspector(isPresented: $showInspector) {
+            Form {
+                Section("Stroke") {
+                    LabeledContent("Line Width") {
+                        Slider(value: $lineWidth, in: 0.5...20)
+                    }
+                    Picker("Cap", selection: $capStyleIndex) {
+                        Text("Butt").tag(0)
+                        Text("Round").tag(1)
+                        Text("Square").tag(2)
+                    }
+                    Picker("Join", selection: $joinStyleIndex) {
+                        Text("Miter").tag(0)
+                        Text("Round").tag(1)
+                        Text("Bevel").tag(2)
+                    }
+                }
+                Section("Debug") {
+                    Toggle("Wireframe", isOn: $showWireframe)
+                }
+            }
+            .inspectorColumnWidth(min: 250, ideal: 300, max: 400)
+        }
+    }
+
+    /// Creates a star path on the XZ plane at the given Y height.
+    static func starPath(points: Int, outerRadius: Float, innerRadius: Float, y: Float) -> Path3D {
+        Path3D { p in
+            let totalPoints = points * 2
+            for i in 0..<totalPoints {
+                let angle = Float(i) / Float(totalPoints) * 2 * .pi - .pi / 2
+                let radius = i % 2 == 0 ? outerRadius : innerRadius
+                let point = SIMD3<Float>(cos(angle) * radius, y, sin(angle) * radius)
+                if i == 0 {
+                    p.move(to: point)
+                } else {
+                    p.addLine(to: point)
+                }
+            }
+            p.closeSubpath()
+        }
+    }
+}

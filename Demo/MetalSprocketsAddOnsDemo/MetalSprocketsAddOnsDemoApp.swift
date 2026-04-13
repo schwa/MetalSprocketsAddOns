@@ -12,6 +12,7 @@ struct MetalSprocketsAddOnsDemoApp: App {
         var demos: [any DemoView.Type] = [
             RenderDemoView.self,
             GridDemoView.self,
+            GraphicsContext3DDemoView.self,
             SlugDebugDemoView.self,
             SlugTextPanelDemoView.self,
             SlugSpinningSphereDemoView.self,
