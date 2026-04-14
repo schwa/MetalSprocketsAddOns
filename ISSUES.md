@@ -27,10 +27,12 @@ Blocked on MetalSprockets#305.
 ---
 
 ## 3: Demo views render with wrong size/aspect ratio on initial load
-status: new
+status: closed
 priority: medium
 kind: bug
 created: 2026-04-13T05:04:24Z
+updated: 2026-04-14T02:52:38Z
+closed: 2026-04-14T02:52:38Z
 
 RenderView-based demos (Spinning Cube, GraphicsContext3D) render with incorrect aspect ratio or empty content on first load. Requires window resize or navigating away and back to fix. Likely caused by RenderView receiving a stale/zero drawable size before the NavigationSplitView detail column finishes layout. May be a DemoKit or MetalSprockets RenderView issue.
 
@@ -68,10 +70,12 @@ Add a text drawing API to GraphicsContext3D (e.g. ctx.text("label", at: position
 ---
 
 ## 7: GraphicsContext3D does not render until window is resized
-status: new
+status: closed
 priority: high
 kind: bug
 created: 2026-04-13T17:21:37Z
+updated: 2026-04-14T02:52:38Z
+closed: 2026-04-14T02:52:38Z
 
 GraphicsContext3D content is completely invisible on initial load. Requires a window resize to trigger rendering. Affects both the standalone GraphicsContext3D demo and the BlinnPhong demo light marker. Possibly related to #3 (wrong size/aspect on initial load) but this is a complete rendering failure, not just wrong aspect.
 
@@ -294,10 +298,12 @@ Changes needed:
 ---
 
 ## 18: Move demo code back into MetalSprocketsExamples
-status: new
+status: closed
 priority: medium
 kind: task
 created: 2026-04-14T01:56:33Z
+updated: 2026-04-14T02:52:39Z
+closed: 2026-04-14T02:52:39Z
 
 AddOns packages should NOT contain demo code. Move any demo code currently in MetalSprocketsAddOns back into MetalSprocketsExamples.
 
