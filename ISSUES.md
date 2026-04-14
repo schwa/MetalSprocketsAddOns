@@ -101,9 +101,6 @@ closed: 2026-04-13T23:03:52Z
 
 Add ray traced shadow support using Metal ray tracing APIs. Build MTLPrimitiveAccelerationStructure from meshes and MTLInstanceAccelerationStructure for the scene. Cast shadow rays in the fragment shader against the acceleration structure to determine visibility. Provides higher quality shadows than shadow maps (no aliasing, no acne, correct for all geometry). Requires new MetalSprockets Element wrappers for acceleration structure management and resource binding.
 
-- `2026-04-13T23:03:52Z`: Implemented ray traced shadows using Metal ray tracing APIs
-- `2026-04-13T23:11:15Z`: ## Design Overview
-
 ### Architecture
 
 The feature follows the same pattern as the existing shadow map implementation (depth pass → scene pass → shadow mask overlay), but replaces the shadow map with ray tracing for the visibility test.
@@ -146,6 +143,9 @@ The feature follows the same pattern as the existing shadow map implementation (
 - **Geometry**: Shadow maps work with any rasterizable geometry. Ray tracing needs acceleration structures built from triangle meshes.
 - **Soft shadows**: Shadow maps use PCF approximation. Ray traced would need multiple rays (not implemented yet — single ray = hard shadows).
 - **Dynamic geometry**: Shadow maps just re-render the depth pass. Ray tracing must rebuild/refit acceleration structures.
+
+- `2026-04-13T23:03:52Z`: Implemented ray traced shadows using Metal ray tracing APIs
+- `2026-04-13T23:11:15Z`: ## Design Overview
 
 ---
 
@@ -290,6 +290,16 @@ Changes needed:
 - Demo: add a second light with its own shadow
 
 - `2026-04-13T23:04:03Z`: Implemented: depth2d_array with one slice per light, separate depth passes per light, ShadowMapParameters extended with per-light matrices, sampleShadow loops over all lights and multiplies shadow factors. Demo has two orbiting lights with warm/cool colors and independent shadow maps visible in inspector.
+
+---
+
+## 18: Move demo code back into MetalSprocketsExamples
+status: new
+priority: medium
+kind: task
+created: 2026-04-14T01:56:33Z
+
+AddOns packages should NOT contain demo code. Move any demo code currently in MetalSprocketsAddOns back into MetalSprocketsExamples.
 
 ---
 
