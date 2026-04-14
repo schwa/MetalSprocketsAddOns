@@ -41,8 +41,10 @@ struct SlugSpinningSphereDemoView: DemoView {
 
     // swiftlint:disable:next function_body_length
     private func initializeChannels() {
-        guard channels.isEmpty else { return }
-        guard let device = MTLCreateSystemDefaultDevice() else { fatalError("No Metal device") }
+        guard channels.isEmpty
+        else { return }
+        guard let device = MTLCreateSystemDefaultDevice()
+        else { fatalError("No Metal device") }
         let builder = SlugTextMeshBuilder(device: device)
 
         let helloWorlds = [
@@ -90,15 +92,20 @@ struct SlugSpinningSphereDemoView: DemoView {
             channelConfigs.append((meshIndices, speed, tilt, ascendingNode, phase, 0))
         }
 
-        guard let scene = try? builder.finalize() else { return }
+        guard let scene = try? builder.finalize()
+        else { return }
         self.scene = scene
         let allMeshes = scene.meshes
 
         for config in channelConfigs {
             let meshes = config.meshIndices.map { allMeshes[$0] }
             channels.append(TextChannel(
-                meshes: meshes, rotationSpeed: config.speed, tilt: config.tilt,
-                ascendingNode: config.ascendingNode, phase: config.phase, latitude: config.latitude
+                meshes: meshes,
+                rotationSpeed: config.speed,
+                tilt: config.tilt,
+                ascendingNode: config.ascendingNode,
+                phase: config.phase,
+                latitude: config.latitude
             ))
         }
     }

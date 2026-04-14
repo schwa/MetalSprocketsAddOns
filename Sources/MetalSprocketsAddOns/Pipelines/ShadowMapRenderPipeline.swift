@@ -153,7 +153,10 @@ public struct ShadowMapDepthPass<Content>: Element where Content: Element {
 
     public init(shadowMap: ShadowMap, vertexDescriptor: MDLVertexDescriptor, @ElementBuilder content: () throws -> Content) throws {
         self.shadowMap = shadowMap
-        self.vertexDescriptor = MTKMetalVertexDescriptorFromModelIO(vertexDescriptor)!
+        guard let metalDescriptor = MTKMetalVertexDescriptorFromModelIO(vertexDescriptor) else {
+            fatalError("Failed to convert MDLVertexDescriptor to MTLVertexDescriptor")
+        }
+        self.vertexDescriptor = metalDescriptor
 
         self.content = try content()
 
@@ -178,7 +181,8 @@ public struct ShadowMapDepthPass<Content>: Element where Content: Element {
                             .parameter("lightViewProjectionMatrix", functionType: .vertex, value: lightVP)
                     }
                     .onWorkloadEnter { environmentValues in
-                        let encoder = environmentValues.renderCommandEncoder!
+                        guard let encoder = environmentValues.renderCommandEncoder
+                        else { return }
                         encoder.setDepthBias(depthBias, slopeScale: slopeScale, clamp: 0)
                     }
                     .vertexDescriptor(vertexDescriptor)

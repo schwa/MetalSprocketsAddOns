@@ -10,7 +10,7 @@ import SwiftUI
 struct GridDemoView: DemoView {
     static let metadata = DemoMetadata(name: "Infinite Grid", systemImage: "grid", description: "An infinite ground plane grid with interactive camera", group: "Rendering")
 
-    @State private var cameraRotation: simd_quatf = simd_quatf(angle: -.pi / 6, axis: [1, 0, 0])
+    @State private var cameraRotation = simd_quatf(angle: -.pi / 6, axis: [1, 0, 0])
     @State private var cameraDistance: Float = 10
     @State private var cameraTarget: SIMD3<Float> = .zero
     @State private var showInspector = true
@@ -40,7 +40,7 @@ struct GridDemoView: DemoView {
     var body: some View {
         RenderView { _, drawableSize in
             let aspect = drawableSize.height > 0 ? Float(drawableSize.width / drawableSize.height) : 1.0
-            let projectionMatrix = float4x4.perspective(fovY: .pi / 4, aspect: aspect, near: 0.1, far: 1000.0)
+            let projectionMatrix = float4x4.perspective(fovY: .pi / 4, aspect: aspect, near: 0.1, far: 1_000.0)
 
             try RenderPass(label: "Infinite Grid") {
                 GridShader(
@@ -51,7 +51,7 @@ struct GridDemoView: DemoView {
                     gridScale: SIMD2<Float>(repeating: gridScale),
                     highlightedLines: axisLinesEnabled ? [
                         .init(axis: .x, position: 0, width: axisLineWidth, color: [1, 0.2, 0.2, 1]),
-                        .init(axis: .y, position: 0, width: axisLineWidth, color: [0.2, 0.4, 1, 1]),
+                        .init(axis: .y, position: 0, width: axisLineWidth, color: [0.2, 0.4, 1, 1])
                     ] : [],
                     majorDivision: majorEnabled ? .init(
                         interval: majorInterval,

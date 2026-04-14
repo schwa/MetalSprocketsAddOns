@@ -118,15 +118,16 @@ extension float4x4 {
     }
 }
 
-
 extension DebugShadersMode: @retroactive CaseIterable {
     public static var allCases: [DebugShadersMode] {
-        [.normal, .texCoord, .tangent, .bitangent, .worldPosition, .localPosition,
-         .uvDistortion, .tbnMatrix, .vertexID, .faceNormal, .uvDerivatives,
-         .checkerboard, .uvGrid, .depth, .wireframeOverlay, .normalDeviation,
-         .amplificationID, .instanceID, .quadThread, .simdGroup, .barycentricCoord,
-         .frontFacing, .sampleID, .pointCoord, .distanceToLight, .distanceToOrigin,
-         .distanceToCamera]
+        [
+            .normal, .texCoord, .tangent, .bitangent, .worldPosition, .localPosition,
+            .uvDistortion, .tbnMatrix, .vertexID, .faceNormal, .uvDerivatives,
+            .checkerboard, .uvGrid, .depth, .wireframeOverlay, .normalDeviation,
+            .amplificationID, .instanceID, .quadThread, .simdGroup, .barycentricCoord,
+            .frontFacing, .sampleID, .pointCoord, .distanceToLight, .distanceToOrigin,
+            .distanceToCamera
+        ]
     }
 
     var description: String {

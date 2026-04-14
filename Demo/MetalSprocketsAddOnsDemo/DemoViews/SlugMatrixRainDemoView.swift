@@ -51,8 +51,10 @@ struct SlugMatrixRainDemoView: DemoView {
 
     // swiftlint:disable:next function_body_length
     private func initialize() {
-        guard scene == nil else { return }
-        guard let device = MTLCreateSystemDefaultDevice() else { fatalError("No Metal device") }
+        guard scene == nil
+        else { return }
+        guard let device = MTLCreateSystemDefaultDevice()
+        else { fatalError("No Metal device") }
         let builder = SlugTextMeshBuilder(device: device)
 
         let matrixChars: [Character] = Array("アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789@#$%&*+=<>")
@@ -155,9 +157,12 @@ private struct MatrixRainContent: View {
             let hh = Float(size.height) * 0.5
             let z = 1.0 / zoom
             let vpMatrix = float4x4.orthographic(
-                left: hw - hw * z, right: hw + hw * z,
-                bottom: hh - hh * z, top: hh + hh * z,
-                near: -1, far: 1
+                left: hw - hw * z,
+                right: hw + hw * z,
+                bottom: hh - hh * z,
+                top: hh + hh * z,
+                near: -1,
+                far: 1
             )
             let frameConstants = SlugFrameConstants(viewProjectionMatrix: vpMatrix, viewportSize: size)
             try RenderPass(label: "Slug Matrix Rain") {

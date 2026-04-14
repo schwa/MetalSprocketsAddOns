@@ -52,7 +52,7 @@ struct RayTracedShadowDemoView: DemoView {
     static let lightCount = 2
     static let lightColors: [SIMD3<Float>] = [
         [1, 0.9, 0.8],  // warm white
-        [0.8, 0.9, 1],  // cool white
+        [0.8, 0.9, 1]   // cool white
     ]
 
     private var cameraMatrix: simd_float4x4 {

@@ -63,7 +63,8 @@ public struct ShadowMaskPass: Element {
                 // Alpha blending: src * srcAlpha + dst * (1 - srcAlpha)
                 // Normal mode: src is black, so dst * (1 - alpha) = darkening
                 // Debug mode: src is magenta, blended over scene
-                let attachment = descriptor.colorAttachments[0]!
+                guard let attachment = descriptor.colorAttachments[0]
+                else { return }
                 attachment.isBlendingEnabled = true
                 attachment.rgbBlendOperation = .add
                 attachment.alphaBlendOperation = .add

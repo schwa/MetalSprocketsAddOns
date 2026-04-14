@@ -19,11 +19,20 @@ internal final class SlugFontAtlas {
 
         static let empty = Self(
             advanceWidth: 0,
-            xMin: 0, yMin: 0, xMax: 0, yMax: 0,
-            curveTexStart: 0, curveCount: 0,
-            bandTexX: 0, bandTexY: 0,
-            numHorizBands: 0, numVertBands: 0,
-            bandScaleX: 0, bandScaleY: 0, bandOffsetX: 0, bandOffsetY: 0
+            xMin: 0,
+            yMin: 0,
+            xMax: 0,
+            yMax: 0,
+            curveTexStart: 0,
+            curveCount: 0,
+            bandTexX: 0,
+            bandTexY: 0,
+            numHorizBands: 0,
+            numVertBands: 0,
+            bandScaleX: 0,
+            bandScaleY: 0,
+            bandOffsetX: 0,
+            bandOffsetY: 0
         )
     }
 
@@ -110,12 +119,20 @@ internal final class SlugFontAtlas {
             // Trivial glyph without a path (e.g., whitespace)
             glyphCache[glyph] = GlyphInfo(
                 advanceWidth: advanceEm,
-                xMin: 0, yMin: 0, xMax: advanceEm, yMax: 0,
-                curveTexStart: 0, curveCount: 0,
-                bandTexX: 0, bandTexY: 0,
-                numHorizBands: 0, numVertBands: 0,
-                bandScaleX: 0, bandScaleY: 0,
-                bandOffsetX: 0, bandOffsetY: 0
+                xMin: 0,
+                yMin: 0,
+                xMax: advanceEm,
+                yMax: 0,
+                curveTexStart: 0,
+                curveCount: 0,
+                bandTexX: 0,
+                bandTexY: 0,
+                numHorizBands: 0,
+                numVertBands: 0,
+                bandScaleX: 0,
+                bandScaleY: 0,
+                bandOffsetX: 0,
+                bandOffsetY: 0
             )
             return
         }
@@ -125,12 +142,20 @@ internal final class SlugFontAtlas {
         if curves.isEmpty {
             glyphCache[glyph] = GlyphInfo(
                 advanceWidth: advanceEm,
-                xMin: 0, yMin: 0, xMax: advanceEm, yMax: 0,
-                curveTexStart: 0, curveCount: 0,
-                bandTexX: 0, bandTexY: 0,
-                numHorizBands: 0, numVertBands: 0,
-                bandScaleX: 0, bandScaleY: 0,
-                bandOffsetX: 0, bandOffsetY: 0
+                xMin: 0,
+                yMin: 0,
+                xMax: advanceEm,
+                yMax: 0,
+                curveTexStart: 0,
+                curveCount: 0,
+                bandTexX: 0,
+                bandTexY: 0,
+                numHorizBands: 0,
+                numVertBands: 0,
+                bandScaleX: 0,
+                bandScaleY: 0,
+                bandOffsetX: 0,
+                bandOffsetY: 0
             )
             return
         }
@@ -268,12 +293,20 @@ internal final class SlugFontAtlas {
 
         glyphCache[glyph] = GlyphInfo(
             advanceWidth: advanceEm,
-            xMin: xMin, yMin: yMin, xMax: xMax, yMax: yMax,
-            curveTexStart: curveStart, curveCount: curves.count,
-            bandTexX: bandStartX, bandTexY: bandStartY,
-            numHorizBands: numH, numVertBands: numV,
-            bandScaleX: bSX, bandScaleY: bSY,
-            bandOffsetX: bOX, bandOffsetY: bOY
+            xMin: xMin,
+            yMin: yMin,
+            xMax: xMax,
+            yMax: yMax,
+            curveTexStart: curveStart,
+            curveCount: curves.count,
+            bandTexX: bandStartX,
+            bandTexY: bandStartY,
+            numHorizBands: numH,
+            numVertBands: numV,
+            bandScaleX: bSX,
+            bandScaleY: bSY,
+            bandOffsetX: bOX,
+            bandOffsetY: bOY
         )
     }
 

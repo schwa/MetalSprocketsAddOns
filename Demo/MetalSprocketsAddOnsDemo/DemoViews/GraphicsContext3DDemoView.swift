@@ -10,7 +10,7 @@ import SwiftUI
 struct GraphicsContext3DDemoView: DemoView {
     static let metadata = DemoMetadata(name: "Graphics Context 3D", systemImage: "scribble", description: "3D stroked and filled paths with pixel-perfect line widths", group: "Rendering")
 
-    @State private var cameraRotation: simd_quatf = simd_quatf(angle: -.pi / 6, axis: [1, 0, 0])
+    @State private var cameraRotation = simd_quatf(angle: -.pi / 6, axis: [1, 0, 0])
     @State private var cameraDistance: Float = 8
     @State private var cameraTarget: SIMD3<Float> = .zero
     @State private var showInspector = true
@@ -38,7 +38,7 @@ struct GraphicsContext3DDemoView: DemoView {
     var body: some View {
         RenderView { _, drawableSize in
             let aspect = drawableSize.height > 0 ? Float(drawableSize.width / drawableSize.height) : 1.0
-            let projectionMatrix = float4x4.perspective(fovY: .pi / 4, aspect: aspect, near: 0.1, far: 1000.0)
+            let projectionMatrix = float4x4.perspective(fovY: .pi / 4, aspect: aspect, near: 0.1, far: 1_000.0)
             let viewProjection = projectionMatrix * cameraMatrix.inverse
             let viewport = SIMD2<Float>(Float(drawableSize.width), Float(drawableSize.height))
 
@@ -237,13 +237,13 @@ struct GraphicsContext3DDemoView: DemoView {
         // 8 vertices
         let v: [SIMD3<Float>] = [
             c + [-h, -h, -h], c + [h, -h, -h], c + [h, h, -h], c + [-h, h, -h],  // back face
-            c + [-h, -h, h], c + [h, -h, h], c + [h, h, h], c + [-h, h, h],      // front face
+            c + [-h, -h, h], c + [h, -h, h], c + [h, h, h], c + [-h, h, h]       // front face
         ]
         // 6 faces as closed paths
         let faces: [[Int]] = [
             [0, 1, 2, 3], [4, 5, 6, 7],  // back, front
             [0, 1, 5, 4], [2, 3, 7, 6],  // bottom, top
-            [0, 3, 7, 4], [1, 2, 6, 5],  // left, right
+            [0, 3, 7, 4], [1, 2, 6, 5]   // left, right
         ]
         for face in faces {
             let path = Path3D { p in
@@ -260,7 +260,7 @@ struct GraphicsContext3DDemoView: DemoView {
         let apex = center + [0, height, 0]
         let v: [SIMD3<Float>] = [
             center + [-h, 0, -h], center + [h, 0, -h],
-            center + [h, 0, h], center + [-h, 0, h],
+            center + [h, 0, h], center + [-h, 0, h]
         ]
         // Base
         let basePath = Path3D { p in
@@ -282,8 +282,10 @@ struct GraphicsContext3DDemoView: DemoView {
     }
 
     private func initializeSlugText() {
-        guard slugScene == nil else { return }
-        guard let device = MTLCreateSystemDefaultDevice() else { return }
+        guard slugScene == nil
+        else { return }
+        guard let device = MTLCreateSystemDefaultDevice()
+        else { return }
         let builder = SlugTextMeshBuilder(device: device)
         let font = CTFontCreateWithName("HelveticaNeue-Bold" as CFString, 24, nil)
 
@@ -304,7 +306,7 @@ struct GraphicsContext3DDemoView: DemoView {
             .init(text: "Hexagon", position: [6, 0.5, -3], color: .purple),
             .init(text: "Arrow", position: [-5, 3, -3], color: Color(red: 0.2, green: 0.6, blue: 1.0)),
             .init(text: "L-Shape", position: [5.5, 3.5, -3], color: .orange),
-            .init(text: "Cross", position: [0, 3, -4], color: .red),
+            .init(text: "Cross", position: [0, 3, -4], color: .red)
         ]
 
         for label in labels {
@@ -313,7 +315,8 @@ struct GraphicsContext3DDemoView: DemoView {
             builder.buildMesh(attributedString: str, font: font, maximumSize: CGSize(width: 500, height: 100))
         }
 
-        guard let scene = try? builder.finalize() else { return }
+        guard let scene = try? builder.finalize()
+        else { return }
 
         let scale: Float = 0.01
         for (i, label) in labels.enumerated() {
@@ -333,7 +336,7 @@ struct GraphicsContext3DDemoView: DemoView {
             let totalPoints = points * 2
             for i in 0..<totalPoints {
                 let angle = Float(i) / Float(totalPoints) * 2 * .pi - .pi / 2
-                let radius = i % 2 == 0 ? outerRadius : innerRadius
+                let radius = i.isMultiple(of: 2) ? outerRadius : innerRadius
                 let point = SIMD3<Float>(cos(angle) * radius, y, sin(angle) * radius)
                 if i == 0 {
                     p.move(to: point)

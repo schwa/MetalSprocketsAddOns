@@ -18,7 +18,9 @@ final class ImmersiveMatrixRainStateHolder: @unchecked Sendable {
     func getOrCreate(device: MTLDevice) throws -> ImmersiveMatrixRainState {
         lock.lock()
         defer { lock.unlock() }
-        if let state { return state }
+        if let state {
+            return state
+        }
         let newState = try ImmersiveMatrixRainState(device: device)
         state = newState
         return newState
@@ -53,7 +55,7 @@ final class ImmersiveMatrixRainState: @unchecked Sendable {
             (1.5, 40, 2),
             (3.0, 60, 2),
             (5.0, 80, 2),
-            (8.0, 100, 1),
+            (8.0, 100, 1)
         ]
 
         var columns: [MatrixColumn] = []
@@ -77,8 +79,12 @@ final class ImmersiveMatrixRainState: @unchecked Sendable {
                     }
 
                     columns.append(MatrixColumn(
-                        angle: angle, radius: band.radius, speed: speed,
-                        length: length, phase: phase, modelIndexStart: modelIndexStart
+                        angle: angle,
+                        radius: band.radius,
+                        speed: speed,
+                        length: length,
+                        phase: phase,
+                        modelIndexStart: modelIndexStart
                     ))
                 }
             }

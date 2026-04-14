@@ -59,10 +59,14 @@ public extension MTLDevice {
                 for (slice, origin) in origins.enumerated() {
                     let origin = SIMD2<Int>(origin.x * cellWidth, origin.y * cellHeight)
                     encoder.copy(
-                        from: texture, sourceSlice: 0, sourceLevel: 0,
+                        from: texture,
+                        sourceSlice: 0,
+                        sourceLevel: 0,
                         sourceOrigin: .init(x: origin.x, y: origin.y, z: 0),
                         sourceSize: .init(width: size.x, height: size.y, depth: 1),
-                        to: cubeMap, destinationSlice: slice, destinationLevel: 0,
+                        to: cubeMap,
+                        destinationSlice: slice,
+                        destinationLevel: 0,
                         destinationOrigin: .init(x: 0, y: 0, z: 0)
                     )
                 }

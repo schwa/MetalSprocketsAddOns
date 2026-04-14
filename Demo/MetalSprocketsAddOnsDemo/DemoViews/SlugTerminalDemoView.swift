@@ -83,7 +83,7 @@ struct SlugTerminalDemoView: DemoView {
                 TimelineView(.periodic(from: .now, by: 1.0 / 120.0)) { timeline in
                     Color.clear
                         .onChange(of: timeline.date) {
-                            if needsRebuild && !isRebuilding {
+                            if needsRebuild, !isRebuilding {
                                 needsRebuild = false
                                 rebuildSceneAsync()
                             }
@@ -94,7 +94,8 @@ struct SlugTerminalDemoView: DemoView {
     }
 
     private func runCommand() {
-        guard !isRunning else { return }
+        guard !isRunning
+        else { return }
         isRunning = true
 
         Task.detached {
@@ -113,7 +114,8 @@ struct SlugTerminalDemoView: DemoView {
 
             handle.readabilityHandler = { fileHandle in
                 let data = fileHandle.availableData
-                guard !data.isEmpty else { return }
+                guard !data.isEmpty
+                else { return }
                 if let text = String(data: data, encoding: .utf8) {
                     Task { @MainActor in
                         terminalBuffer.append(text)
@@ -137,14 +139,21 @@ struct SlugTerminalDemoView: DemoView {
     }
 
     private func formattedBytes(_ bytes: Int) -> String {
-        if bytes < 1024 { return "\(bytes) B" }
-        if bytes < 1024 * 1024 { return String(format: "%.1f KB", Double(bytes) / 1024) }
-        return String(format: "%.1f MB", Double(bytes) / (1024 * 1024))
+        if bytes < 1_024 {
+            return "\(bytes) B"
+        }
+        if bytes < 1_024 * 1_024 {
+            return String(format: "%.1f KB", Double(bytes) / 1_024)
+        }
+        return String(format: "%.1f MB", Double(bytes) / (1_024 * 1_024))
     }
 
     private func getTerminalConfig() -> TerminalConfig {
-        if let config = terminalConfig { return config }
-        guard let device = MTLCreateSystemDefaultDevice() else { fatalError("No Metal device") }
+        if let config = terminalConfig {
+            return config
+        }
+        guard let device = MTLCreateSystemDefaultDevice()
+        else { fatalError("No Metal device") }
         let config = TerminalConfig(device: device, fontName: "Menlo", fontSize: 14)
         terminalConfig = config
         return config
@@ -152,7 +161,8 @@ struct SlugTerminalDemoView: DemoView {
 
     private func rebuildSceneAsync() {
         let grid = terminalBuffer.visibleGrid()
-        guard !grid.isEmpty else { return }
+        guard !grid.isEmpty
+        else { return }
         let config = getTerminalConfig()
         let cachedAtlas = fontAtlasCache
         let columns = terminalBuffer.maxColumns
@@ -182,13 +192,13 @@ struct SlugTerminalDemoView: DemoView {
                     let mesh = scene.meshes[0]
                     scene.modelMatrices[0] = float4x4.translation(-Float(mesh.bounds.midX), -Float(mesh.bounds.midY), 0)
                     self.scene = scene
-                    self.rebuildCount += 1
+                    rebuildCount += 1
                     if isFirstBuild {
                         camera.frameBounds(size: mesh.bounds.size, aspectRatio: 1.0)
                     }
                 }
-                self.fontAtlasCache = atlasCache
-                self.isRebuilding = false
+                fontAtlasCache = atlasCache
+                isRebuilding = false
             }
         }
     }
@@ -241,7 +251,7 @@ private struct TerminalBuffer {
                     else { inEscape = false }
                 } else {
                     escapeBuffer.append(Character(scalar))
-                    if scalar.value >= 0x40 && scalar.value <= 0x7E {
+                    if scalar.value >= 0x40, scalar.value <= 0x7E {
                         processEscape(escapeBuffer)
                         escapeBuffer = ""
                         inEscape = false
@@ -265,21 +275,26 @@ private struct TerminalBuffer {
     }
 
     private mutating func appendChar(_ cc: ColoredCharacter) {
-        guard (lines.last?.count ?? 0) < maxColumns else { return }
+        guard (lines.last?.count ?? 0) < maxColumns
+        else { return }
         lines[lines.count - 1].append(cc)
     }
 
     private mutating func newLine() {
         totalLinesReceived += 1
         lines.append([])
-        if lines.count > maxRows { lines.removeFirst(lines.count - maxRows) }
+        if lines.count > maxRows {
+            lines.removeFirst(lines.count - maxRows)
+        }
     }
 
     // swiftlint:disable:next cyclomatic_complexity
     private mutating func processEscape(_ seq: String) {
-        guard seq.first == "[" else { return }
+        guard seq.first == "["
+        else { return }
         let body = seq.dropFirst()
-        guard let finalChar = body.last, finalChar == "m" else { return }
+        guard let finalChar = body.last, finalChar == "m"
+        else { return }
         let paramString = String(body.dropLast())
         let params = paramString.isEmpty ? [0] : paramString.split(separator: ";").compactMap { Int($0) }
 
@@ -292,9 +307,9 @@ private struct TerminalBuffer {
             case 22: bold = false
             case 30...37: currentColor = bold ? ANSIColors.bright[code - 30] : ANSIColors.standard[code - 30]
             case 38:
-                if i + 1 < params.count && params[i + 1] == 5 && i + 2 < params.count {
+                if i + 1 < params.count, params[i + 1] == 5, i + 2 < params.count {
                     currentColor = ANSIColors.color256(params[i + 2]); i += 2
-                } else if i + 1 < params.count && params[i + 1] == 2 && i + 4 < params.count {
+                } else if i + 1 < params.count, params[i + 1] == 2, i + 4 < params.count {
                     currentColor = SIMD4(Float(params[i + 2]) / 255.0, Float(params[i + 3]) / 255.0, Float(params[i + 4]) / 255.0, 1.0); i += 4
                 }
             case 39: currentColor = SIMD4(1, 1, 1, 1)
@@ -321,22 +336,25 @@ private struct TerminalBuffer {
 private enum ANSIColors {
     static let standard: [SIMD4<Float>] = [
         SIMD4(0.0, 0.0, 0.0, 1.0), SIMD4(0.8, 0.0, 0.0, 1.0), SIMD4(0.0, 0.8, 0.0, 1.0), SIMD4(0.8, 0.8, 0.0, 1.0),
-        SIMD4(0.0, 0.0, 0.8, 1.0), SIMD4(0.8, 0.0, 0.8, 1.0), SIMD4(0.0, 0.8, 0.8, 1.0), SIMD4(0.75, 0.75, 0.75, 1.0),
+        SIMD4(0.0, 0.0, 0.8, 1.0), SIMD4(0.8, 0.0, 0.8, 1.0), SIMD4(0.0, 0.8, 0.8, 1.0), SIMD4(0.75, 0.75, 0.75, 1.0)
     ]
     static let bright: [SIMD4<Float>] = [
         SIMD4(0.5, 0.5, 0.5, 1.0), SIMD4(1.0, 0.0, 0.0, 1.0), SIMD4(0.0, 1.0, 0.0, 1.0), SIMD4(1.0, 1.0, 0.0, 1.0),
-        SIMD4(0.0, 0.0, 1.0, 1.0), SIMD4(1.0, 0.0, 1.0, 1.0), SIMD4(0.0, 1.0, 1.0, 1.0), SIMD4(1.0, 1.0, 1.0, 1.0),
+        SIMD4(0.0, 0.0, 1.0, 1.0), SIMD4(1.0, 0.0, 1.0, 1.0), SIMD4(0.0, 1.0, 1.0, 1.0), SIMD4(1.0, 1.0, 1.0, 1.0)
     ]
     static func color256(_ index: Int) -> SIMD4<Float> {
-        if index < 8 { return standard[index] }
-        else if index < 16 { return bright[index - 8] }
-        else if index < 232 {
+        if index < 8 {
+            return standard[index]
+        }
+        if index < 16 {
+            return bright[index - 8]
+        }
+        if index < 232 {
             let i = index - 16
             return SIMD4(Float((i / 36) % 6) / 5.0, Float((i / 6) % 6) / 5.0, Float(i % 6) / 5.0, 1.0)
-        } else {
-            let gray = Float(index - 232) / 23.0
-            return SIMD4(gray, gray, gray, 1.0)
         }
+        let gray = Float(index - 232) / 23.0
+        return SIMD4(gray, gray, gray, 1.0)
     }
 }
 

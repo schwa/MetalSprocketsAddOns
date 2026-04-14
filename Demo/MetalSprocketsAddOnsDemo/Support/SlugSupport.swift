@@ -25,9 +25,12 @@ extension float4x4 {
     }
 
     static func orthographic(
-        left: Float, right: Float,
-        bottom: Float, top: Float,
-        near: Float, far: Float
+        left: Float,
+        right: Float,
+        bottom: Float,
+        top: Float,
+        near: Float,
+        far: Float
     ) -> float4x4 {
         let sx = 2.0 / (right - left)
         let sy = 2.0 / (top - bottom)

@@ -14,7 +14,6 @@ import SwiftUI
 /// Combines four render pipelines (skybox, grid, GraphicsContext3D, Blinn-Phong)
 /// with animated lighting driven by Interaction3D's transformer system.
 struct BlinnPhongDemoView: DemoView {
-
     struct Model: Identifiable {
         var id: String
         var mesh: MTKMesh
@@ -193,11 +192,11 @@ struct BlinnPhongDemoView: DemoView {
 struct BlinnPhongDemoRenderPass: Element {
     struct Options: OptionSet {
         let rawValue: Int
-        static let skybox = Options(rawValue: 1 << 0)
-        static let grid = Options(rawValue: 1 << 1)
-        static let lightMarker = Options(rawValue: 1 << 2)
-        static let models = Options(rawValue: 1 << 3)
-        static let all: Options = [.skybox, .grid, .lightMarker, .models]
+        static let skybox = Self(rawValue: 1 << 0)
+        static let grid = Self(rawValue: 1 << 1)
+        static let lightMarker = Self(rawValue: 1 << 2)
+        static let models = Self(rawValue: 1 << 3)
+        static let all: Self = [.skybox, .grid, .lightMarker, .models]
     }
 
     var projectionMatrix: simd_float4x4
@@ -246,10 +245,14 @@ struct BlinnPhongDemoRenderPass: Element {
                         let s: Float = 0.2
                         for p in lightPositions {
                             for axis in [SIMD3<Float>(1, 0, 0), SIMD3<Float>(0, 1, 0), SIMD3<Float>(0, 0, 1)] {
-                                ctx.stroke(Path3D { path in
-                                    path.move(to: p - axis * s)
-                                    path.addLine(to: p + axis * s)
-                                }, with: .yellow, lineWidth: 2)
+                                ctx.stroke(
+                                    Path3D { path in
+                                        path.move(to: p - axis * s)
+                                        path.addLine(to: p + axis * s)
+                                    },
+                                    with: .yellow,
+                                    lineWidth: 2
+                                )
                             }
                         }
                     }
@@ -315,7 +318,6 @@ struct BlinnPhongDemoRenderPass: Element {
         }
     }
 }
-
 
 #Preview {
     BlinnPhongDemoView()

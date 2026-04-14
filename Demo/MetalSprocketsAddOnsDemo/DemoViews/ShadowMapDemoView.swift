@@ -219,7 +219,7 @@ struct ShadowMapDemoView: DemoView {
                         .foregroundStyle(.secondary)
                     HStack {
                         Text("Intensity")
-                        Slider(value: $lightIntensity, in: 1...1000)
+                        Slider(value: $lightIntensity, in: 1...1_000)
                     }
                     Text(String(format: "%.0f", lightIntensity))
                         .font(.caption.monospacedDigit())

@@ -13,7 +13,6 @@ struct RenderDemoView: DemoView {
     @State private var isPaused = false
     @State private var pausedTime: Float = 0
 
-
     // Query device for supported MSAA sample counts
     private var supportedSampleCounts: [Int] {
         let device = _MTLCreateSystemDefaultDevice()
@@ -75,7 +74,6 @@ struct RenderDemoView: DemoView {
                 }
             }
             ToolbarItem(placement: .primaryAction) {
-                // swiftlint:disable:next accessibility_label_for_image
                 ShareLink(item: Screenshot(), preview: SharePreview("Screenshot", image: Image(systemName: "photo")))
             }
         }
@@ -86,7 +84,6 @@ struct RenderDemoView: DemoView {
                 .foregroundStyle(.white)
                 .padding()
         }
-
     }
 }
 

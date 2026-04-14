@@ -21,7 +21,7 @@ struct MetalSprocketsAddOnsDemoApp: App {
             SlugDebugDemoView.self,
             SlugTextPanelDemoView.self,
             SlugSpinningSphereDemoView.self,
-            SlugMatrixRainDemoView.self,
+            SlugMatrixRainDemoView.self
         ]
         #if os(macOS)
         demos.append(SlugTerminalDemoView.self)

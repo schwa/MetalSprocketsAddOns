@@ -33,8 +33,10 @@ struct SlugDebugDemoView: DemoView {
     }
 
     private func initializeText() {
-        guard scene == nil else { return }
-        guard let device = MTLCreateSystemDefaultDevice() else { fatalError("No Metal device") }
+        guard scene == nil
+        else { return }
+        guard let device = MTLCreateSystemDefaultDevice()
+        else { fatalError("No Metal device") }
         let builder = SlugTextMeshBuilder(device: device)
 
         let font = CTFontCreateWithName("HelveticaNeue" as CFString, 48, nil)
@@ -47,7 +49,8 @@ struct SlugDebugDemoView: DemoView {
         world.foregroundColor = .blue
         builder.buildMesh(attributedString: world, font: font, maximumSize: CGSize(width: 1_000, height: 200))
 
-        guard let scene = try? builder.finalize() else { return }
+        guard let scene = try? builder.finalize()
+        else { return }
         self.scene = scene
 
         let mesh = scene.meshes[0]

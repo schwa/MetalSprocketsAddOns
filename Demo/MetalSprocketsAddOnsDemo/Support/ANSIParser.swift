@@ -12,7 +12,7 @@ enum ANSIParser {
         SIMD4(0.0, 0.0, 0.8, 1.0),       // 4: blue
         SIMD4(0.8, 0.0, 0.8, 1.0),       // 5: magenta
         SIMD4(0.0, 0.8, 0.8, 1.0),       // 6: cyan
-        SIMD4(0.75, 0.75, 0.75, 1.0),    // 7: white
+        SIMD4(0.75, 0.75, 0.75, 1.0)     // 7: white
     ]
 
     /// Bright ANSI colors.
@@ -24,7 +24,7 @@ enum ANSIParser {
         SIMD4(0.0, 0.0, 1.0, 1.0),       // 4: bright blue
         SIMD4(1.0, 0.0, 1.0, 1.0),       // 5: bright magenta
         SIMD4(0.0, 1.0, 1.0, 1.0),       // 6: bright cyan
-        SIMD4(1.0, 1.0, 1.0, 1.0),       // 7: bright white
+        SIMD4(1.0, 1.0, 1.0, 1.0)        // 7: bright white
     ]
 
     /// Parses ANSI-colored text into ColoredCharacters.
@@ -45,7 +45,7 @@ enum ANSIParser {
                 // Read parameters until we hit a letter
                 var paramString = ""
                 while let ch = iterator.next() {
-                    if ch.value >= 0x40 && ch.value <= 0x7E {
+                    if ch.value >= 0x40, ch.value <= 0x7E {
                         // Final byte
                         if ch == "m" {
                             // SGR sequence
@@ -65,11 +65,11 @@ enum ANSIParser {
                                     currentColor = bold ? brightColors[code - 30] : standardColors[code - 30]
                                 case 38:
                                     // Extended color
-                                    if i + 1 < params.count && params[i + 1] == 5 && i + 2 < params.count {
+                                    if i + 1 < params.count, params[i + 1] == 5, i + 2 < params.count {
                                         // 256-color: 38;5;n
                                         currentColor = color256(params[i + 2])
                                         i += 2
-                                    } else if i + 1 < params.count && params[i + 1] == 2 && i + 4 < params.count {
+                                    } else if i + 1 < params.count, params[i + 1] == 2, i + 4 < params.count {
                                         // 24-bit: 38;2;r;g;b
                                         currentColor = SIMD4(
                                             Float(params[i + 2]) / 255.0,
@@ -104,19 +104,20 @@ enum ANSIParser {
     private static func color256(_ index: Int) -> SIMD4<Float> {
         if index < 8 {
             return standardColors[index]
-        } else if index < 16 {
+        }
+        if index < 16 {
             return brightColors[index - 8]
-        } else if index < 232 {
+        }
+        if index < 232 {
             // 6x6x6 color cube
             let i = index - 16
             let r = Float((i / 36) % 6) / 5.0
             let g = Float((i / 6) % 6) / 5.0
             let b = Float(i % 6) / 5.0
             return SIMD4(r, g, b, 1.0)
-        } else {
-            // Grayscale ramp
-            let gray = Float(index - 232) / 23.0
-            return SIMD4(gray, gray, gray, 1.0)
         }
+        // Grayscale ramp
+        let gray = Float(index - 232) / 23.0
+        return SIMD4(gray, gray, gray, 1.0)
     }
 }
