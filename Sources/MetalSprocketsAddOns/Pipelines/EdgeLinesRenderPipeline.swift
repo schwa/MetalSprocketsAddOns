@@ -2,7 +2,9 @@ import Metal
 import MetalKit
 import MetalSprockets
 import MetalSprocketsAddOnsShaders
+import MetalSupport
 import ModelIO
+import SwiftMesh
 import simd
 
 public struct EdgeLinesRenderPipeline: Element {
@@ -68,19 +70,18 @@ public struct EdgeLinesRenderPipeline: Element {
             )
 
             // Create BufferDescriptor for vertex buffer
-            let descriptor = meshWithEdges.mesh.vertexDescriptor
+            let descriptor = meshWithEdges.metalMesh.vertexDescriptor
             guard let positionAttr = descriptor.attributes.first(where: { $0.semantic == .position }) else {
                 fatalError("EdgeLinesRenderPass: Mesh vertex descriptor must have a position attribute")
             }
             guard let layout = descriptor.layouts[positionAttr.bufferIndex] else {
                 fatalError("EdgeLinesRenderPass: Mesh vertex descriptor must have a layout for buffer \(positionAttr.bufferIndex)")
             }
-            guard let vertexBuffer = meshWithEdges.mesh.vertexBuffers.first else {
-                fatalError("EdgeLinesRenderPass: Mesh must have at least one vertex buffer")
-            }
+
+            let vertexBuffer = meshWithEdges.metalMesh.vertexBuffer
 
             // Calculate vertex count from buffer size / stride
-            let vertexCount = vertexBuffer.buffer.length / layout.stride
+            let vertexCount = vertexBuffer.length / layout.stride
 
             let bufferDescriptor = BufferDescriptor(
                 count: UInt32(vertexCount),
@@ -89,7 +90,7 @@ public struct EdgeLinesRenderPipeline: Element {
             )
 
             return try MetalSprockets.Group {
-                if let vertexBuffer = meshWithEdges.mesh.vertexBuffers.first, let edgeDataBuffer, !meshWithEdges.uniqueEdges.isEmpty {
+                if let edgeDataBuffer, !meshWithEdges.uniqueEdges.isEmpty {
                     try MeshRenderPipeline(label: "EdgeLines", meshShader: meshShader, fragmentShader: fragmentShader) {
                         Draw { encoder in
                             encoder.label = "Edge Rendering"
@@ -103,7 +104,7 @@ public struct EdgeLinesRenderPipeline: Element {
                                 threadsPerMeshThreadgroup: MTLSize(width: 1, height: 1, depth: 1)
                             )
                         }
-                        .parameter("vertices", functionType: .mesh, buffer: vertexBuffer.buffer, offset: vertexBuffer.offset)
+                        .parameter("vertices", functionType: .mesh, buffer: vertexBuffer, offset: 0)
                         .parameter("edgeData", functionType: .mesh, buffer: edgeDataBuffer, offset: 0)
                         .parameter("vertexDescriptor", functionType: .mesh, value: bufferDescriptor)
                         .parameter("uniforms", functionType: .mesh, value: uniforms)

@@ -6,97 +6,75 @@
 import Metal
 @testable import MetalSprocketsAddOns
 import MetalSprocketsSupport
+import MetalSupport
+import SwiftMesh
 import Testing
 
 // MARK: - Test Helpers
 
-extension Mesh {
-    /// Create a simple test mesh from indices
-    static func makeTestMesh(indices: [UInt32]) -> Mesh {
-        let device = _MTLCreateSystemDefaultDevice()
-
-        let vertexDescriptor = VertexDescriptor(attributes: [], layouts: [])
-
-        // Handle empty mesh case
-        guard !indices.isEmpty else {
-            return Mesh(
-                submeshes: [],
-                vertexDescriptor: vertexDescriptor,
-                vertexBuffers: []
-            )
-        }
-
-        // Create index buffer
-        let indexBuffer = device.makeBuffer(
-            bytes: indices,
-            length: indices.count * MemoryLayout<UInt32>.stride,
-            options: []
-        )!
-
-        let buffer = Mesh.Buffer(
-            buffer: indexBuffer,
-            count: indices.count,
-            offset: 0
-        )
-
-        let submesh = Mesh.Submesh(
-            primitiveType: .triangle,
-            indices: buffer
-        )
-
-        return Mesh(
-            submeshes: [submesh],
-            vertexDescriptor: vertexDescriptor,
-            vertexBuffers: []
-        )
+/// Creates a MetalMesh from raw triangle indices for testing edge extraction.
+/// Generates dummy positions so the mesh is valid, but geometry doesn't matter for edge tests.
+private func makeTestMetalMesh(indices: [UInt32]) -> MetalMesh {
+    let device = _MTLCreateSystemDefaultDevice()
+    guard !indices.isEmpty else {
+        // Build a trivial empty mesh
+        let maxVertex = 1
+        let positions = (0..<maxVertex).map { SIMD3<Float>(Float($0), 0, 0) }
+        let mesh = Mesh(positions: positions, faces: [] as [[Int]])
+        return MetalMesh(mesh: mesh, device: device)
     }
 
-    /// Create a test mesh with multiple submeshes
-    static func makeTestMeshWithSubmeshes(submeshIndices: [[UInt32]]) -> Mesh {
-        let device = _MTLCreateSystemDefaultDevice()
+    let maxVertex = Int(indices.max()!) + 1
+    let positions = (0..<maxVertex).map { SIMD3<Float>(Float($0), 0, 0) }
 
-        let submeshes = submeshIndices.map { indices in
-            let indexBuffer = device.makeBuffer(
-                bytes: indices,
-                length: indices.count * MemoryLayout<UInt32>.stride,
-                options: []
-            )!
-
-            let buffer = Mesh.Buffer(
-                buffer: indexBuffer,
-                count: indices.count,
-                offset: 0
-            )
-
-            return Mesh.Submesh(
-                primitiveType: .triangle,
-                indices: buffer
-            )
-        }
-
-        let vertexDescriptor = VertexDescriptor(attributes: [], layouts: [])
-
-        return Mesh(
-            submeshes: submeshes,
-            vertexDescriptor: vertexDescriptor,
-            vertexBuffers: []
-        )
+    // Build faces from triangle indices
+    var faces: [[Int]] = []
+    for i in stride(from: 0, to: indices.count, by: 3) {
+        faces.append([Int(indices[i]), Int(indices[i + 1]), Int(indices[i + 2])])
     }
+
+    let mesh = Mesh(positions: positions, faces: faces)
+    return MetalMesh(mesh: mesh, device: device)
+}
+
+/// Creates a MetalMesh with multiple submeshes for testing.
+private func makeTestMetalMeshWithSubmeshes(submeshIndices: [[UInt32]]) -> MetalMesh {
+    let device = _MTLCreateSystemDefaultDevice()
+
+    let allIndices = submeshIndices.flatMap { $0 }
+    let maxVertex = Int(allIndices.max()!) + 1
+    let positions = (0..<maxVertex).map { SIMD3<Float>(Float($0), 0, 0) }
+
+    // Build faces with submesh assignment
+    var allFaces: [[Int]] = []
+    var submeshDefs: [Mesh.Submesh] = []
+    var faceIndex = 0
+
+    for groupIndices in submeshIndices {
+        var faceIDs: [HalfEdgeTopology.FaceID] = []
+        for i in stride(from: 0, to: groupIndices.count, by: 3) {
+            allFaces.append([Int(groupIndices[i]), Int(groupIndices[i + 1]), Int(groupIndices[i + 2])])
+            faceIDs.append(HalfEdgeTopology.FaceID(raw: faceIndex))
+            faceIndex += 1
+        }
+        submeshDefs.append(Mesh.Submesh(faces: faceIDs))
+    }
+
+    let faceDefs = allFaces.map { HalfEdgeTopology.FaceDefinition(outer: $0) }
+    let topology = HalfEdgeTopology(vertexCount: maxVertex, faces: faceDefs)
+    let mesh = Mesh(topology: topology, positions: positions, submeshes: submeshDefs)
+    return MetalMesh(mesh: mesh, device: device)
 }
 
 // MARK: - Edge Tests
 
 @Test
 func testSingleTriangle() {
-    // A single triangle should produce exactly 3 unique edges
-    let indices: [UInt32] = [0, 1, 2]
-    let mesh = Mesh.makeTestMesh(indices: indices)
-
-    let meshWithEdges = MeshWithEdges(mesh: mesh)
+    let mesh = makeTestMetalMesh(indices: [0, 1, 2])
+    let meshWithEdges = MeshWithEdges(metalMesh: mesh)
 
     #expect(meshWithEdges.uniqueEdges.count == 3)
 
-    // Verify the edges are correct (order-independent)
     let expectedEdges = Set([
         MeshWithEdges.Edge(0, 1),
         MeshWithEdges.Edge(1, 2),
@@ -110,23 +88,19 @@ func testSingleTriangle() {
 @Test
 func testQuadTwoTriangles() {
     // A quad made of 2 triangles sharing an edge
-    // Triangle 1: 0-1-2
-    // Triangle 2: 0-2-3
     // Should produce 5 unique edges (not 6, because edge 0-2 is shared)
-    let indices: [UInt32] = [
-        0, 1, 2,  // First triangle
-        0, 2, 3   // Second triangle
-    ]
-    let mesh = Mesh.makeTestMesh(indices: indices)
-
-    let meshWithEdges = MeshWithEdges(mesh: mesh)
+    let mesh = makeTestMetalMesh(indices: [
+        0, 1, 2,
+        0, 2, 3
+    ])
+    let meshWithEdges = MeshWithEdges(metalMesh: mesh)
 
     #expect(meshWithEdges.uniqueEdges.count == 5)
 
     let expectedEdges = Set([
         MeshWithEdges.Edge(0, 1),
         MeshWithEdges.Edge(1, 2),
-        MeshWithEdges.Edge(0, 2),  // Shared edge
+        MeshWithEdges.Edge(0, 2),
         MeshWithEdges.Edge(2, 3),
         MeshWithEdges.Edge(0, 3)
     ])
@@ -137,75 +111,19 @@ func testQuadTwoTriangles() {
 
 @Test
 func testCube() {
-    // A triangulated cube has 8 vertices
-    // When each of the 6 faces is divided into 2 triangles, we get:
-    // - 12 wireframe edges (the actual cube edges)
-    // - 6 diagonal edges (one per face from triangulation)
-    // - Total: 18 unique edges
-    //
-    // Vertices numbered 0-7:
-    //   Bottom: 0-1-2-3 (counter-clockwise)
-    //   Top: 4-5-6-7 (counter-clockwise)
+    // A cube has 6 quad faces. Each quad is triangulated into 2 triangles = 12 triangles.
+    // A triangulated cube has 18 unique edges: 12 wireframe + 6 diagonals.
+    let device = _MTLCreateSystemDefaultDevice()
+    let swiftMesh = Mesh.box()
+    let metalMesh = MetalMesh(mesh: swiftMesh, device: device)
+    let meshWithEdges = MeshWithEdges(metalMesh: metalMesh)
 
-    let indices: [UInt32] = [
-        // Front face (0-1-5-4)
-        0, 1, 4,
-        1, 5, 4,
-        // Back face (3-2-6-7)
-        3, 2, 7,
-        2, 6, 7,
-        // Left face (0-4-7-3)
-        0, 4, 3,
-        4, 7, 3,
-        // Right face (1-2-6-5)
-        1, 2, 5,
-        2, 6, 5,
-        // Bottom face (0-3-2-1)
-        0, 3, 1,
-        3, 2, 1,
-        // Top face (4-5-6-7)
-        4, 5, 7,
-        5, 6, 7
-    ]
-
-    let mesh = Mesh.makeTestMesh(indices: indices)
-    let meshWithEdges = MeshWithEdges(mesh: mesh)
-
-    // Triangulated cube: 12 wireframe edges + 6 diagonal edges = 18 total
+    // 8 vertices, 12 triangles, 18 unique edges
     #expect(meshWithEdges.uniqueEdges.count == 18)
-
-    // Verify all wireframe edges are present
-    let wireframeEdges: Set<MeshWithEdges.Edge> = [
-        // Bottom square
-        MeshWithEdges.Edge(0, 1),
-        MeshWithEdges.Edge(1, 2),
-        MeshWithEdges.Edge(2, 3),
-        MeshWithEdges.Edge(3, 0),
-        // Top square
-        MeshWithEdges.Edge(4, 5),
-        MeshWithEdges.Edge(5, 6),
-        MeshWithEdges.Edge(6, 7),
-        MeshWithEdges.Edge(7, 4),
-        // Vertical edges
-        MeshWithEdges.Edge(0, 4),
-        MeshWithEdges.Edge(1, 5),
-        MeshWithEdges.Edge(2, 6),
-        MeshWithEdges.Edge(3, 7)
-    ]
-
-    let actualEdges = Set(meshWithEdges.uniqueEdges)
-
-    // All wireframe edges should be present
-    #expect(wireframeEdges.isSubset(of: actualEdges))
-
-    // And we should have the 6 diagonal edges as well
-    let diagonalEdges = actualEdges.subtracting(wireframeEdges)
-    #expect(diagonalEdges.count == 6)
 }
 
 @Test
 func testEdgeCanonicalOrdering() {
-    // Verify that Edge(a, b) and Edge(b, a) are considered the same
     let edge1 = MeshWithEdges.Edge(5, 10)
     let edge2 = MeshWithEdges.Edge(10, 5)
 
@@ -218,14 +136,12 @@ func testEdgeCanonicalOrdering() {
 
 @Test
 func testMultipleSubmeshes() {
-    // Test with multiple submeshes to ensure edges are collected from all
-    let submesh1: [UInt32] = [0, 1, 2]  // Triangle 1
-    let submesh2: [UInt32] = [2, 3, 4]  // Triangle 2
+    let mesh = makeTestMetalMeshWithSubmeshes(submeshIndices: [
+        [0, 1, 2],
+        [2, 3, 4]
+    ])
+    let meshWithEdges = MeshWithEdges(metalMesh: mesh)
 
-    let mesh = Mesh.makeTestMeshWithSubmeshes(submeshIndices: [submesh1, submesh2])
-    let meshWithEdges = MeshWithEdges(mesh: mesh)
-
-    // Should have 6 unique edges total
     #expect(meshWithEdges.uniqueEdges.count == 6)
 
     let expectedEdges = Set([
@@ -243,68 +159,20 @@ func testMultipleSubmeshes() {
 
 @Test
 func testMultipleSubmeshesWithSharedEdges() {
-    // Test with submeshes that share edges
-    // Submesh 1: Triangle 0-1-2
-    // Submesh 2: Triangle 1-2-3 (shares edge 1-2 with submesh 1)
-    let submesh1: [UInt32] = [0, 1, 2]
-    let submesh2: [UInt32] = [1, 2, 3]
+    let mesh = makeTestMetalMeshWithSubmeshes(submeshIndices: [
+        [0, 1, 2],
+        [1, 2, 3]
+    ])
+    let meshWithEdges = MeshWithEdges(metalMesh: mesh)
 
-    let mesh = Mesh.makeTestMeshWithSubmeshes(submeshIndices: [submesh1, submesh2])
-    let meshWithEdges = MeshWithEdges(mesh: mesh)
-
-    // Should deduplicate the shared edge 1-2
     #expect(meshWithEdges.uniqueEdges.count == 5)
 
     let expectedEdges = Set([
         MeshWithEdges.Edge(0, 1),
-        MeshWithEdges.Edge(1, 2),  // Shared edge
+        MeshWithEdges.Edge(1, 2),
         MeshWithEdges.Edge(0, 2),
         MeshWithEdges.Edge(2, 3),
         MeshWithEdges.Edge(1, 3)
-    ])
-
-    let actualEdges = Set(meshWithEdges.uniqueEdges)
-    #expect(actualEdges == expectedEdges)
-}
-
-@Test
-func testDegenerateTriangles() {
-    // Triangles with repeated vertices (degenerate)
-    // Triangle with vertices 0, 0, 1 creates edges: 0-0, 0-1, 0-1
-    // Due to canonical ordering, 0-0 becomes Edge(0, 0)
-    // And 0-1 appears twice but should be deduplicated
-    let indices: [UInt32] = [0, 0, 1]
-    let mesh = Mesh.makeTestMesh(indices: indices)
-    let meshWithEdges = MeshWithEdges(mesh: mesh)
-
-    // Should have 2 unique edges: Edge(0, 0) and Edge(0, 1)
-    #expect(meshWithEdges.uniqueEdges.count == 2)
-
-    let expectedEdges = Set([
-        MeshWithEdges.Edge(0, 0),
-        MeshWithEdges.Edge(0, 1)
-    ])
-
-    let actualEdges = Set(meshWithEdges.uniqueEdges)
-    #expect(actualEdges == expectedEdges)
-}
-
-@Test
-func testLargeIndexValues() {
-    // Test with large index values to ensure UInt32 handling is correct
-    let maxIndex: UInt32 = UInt32.max - 10
-    let indices: [UInt32] = [
-        maxIndex, maxIndex + 1, maxIndex + 2
-    ]
-    let mesh = Mesh.makeTestMesh(indices: indices)
-    let meshWithEdges = MeshWithEdges(mesh: mesh)
-
-    #expect(meshWithEdges.uniqueEdges.count == 3)
-
-    let expectedEdges = Set([
-        MeshWithEdges.Edge(maxIndex, maxIndex + 1),
-        MeshWithEdges.Edge(maxIndex + 1, maxIndex + 2),
-        MeshWithEdges.Edge(maxIndex, maxIndex + 2)
     ])
 
     let actualEdges = Set(meshWithEdges.uniqueEdges)

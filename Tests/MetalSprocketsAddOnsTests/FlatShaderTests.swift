@@ -15,6 +15,7 @@ import Metal
 import MetalSprockets
 @testable import MetalSprocketsAddOns
 import MetalSprocketsSupport
+import MetalSupport
 import simd
 import Testing
 

@@ -5,8 +5,8 @@ import PackageDescription
 let package = Package(
     name: "MetalSprocketsAddOns",
     platforms: [
-        .iOS(.v18),
-        .macOS(.v15),
+        .iOS(.v26),
+        .macOS(.v26),
         .visionOS(.v26)
     ],
     products: [
@@ -15,10 +15,11 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.0.0"),
-        .package(url: "https://github.com/schwa/SwiftEarcut", from: "0.0.1"),
         .package(url: "https://github.com/schwa/GeometryLite3D", from: "0.1.0"),
         .package(url: "https://github.com/schwa/MetalCompilerPlugin", from: "0.1.4"),
-        .package(url: "https://github.com/schwa/MetalSprockets", from: "0.1.7"),
+        .package(url: "https://github.com/schwa/MetalSupport", from: "1.0.1"),
+        .package(url: "https://github.com/schwa/MetalSprockets", branch: "main"),
+        .package(url: "https://github.com/schwa/SwiftMesh", branch: "main"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.3.0"),
     ],
     targets: [
@@ -29,9 +30,8 @@ let package = Package(
                 .product(name: "GeometryLite3D", package: "GeometryLite3D"),
                 .product(name: "MetalSprockets", package: "MetalSprockets"),
                 .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
-                .product(name: "SwiftEarcut", package: "SwiftEarcut"),
+                .product(name: "SwiftMesh", package: "SwiftMesh"),
                 "MetalSprocketsAddOnsShaders",
-                "MikkTSpace",
             ],
         ),
         .target(
@@ -49,14 +49,13 @@ let package = Package(
             dependencies: [
                 "MetalSprocketsAddOns",
                 "MetalSprocketsAddOnsShaders",
+                .product(name: "MetalSupport", package: "MetalSupport"),
+                .product(name: "SwiftMesh", package: "SwiftMesh"),
             ],
             resources: [
                 .copy("Golden Images")
             ],
         ),
-        .target(
-            name: "MikkTSpace",
-            publicHeadersPath: ".",
-        )
+
     ]
 )

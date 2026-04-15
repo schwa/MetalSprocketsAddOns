@@ -1,4 +1,5 @@
 import Foundation
+import SwiftMesh
 
 public struct MeshWithEdges {
     public struct Edge: Hashable {
@@ -17,36 +18,34 @@ public struct MeshWithEdges {
         }
     }
 
-    var mesh: Mesh
-    var uniqueEdges: [Edge]
+    public var metalMesh: MetalMesh
+    public var uniqueEdges: [Edge]
 }
 
 public extension MeshWithEdges {
-    /// Create a MeshWithEdges from a Mesh by extracting its unique edges
-    init(mesh: Mesh) {
-        self.mesh = mesh
+    /// Create a MeshWithEdges from a MetalMesh by extracting its unique edges
+    init(metalMesh: MetalMesh) {
+        self.metalMesh = metalMesh
 
         // Calculate total triangle count for capacity reservation
-        let totalTriangles = mesh.submeshes.reduce(0) { $0 + $1.indices.count / 3 }
+        let totalTriangles = metalMesh.submeshes.reduce(0) { $0 + $1.indexCount / 3 }
         let estimatedEdges = (totalTriangles * 3) / 2  // Rough estimate for closed meshes
 
         var edgeSet = Set<Edge>(minimumCapacity: estimatedEdges)
         var uniqueEdges: [Edge] = []
         uniqueEdges.reserveCapacity(estimatedEdges)
 
-        for submesh in mesh.submeshes {
-            let indexBuffer = submesh.indices.buffer
-            let offset = submesh.indices.offset
-            var ptr = indexBuffer.contents().advanced(by: offset).assumingMemoryBound(to: UInt32.self)
+        for submesh in metalMesh.submeshes {
+            let indexBuffer = submesh.indexBuffer
+            let ptr = indexBuffer.contents().assumingMemoryBound(to: UInt32.self)
 
-            let triangleCount = submesh.indices.count / 3
-            for _ in 0..<triangleCount {
-                let i0 = ptr[0]
-                let i1 = ptr[1]
-                let i2 = ptr[2]
-                ptr += 3
+            let triangleCount = submesh.indexCount / 3
+            for tri in 0..<triangleCount {
+                let base = tri * 3
+                let i0 = ptr[base]
+                let i1 = ptr[base + 1]
+                let i2 = ptr[base + 2]
 
-                // Process edges directly without temporary array
                 let edge0 = Edge(i0, i1)
                 if edgeSet.insert(edge0).inserted {
                     uniqueEdges.append(edge0)

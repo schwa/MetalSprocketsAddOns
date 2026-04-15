@@ -319,3 +319,17 @@ AccelerationStructureManager.build() only accepts [MTKMesh], but projects using 
 
 ---
 
+## 20: MeshWithEdges edge extraction produces wrong indices with MetalMesh
+status: closed
+priority: medium
+kind: bug
+created: 2026-04-15T01:36:37Z
+updated: 2026-04-15T01:37:23Z
+closed: 2026-04-15T01:37:23Z
+
+MetalMesh splits vertices per-corner (each half-edge corner becomes a unique vertex in the output buffer). MeshWithEdges.init(metalMesh:) reads the raw index buffer, so the extracted edges reference these per-corner indices instead of the original shared vertex indices. This means shared edges between triangles are never deduplicated — e.g. a cube produces 50 edges instead of 18. Either MeshWithEdges needs to work in terms of per-corner indices (and tests updated), or it needs a way to map back to original vertex positions to identify shared edges.
+
+- `2026-04-15T01:37:23Z`: Filed against SwiftMesh instead (#SwiftMesh#22)
+
+---
+
