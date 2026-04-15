@@ -1,6 +1,7 @@
 import Metal
 import MetalSprockets
 import MetalSprocketsSupport
+import MetalSupport
 
 public struct SimpleStitchedFunctionGraph {
     public var stitchedFunctions: [MTLFunction]

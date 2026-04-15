@@ -2,6 +2,7 @@ import Metal
 import MetalSprockets
 import MetalSprocketsAddOnsShaders
 import MetalSprocketsSupport
+import MetalSupport
 
 public extension Light {
     init(type: LightType, color: SIMD3<Float> = [1, 1, 1], intensity: Float = 1.0) {

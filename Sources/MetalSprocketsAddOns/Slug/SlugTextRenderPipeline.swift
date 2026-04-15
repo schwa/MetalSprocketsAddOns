@@ -2,6 +2,7 @@ import Metal
 import MetalSprockets
 import MetalSprocketsAddOnsShaders
 import MetalSprocketsSupport
+import MetalSupport
 import simd
 
 /// A MetalSprockets render pipeline for text rendering using the Slug algorithm.

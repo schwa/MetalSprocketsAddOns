@@ -2,6 +2,7 @@ import Metal
 import MetalSprockets
 import MetalSprocketsAddOnsShaders
 import MetalSprocketsSupport
+import MetalSupport
 
 public struct BlinnPhongShader<Content>: Element where Content: Element {
     var vertexShader: VertexShader

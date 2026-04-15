@@ -2,6 +2,7 @@ import Metal
 import MetalKit
 import MetalSprockets
 import MetalSprocketsSupport
+import MetalSupport
 
 public struct Quad: Equatable, Sendable {
     public var min: SIMD2<Float>

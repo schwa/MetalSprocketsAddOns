@@ -3,6 +3,7 @@ import MetalKit
 import MetalSprockets
 import MetalSprocketsAddOnsShaders
 import MetalSprocketsSupport
+import MetalSupport
 import ModelIO
 import simd
 

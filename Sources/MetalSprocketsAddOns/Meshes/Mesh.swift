@@ -1,6 +1,7 @@
 import GeometryLite3D
 import Metal
 import MetalSprocketsSupport
+import MetalSupport
 import simd
 
 public struct Mesh {
