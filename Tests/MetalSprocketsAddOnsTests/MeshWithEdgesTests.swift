@@ -41,7 +41,7 @@ private func makeTestMetalMesh(indices: [UInt32]) -> MetalMesh {
 private func makeTestMetalMeshWithSubmeshes(submeshIndices: [[UInt32]]) -> MetalMesh {
     let device = _MTLCreateSystemDefaultDevice()
 
-    let allIndices = submeshIndices.flatMap { $0 }
+    let allIndices = submeshIndices.flatMap(\.self)
     let maxVertex = Int(allIndices.max()!) + 1
     let positions = (0..<maxVertex).map { SIMD3<Float>(Float($0), 0, 0) }
 

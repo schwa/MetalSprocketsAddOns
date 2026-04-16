@@ -4,8 +4,8 @@ import MetalSprockets
 import MetalSprocketsAddOnsShaders
 import MetalSupport
 import ModelIO
-import SwiftMesh
 import simd
+import SwiftMesh
 
 public struct EdgeLinesRenderPipeline: Element {
     @MSState
