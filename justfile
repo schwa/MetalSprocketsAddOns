@@ -13,6 +13,10 @@ test *ARGS:
 test-flatshader:
     @just test --filter FlatShader
 
+# Run only GaussianBlur tests
+test-gaussianblur:
+    @just test --filter GaussianBlur
+
 # Run a specific test by name
 test-one TEST:
     @just test --filter {{TEST}}
