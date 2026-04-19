@@ -82,7 +82,7 @@ func testMakeTextureCubeFromCrossTexture_facesCopied() throws {
     #expect(cube.height == cellSize)
 
     // Read back the center pixel of each cube face slice and confirm the color matches.
-    for (slice, expected) in cellColors.map({ $0.1 }).enumerated() {
+    for (slice, expected) in cellColors.map(\.1).enumerated() {
         var readback = [UInt8](repeating: 0, count: cellSize * cellSize * 4)
         cube.getBytes(
             &readback,

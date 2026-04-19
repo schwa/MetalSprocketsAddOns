@@ -355,8 +355,8 @@ func testSlugFrameConstants_initFromCGSize() {
 @MainActor
 func testSlugFrameConstants_initFromSIMD() {
     let mvp = float4x4(diagonal: SIMD4<Float>(1, 1, 1, 1))
-    let constants = SlugFrameConstants(viewProjectionMatrix: mvp, viewportSize: SIMD2<Float>(1024, 768))
-    #expect(constants.viewportSize == SIMD2<Float>(1024, 768))
+    let constants = SlugFrameConstants(viewProjectionMatrix: mvp, viewportSize: SIMD2<Float>(1_024, 768))
+    #expect(constants.viewportSize == SIMD2<Float>(1_024, 768))
 }
 
 // MARK: - GlyphVertex descriptor

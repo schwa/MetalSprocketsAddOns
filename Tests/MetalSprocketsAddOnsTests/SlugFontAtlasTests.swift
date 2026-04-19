@@ -75,11 +75,20 @@ func testGlyphInfo_empty_isFlaggedEmpty() {
 func testGlyphInfo_nonEmpty_isFlaggedNonEmpty() {
     let info = SlugFontAtlas.GlyphInfo(
         advanceWidth: 0.5,
-        xMin: 0, yMin: 0, xMax: 1, yMax: 1,
-        curveTexStart: 0, curveCount: 4,
-        bandTexX: 0, bandTexY: 0,
-        numHorizBands: 8, numVertBands: 8,
-        bandScaleX: 1, bandScaleY: 1, bandOffsetX: 0, bandOffsetY: 0
+        xMin: 0,
+        yMin: 0,
+        xMax: 1,
+        yMax: 1,
+        curveTexStart: 0,
+        curveCount: 4,
+        bandTexX: 0,
+        bandTexY: 0,
+        numHorizBands: 8,
+        numVertBands: 8,
+        bandScaleX: 1,
+        bandScaleY: 1,
+        bandOffsetX: 0,
+        bandOffsetY: 0
     )
     #expect(!info.isEmpty)
 }

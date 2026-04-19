@@ -70,7 +70,7 @@ func makeSolidColorTexture(device: MTLDevice, size: Int = 4, color: SIMD4<UInt8>
     descriptor.storageMode = .shared
     let texture = try device.makeTexture(descriptor: descriptor)
         .orThrow(.resourceCreationFailure("Failed to create solid color texture"))
-    let pixels = [UInt8](repeating: 0, count: size * size * 4).enumerated().map { idx, _ in
+    let pixels = (0..<(size * size * 4)).map { idx in
         color[idx % 4]
     }
     let region = MTLRegionMake2D(0, 0, size, size)
