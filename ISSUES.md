@@ -727,7 +727,7 @@ regenerate every golden PNG once and commit the updated set.
 status: new
 priority: medium
 kind: bug
-labels: testing,ci
+labels: testing, ci
 created: 2026-04-19T20:49:27Z
 +++
 
@@ -787,5 +787,65 @@ Test is currently disabled on CI via:
      properly (e.g. via a runtime feature check rather than `CI` env var).
 2. Verify whether the mesh-shader and RT tests also fail on CI (run them
    individually now that the suite can complete).
+
+- `2026-04-19T21:55:57Z`: More CI paravirt GPU breakage observed (after disabling the originally
+crashing tests):
+
+## Texture sampling returns broken values on CI
+
+Five additional tests fail on GitHub Actions `macos-26` runners — but pass
+on a local VirtualBuddy paravirt VM. Pulled from CI artifact
+`golden-image-mismatches`:
+
+| Test | Local VM render | CI render |
+|---|---|---|
+| `testFlatShaderWithTexture` | blue/green checkerboard | solid white quad |
+| `testTextureBillboardPipeline_checkerboard` | dark/light checkerboard | solid white |
+| `testTextureBillboardPipeline_upperRightQuadrant` | checkerboard in UR quadrant | solid white in UR quadrant |
+| `testTexturedQuad3DPipeline_mandrillFlat` (YCbCr) | mandrill | solid green |
+| `testTexturedQuad3DPipeline_mandrillRotatedInPerspective` (YCbCr) | mandrill | solid green |
+
+Geometry renders correctly in every case — only the texture sample
+returns a constant value:
+- Plain `.rgba8Unorm` sampling → returns `(1, 1, 1, 1)` (white)
+- YCbCr two-plane sampling (`r8Unorm` + `rg8Unorm`) → returns `(0, 1, 0, 1)`
+  (green; consistent with Y=0, Cb=0, Cr=0 going through the YCbCr→RGB
+  matrix)
+
+So the GitHub Actions paravirt driver returns zeros (or default border
+color) for `texture.sample(...)` instead of the actual texel data. Local
+paravirt (Tahoe-based VirtualBuddy VM) samples textures correctly.
+
+## Mitigation
+
+All 5 tests now have:
+```swift
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil,
+                "Texture sampling broken on CI paravirt GPU — see issue #29"))
+```
+
+## Total tests now disabled on CI
+
+| File | Count | Reason |
+|---|---|---|
+| GraphicsContext3DTests | 6 | `setMeshBuffer:` selector crash |
+| EdgeLinesRenderPipelineTests | 3 | mesh shaders unsupported |
+| AccelerationStructureManagerTests | 5 | `device.supportsRaytracing == false` |
+| RayTracedShadowComputePassTests | 1 | same |
+| FlatShaderTests | 1 | texture sampling broken |
+| TextureBillboardPipelineTests | 2 | texture sampling broken |
+| TexturedQuad3DPipelineTests | 2 | YCbCr texture sampling broken |
+| **Total** | **20** | of 129 |
+
+So CI now exercises 109 of the 129 tests. All the disabled tests still
+run locally (and on a VirtualBuddy paravirt VM).
+
+## Related to original report
+
+The `setMeshBuffer:` crash was the surface symptom; texture-sampling
+failure is a separate but related GPU driver gap on the GitHub Actions
+runner image. Worth keeping eye on whether GitHub upgrades the runner
+host's macOS / paravirt driver in future image rolls — these tests can be
+re-enabled if/when that happens.
 
 ---
