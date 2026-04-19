@@ -3,6 +3,7 @@
 // and GraphicsContext3DRenderPipeline together.
 
 import CoreGraphics
+import Foundation
 import GeometryLite3D
 import Metal
 import MetalSprockets
@@ -264,7 +265,11 @@ func testGraphicsContext3D_strokedEllipse() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GraphicsContext3DStrokedEllipse"))
 }
 
-@Test
+// FIXME: This test crashes on GitHub Actions macOS runners (paravirt GPU) with
+// `-[AppleParavirtRenderCommandEncoder setMeshBuffer:offset:atIndex:]:
+// unrecognized selector`. The crash aborts the entire test process. Disabled on
+// CI until investigated. See issue #29.
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Crashes on CI paravirt GPU — see issue #29"))
 @MainActor
 func testGraphicsContext3D_filledQuad() throws {
     let projection = perspectiveProjection()
