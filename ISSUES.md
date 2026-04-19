@@ -399,7 +399,7 @@ MetalMesh splits vertices per-corner (each half-edge corner becomes a unique ver
 status: new
 priority: medium
 kind: bug
-labels: testing,shader
+labels: testing, shader
 created: 2026-04-19T19:53:17Z
 +++
 
@@ -434,5 +434,129 @@ Re-enabling will recover ~3% of total line coverage.
 3. Or add a test fixture that vendors a small teapot (`MTKMesh.teapot()` from MetalSprocketsExamples support) so we render against a known-good mesh layout.
 
 Once fixed, remove the `.disabled(...)` arguments from the five tests, refresh their golden PNGs, and verify the rendered output is non-black.
+
+---
+
+## 22: ShadowMapDepthPass renders fail under OffscreenRenderer (nested RenderPass + command encoder collision)
+
++++
+status: new
+priority: low
+kind: bug
+labels: testing, shader
+created: 2026-04-19T20:04:33Z
++++
+
+An end-to-end test for `ShadowMapDepthPass` + `ShadowMaskPass` triggers a Metal
+assertion when run via `OffscreenRenderer`:
+
+```
+-[AGXG17XFamilyCommandBuffer renderCommandEncoderWithDescriptor:]:967:
+  failed assertion 'A command encoder is already encoding to this command buffer'
+```
+
+`ShadowMapDepthPass` internally nests `try RenderPass { ... }` per shadow-casting
+light (one render pass per array slice of the depth texture). When this is run
+through `OffscreenRenderer`, the outer renderer has already created a command
+buffer + open render command encoder, and the nested per-light render passes try
+to open a second encoder on the same command buffer.
+
+## Coverage impact
+
+`ShadowMapRenderPipeline.swift` has its `ShadowMap` struct + matrix helpers covered
+(44.7%) by direct unit tests, but the `ShadowMapDepthPass` `body` implementation
+and the entire `ShadowMaskPass` (78 lines) are uncovered until this is resolved.
+
+## Likely fixes
+
+1. `OffscreenRenderer` should support hosting elements that emit their own render
+   passes (commit/end the outer encoder when entering a child pass).
+2. Or expose a lower-level `OffscreenContext` that a test can use to drive nested
+   render passes manually.
+3. Or refactor `ShadowMapDepthPass` to render all light slices via a single
+   render-target-array render pass rather than N nested passes.
+
+When fixed, restore the `testShadowPipelines_depthPassThenMaskPass_renders` test
+(see git history of `Tests/MetalSprocketsAddOnsTests/ShadowMapTests.swift`).
+
+---
+
+## 23: Remove dead code in ColorSource (private color accessor + unused Element.useResource modifier)
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: cleanup
+created: 2026-04-19T20:18:18Z
++++
+
+Two methods in `Sources/MetalSprocketsAddOns/Support/ColorSource.swift` are never
+called anywhere in the codebase and remain at 0% coverage despite a comprehensive
+unit-test suite for `ColorSource`:
+
+1. `private var color: SIMD3<Float>?` (lines 48-53) — a private case-extracting
+   accessor that is never read (the `.color` case is destructured in `toArgumentBuffer`
+   directly).
+
+2. `public extension Element { func useResource(_ color: ColorSource, ...) }`
+   (lines 82-91) — a public modifier helper that no caller uses. The implementation
+   only forwards `texture2D`; the `textureCube` and `depth2D` calls are commented
+   out (see TODO `uv-eg-3` referencing iOS/macOS hangs with argument buffers).
+
+## Suggested action
+
+- Delete the private `color` accessor outright (no behavior change).
+- For the `Element.useResource(_ color:)` extension: either remove it (since no one
+  uses it) or wire it into the pipelines that bind `ColorSource` argument buffers
+  (`FlatShader`, `TextureBillboardPipeline`, `TexturedQuad3D`) which currently
+  call `useResource` on the underlying `MTLTexture` directly.
+
+Once removed/wired, `ColorSource.swift` should reach ~100% coverage from the
+existing tests in `Tests/MetalSprocketsAddOnsTests/ColorSourceTests.swift`.
+
+---
+
+## 24: Element.lighting(_:) modifier has no coverage outside disabled BlinnPhong tests
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: cleanup
+depends: MetalSprocketsAddOns#21
+created: 2026-04-19T20:18:23Z
++++
+
+The `Element.lighting(_:)` modifier in
+`Sources/MetalSprocketsAddOns/Pipelines/Lighting.swift` (lines 60-66) is only
+called by `BlinnPhongShader` test paths and the disabled BlinnPhong tests
+(see issue #21). It currently sits at 0% coverage.
+
+```swift
+public extension Element {
+    func lighting(_ lighting: Lighting) throws -> some Element {
+        self
+            .parameter("lighting", value: try lighting.toArgumentBuffer())
+            .useResource(lighting.lights, usage: .read, stages: .fragment)
+            .useResource(lighting.lightPositions, usage: .read, stages: .fragment)
+    }
+}
+```
+
+The other Lighting consumer in the addon — `RayTracedShadowComputePass` — does
+not use this modifier; it calls `lighting.toArgumentBuffer()` directly and
+binds the buffers via `setBytes` / `useResource` on the compute encoder.
+
+## Suggested action
+
+When BlinnPhong tests are re-enabled (issue #21), this modifier will get
+coverage. Until then, consider:
+
+- Leave as-is (it's a public API consumers might use).
+- Or move into `BlinnPhongShader+Support.swift` since BlinnPhong is the only
+  caller.
+- Or remove if BlinnPhong is refactored to call `toArgumentBuffer()` /
+  `useResource` directly like the RT path does.
 
 ---
