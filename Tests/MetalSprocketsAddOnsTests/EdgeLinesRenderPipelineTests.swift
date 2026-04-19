@@ -75,6 +75,33 @@ func testEdgeLinesRenderPipeline_cube() throws {
 
 @Test
 @MainActor
+func testEdgeLinesRenderPipeline_debugMode_renderTriangleLines() throws {
+    // debugMode = true causes the pipeline to set triangle fill mode to .lines,
+    // exercising an otherwise uncovered code path.
+    let meshWithEdges = makeCubeMeshWithEdges()
+    let projection = perspectiveProjection()
+    let camera = float4x4(simd_quatf(angle: -.pi / 6, axis: SIMD3<Float>(1, 1, 0))) * float4x4(translation: SIMD3<Float>(0, 0, 3))
+    let viewProjection = projection * camera.inverse
+    let viewport = SIMD2<Float>(Float(defaultRenderSize.width), Float(defaultRenderSize.height))
+
+    let renderPass = try RenderPass {
+        EdgeLinesRenderPipeline(
+            meshWithEdges: meshWithEdges,
+            viewProjection: viewProjection,
+            lineWidth: 2.0,
+            viewport: viewport,
+            edgeColor: [1, 0, 1, 1],
+            debugMode: true
+        )
+    }
+
+    let renderer = try OffscreenRenderer(size: defaultRenderSize)
+    let rendering = try renderer.render(renderPass)
+    #expect(try rendering.cgImage.isEqualToGoldenImage(named: "EdgeLinesCubeDebug"))
+}
+
+@Test
+@MainActor
 func testEdgeLinesRenderPipeline_cubeColorizedByTriangle() throws {
     let meshWithEdges = makeCubeMeshWithEdges()
 
