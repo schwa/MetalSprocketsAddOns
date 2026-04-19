@@ -298,6 +298,39 @@ func testSlugTextMeshBuilder_prepopulateGlyphs_nsAttributedString() throws {
 
 @Test
 @MainActor
+func testSlugTextMeshBuilder_multiLineText_producesNonZeroBounds() throws {
+    let device = _MTLCreateSystemDefaultDevice()
+    let builder = SlugTextMeshBuilder(device: device)
+
+    // Force multi-line layout via newline + a tight max width.
+    let attr = makeAttributed("Line one\nLine two\nLine three")
+    _ = builder.buildMesh(attributedString: attr)
+    let scene = try builder.finalize()
+    #expect(scene.meshCount == 1)
+    let mesh = scene.meshes[0]
+    #expect(mesh.indexCount > 0)
+    // Multiple lines means the mesh is taller than a single-line render.
+    #expect(mesh.bounds.height > 24)  // > one line at 24pt
+}
+
+@Test
+@MainActor
+func testSlugTextMeshBuilder_constrainedMaxWidth_wrapsLines() throws {
+    let device = _MTLCreateSystemDefaultDevice()
+    let builder = SlugTextMeshBuilder(device: device)
+
+    // Long string with a narrow maximum size forces CoreText to wrap.
+    let attr = makeAttributed("The quick brown fox jumps over the lazy dog")
+    _ = builder.buildMesh(
+        attributedString: attr,
+        maximumSize: CGSize(width: 80, height: CGFloat.greatestFiniteMagnitude)
+    )
+    let scene = try builder.finalize()
+    #expect(scene.meshes[0].indexCount > 0)
+}
+
+@Test
+@MainActor
 func testSlugTextMeshBuilder_buildFromStringAndFontName() throws {
     let device = _MTLCreateSystemDefaultDevice()
     let builder = SlugTextMeshBuilder(device: device)

@@ -173,6 +173,46 @@ func testSlugFontAtlas_whitespaceGlyph_hasZeroCurves() {
 
 @Test
 @MainActor
+func testSlugFontAtlas_complexGlyphSet_populatesCurvesAndBands() {
+    // Mix of letters with curves, straight lines, and closed paths to exercise
+    // multiple branches of extractQuadBeziers (move, line, quad, close, bounds).
+    let device = _MTLCreateSystemDefaultDevice()
+    let atlas = SlugFontAtlas(fontName: "Helvetica", device: device)
+    let font = CTFontCreateWithName("Helvetica" as CFString, 1.0, nil)
+    let glyphs = glyphsFor("OQRgB&@", font: font)
+    atlas.insertGlyphs(glyphs)
+
+    // All glyphs should be cached and non-empty.
+    for g in glyphs {
+        let info = atlas.glyphInfo(for: g)
+        #expect(!info.isEmpty)
+        #expect(info.curveCount > 0)
+        #expect(info.numHorizBands == 8)
+        #expect(info.numVertBands == 8)
+    }
+}
+
+// Some PostScript / CFF fonts (e.g. Times) use cubic Bezier segments which the
+// atlas converts to two quadratics via `cubicToQuadratic`. This test ensures
+// that conversion path executes successfully.
+@Test
+@MainActor
+func testSlugFontAtlas_postscriptFont_handlesCubicSegments() {
+    let device = _MTLCreateSystemDefaultDevice()
+    let atlas = SlugFontAtlas(fontName: "Times-Roman", device: device)
+    let font = CTFontCreateWithName("Times-Roman" as CFString, 1.0, nil)
+    // Times-Roman is a CFF/PostScript font on macOS; "O" has cubic outlines.
+    let glyphs = glyphsFor("O", font: font)
+    atlas.insertGlyphs(glyphs)
+
+    let info = atlas.glyphInfo(for: glyphs[0])
+    // Don't assert on exact curve count — just that the path was processed.
+    #expect(!info.isEmpty)
+    #expect(info.curveCount > 0)
+}
+
+@Test
+@MainActor
 func testSlugFontAtlas_multipleGlyphs_distinctCurveOffsets() {
     let device = _MTLCreateSystemDefaultDevice()
     let atlas = SlugFontAtlas(fontName: "Helvetica", device: device)

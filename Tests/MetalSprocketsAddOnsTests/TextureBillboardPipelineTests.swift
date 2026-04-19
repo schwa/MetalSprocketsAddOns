@@ -40,6 +40,50 @@ func testTextureBillboardPipeline_solidColorSpecifier() throws {
 
 @Test
 @MainActor
+func testTextureBillboardPipeline_initWithColorTransformFunctionName() throws {
+    let device = _MTLCreateSystemDefaultDevice()
+    let texture = try makeCheckerboardTexture(device: device, size: 16)
+
+    // Should resolve `colorTransformIdentity` from the shader bundle.
+    let renderPass = try RenderPass {
+        try TextureBillboardPipeline(
+            specifierA: ColorSource.texture2D(texture),
+            specifierB: ColorSource.color([0, 0, 0]),
+            colorTransformFunctionName: "colorTransformIdentity"
+        )
+    }
+
+    let renderer = try OffscreenRenderer(size: defaultRenderSize)
+    _ = try renderer.render(renderPass)
+}
+
+@Test
+@MainActor
+func testTextureBillboardPipeline_initWithCustomTextureCoordinatesArray() throws {
+    let device = _MTLCreateSystemDefaultDevice()
+    let texture = try makeCheckerboardTexture(device: device, size: 16)
+
+    let coords: [SIMD2<Float>] = [
+        [0, 1],
+        [1, 1],
+        [0, 0],
+        [1, 0]
+    ]
+    let renderPass = try RenderPass {
+        try TextureBillboardPipeline(
+            specifierA: ColorSource.texture2D(texture),
+            specifierB: ColorSource.color([0, 0, 0]),
+            textureCoordinatesArray: coords,
+            colorTransformFunctionName: "colorTransformIdentity"
+        )
+    }
+
+    let renderer = try OffscreenRenderer(size: defaultRenderSize)
+    _ = try renderer.render(renderPass)
+}
+
+@Test
+@MainActor
 func testTextureBillboardPipeline_partialQuad() throws {
     let device = _MTLCreateSystemDefaultDevice()
     let texture = try makeCheckerboardTexture(device: device, size: 16)
