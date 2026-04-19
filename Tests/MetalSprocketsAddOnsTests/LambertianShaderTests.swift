@@ -1,4 +1,9 @@
 // LambertianShader golden-image tests.
+//
+// Note: the renders look dim because LambertianShader's fragment shader multiplies
+// the Lambertian term by a rim-light term (`combinedIntensity = lambertian * 0.25 * rim`).
+// The maximum possible output intensity is 0.25 × baseColor at the silhouette.
+// This is the shader's intentional design — not a bug in these tests.
 
 import CoreGraphics
 import GeometryLite3D

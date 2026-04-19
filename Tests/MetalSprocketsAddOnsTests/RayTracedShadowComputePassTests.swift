@@ -23,28 +23,36 @@ func testRayTracedShadowComputePass_endToEnd() throws {
     let device = _MTLCreateSystemDefaultDevice()
     try #require(device.supportsRaytracing, "Ray tracing not supported on this device")
 
-    // Scene: a single sphere at origin, lit from one point above it.
-    let mesh = MTKMesh.sphere(extent: [1, 1, 1])
-    let modelMatrix = matrix_identity_float4x4
+    // Scene: a sphere floating above a ground plane, lit from above.
+    // The sphere should cast a visible shadow onto the plane.
+    let sphere = MTKMesh.sphere(extent: [0.6, 0.6, 0.6])
+    let plane = MTKMesh.plane(width: 4, height: 4)
 
-    // Camera looking at origin from +Z.
-    let camera = float4x4(translation: SIMD3<Float>(0, 0, 4))
+    // Sphere centered above origin, plane at y = -1.0 (well below sphere).
+    let sphereTransform = float4x4(translation: SIMD3<Float>(0, 0.5, 0))
+    let planeTransform = float4x4(translation: SIMD3<Float>(0, -1.0, 0))
+
+    // Camera looking at the scene from a slight downward angle.
+    let camera = float4x4(translation: SIMD3<Float>(0, 1.5, 4))
+        * float4x4(simd_quatf(angle: -.pi / 8, axis: SIMD3<Float>(1, 0, 0)))
     let projection = perspectiveProjection()
     let viewMatrix = camera.inverse
     let viewProjection = projection * viewMatrix
     let inverseVP = viewProjection.inverse
 
-    // Build acceleration structures with the sphere as the single shadow caster.
+    // Build acceleration structures: two meshes (sphere + plane), two instances.
     var accelManager = try AccelerationStructureManager()
-    try accelManager.build(meshes: [mesh], instances: [
-        AccelerationStructureManager.Instance(meshIndex: 0, transform: modelMatrix)
+    try accelManager.build(meshes: [sphere, plane], instances: [
+        AccelerationStructureManager.Instance(meshIndex: 0, transform: sphereTransform),
+        AccelerationStructureManager.Instance(meshIndex: 1, transform: planeTransform)
     ])
 
-    // Single point light positioned above + slightly offset.
+    // Single point light above the scene, off to one side so the shadow falls
+    // onto the plane visibly.
     let lighting = try Lighting(
-        ambientLightColor: [0.1, 0.1, 0.1],
+        ambientLightColor: [0.15, 0.15, 0.2],
         lights: [
-            ([2, 4, 2], Light(type: .point, color: [1, 1, 1], intensity: 10))
+            ([3, 5, 2], Light(type: .point, color: [1, 1, 1], intensity: 30))
         ]
     )
 
@@ -59,21 +67,35 @@ func testRayTracedShadowComputePass_endToEnd() throws {
     // [.renderTarget, .shaderRead] which is fine.
 
     // OffscreenRenderer.render(_:) already wraps content in a CommandBufferElement,
-    // so we just need a Group containing the scene render pass + the RT compute pass.
+    // so we just need a Group containing the scene render passes + the RT compute pass.
     let combined = try MetalSprockets.Group {
-        // 1. Render the sphere with FlatShader to populate color + depth.
+        // 1. Render the sphere + plane with FlatShader (populates color + depth).
         try RenderPass {
-            try FlatShader(
-                modelViewProjection: viewProjection,
-                textureSpecifier: ColorSource.color([0.6, 0.6, 0.7])
-            ) {
-                Draw { encoder in
-                    encoder.setVertexBuffers(of: mesh)
-                    encoder.draw(mesh)
+            try MetalSprockets.Group {
+                try FlatShader(
+                    modelViewProjection: viewProjection * sphereTransform,
+                    textureSpecifier: ColorSource.color([0.8, 0.6, 0.4])
+                ) {
+                    Draw { encoder in
+                        encoder.setVertexBuffers(of: sphere)
+                        encoder.draw(sphere)
+                    }
                 }
+                .vertexDescriptor(MTLVertexDescriptor(sphere.vertexDescriptor))
+                .depthCompare(function: .less, enabled: true)
+
+                try FlatShader(
+                    modelViewProjection: viewProjection * planeTransform,
+                    textureSpecifier: ColorSource.color([0.8, 0.8, 0.85])
+                ) {
+                    Draw { encoder in
+                        encoder.setVertexBuffers(of: plane)
+                        encoder.draw(plane)
+                    }
+                }
+                .vertexDescriptor(MTLVertexDescriptor(plane.vertexDescriptor))
+                .depthCompare(function: .less, enabled: true)
             }
-            .vertexDescriptor(MTLVertexDescriptor(mesh.vertexDescriptor))
-            .depthCompare(function: .less, enabled: true)
         }
 
         // 2. RT shadow compute pass: darkens shadowed pixels in the color texture.

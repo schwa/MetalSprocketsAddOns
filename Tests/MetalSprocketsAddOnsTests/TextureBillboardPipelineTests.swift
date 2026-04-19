@@ -82,13 +82,15 @@ func testTextureBillboardPipeline_initWithCustomTextureCoordinatesArray() throws
     _ = try renderer.render(renderPass)
 }
 
+// Render the checkerboard into only the upper-right quadrant of clip space
+// (positions [0,0] to [1,1]) instead of the default fullscreen quad.
+// Verifies that custom `positions` parameters are respected.
 @Test
 @MainActor
-func testTextureBillboardPipeline_partialQuad() throws {
+func testTextureBillboardPipeline_upperRightQuadrant() throws {
     let device = _MTLCreateSystemDefaultDevice()
     let texture = try makeCheckerboardTexture(device: device, size: 16)
 
-    // Render a quad covering only the upper-right portion of the screen.
     let renderPass = try RenderPass {
         try TextureBillboardPipeline(
             specifier: ColorSource.texture2D(texture),
@@ -98,5 +100,5 @@ func testTextureBillboardPipeline_partialQuad() throws {
 
     let renderer = try OffscreenRenderer(size: defaultRenderSize)
     let rendering = try renderer.render(renderPass)
-    #expect(try rendering.cgImage.isEqualToGoldenImage(named: "TextureBillboardPartial"))
+    #expect(try rendering.cgImage.isEqualToGoldenImage(named: "TextureBillboardUpperRightQuadrant"))
 }

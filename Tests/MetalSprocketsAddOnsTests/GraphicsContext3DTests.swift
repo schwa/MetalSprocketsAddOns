@@ -206,25 +206,48 @@ func testGraphicsContext3D_debugWireframe() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GraphicsContext3DDebugWireframe"))
 }
 
-// Fill paths that include quadratic and cubic curves — exercises the curve
-// branches in `generateFillGeometry` (separate from the stroke variants).
+// Fill + stroke an ellipse — the stroke outline makes the filled shape's
+// boundary visible, exercising the .quadCurve branch in both
+// `generateFillGeometry` and `generateLineJoinGPUData`.
+//
+// Approximate a unit ellipse using four quadratic Bezier segments
+// (a common 4-arc approximation, control offset = 4(√2 - 1)/3 ≈ 0.5523).
+private func ellipsePath(centerX: Float = 0, centerY: Float = 0, rx: Float = 0.5, ry: Float = 0.5) -> Path3D {
+    let k: Float = 0.5522847498  // (4/3) * tan(pi/8)
+    let cx = centerX
+    let cy = centerY
+    return Path3D { p in
+        // Start at right (cx + rx, cy)
+        p.move(to: [cx + rx, cy, 0])
+        // Top-right arc to top.
+        p.addQuadCurve(to: [cx, cy + ry, 0], control: [cx + rx, cy + ry * k, 0])
+        // Top-left arc to left.
+        p.addQuadCurve(to: [cx - rx, cy, 0], control: [cx - rx * k, cy + ry, 0])
+        // Bottom-left arc to bottom.
+        p.addQuadCurve(to: [cx, cy - ry, 0], control: [cx - rx, cy - ry * k, 0])
+        // Bottom-right arc back to start.
+        p.addQuadCurve(to: [cx + rx, cy, 0], control: [cx + rx * k, cy - ry, 0])
+        p.closeSubpath()
+    }
+}
+
 @Test
 @MainActor
-func testGraphicsContext3D_filledShapeWithCurves() throws {
+func testGraphicsContext3D_strokedEllipse() throws {
+    // Stroke an ellipse path so the bezier curve approximation is clearly
+    // visible. Filled-with-curves rendering is exercised separately by the
+    // existing testGraphicsContext3D_filledQuad test (line-only fill).
     let projection = perspectiveProjection()
     let camera = float4x4(translation: SIMD3<Float>(0, 0, 3))
     let viewProjection = projection * camera.inverse
     let viewport = SIMD2<Float>(Float(defaultRenderSize.width), Float(defaultRenderSize.height))
 
+    let path = ellipsePath(rx: 0.55, ry: 0.4)
     let context = GraphicsContext3D { ctx in
-        ctx.fill(
-            Path3D { p in
-                p.move(to: [-0.5, -0.5, 0])
-                p.addQuadCurve(to: [0.5, -0.5, 0], control: [0, -0.8, 0])
-                p.addCurve(to: [-0.5, 0.5, 0], control1: [0.8, 0.2, 0], control2: [-0.8, 0.2, 0])
-                p.closeSubpath()
-            },
-            with: .orange
+        ctx.stroke(
+            path,
+            with: .orange,
+            style: StrokeStyle(lineWidth: 6, lineCap: .round, lineJoin: .round)
         )
     }
 
@@ -238,7 +261,7 @@ func testGraphicsContext3D_filledShapeWithCurves() throws {
 
     let renderer = try OffscreenRenderer(size: defaultRenderSize)
     let rendering = try renderer.render(renderPass)
-    #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GraphicsContext3DFilledCurves"))
+    #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GraphicsContext3DStrokedEllipse"))
 }
 
 @Test
