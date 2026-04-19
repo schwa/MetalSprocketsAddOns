@@ -20,7 +20,31 @@ jobs:
       - name: Trust plugins
         run: defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidation -bool YES
       - run: swift build -v --disable-sandbox
-      - run: swift test -v --disable-sandbox
+      - name: Run tests
+        id: tests
+        run: swift test -v --disable-sandbox
+      - name: Collect golden image mismatches
+        if: always()
+        run: |
+          mkdir -p /tmp/golden-artifacts
+          # /tmp/<name>.png — written when an existing golden mismatches
+          shopt -s nullglob
+          for f in /tmp/*.png; do cp "$f" /tmp/golden-artifacts/ 2>/dev/null || true; done
+          # $TMPDIR/GoldenImages/<name>.png — written when a golden is missing
+          if [ -n "$TMPDIR" ] && [ -d "$TMPDIR/GoldenImages" ]; then
+            cp "$TMPDIR"/GoldenImages/*.png /tmp/golden-artifacts/ 2>/dev/null || true
+          fi
+          echo "Collected files:"
+          ls -la /tmp/golden-artifacts/ || true
+        shell: bash
+      - name: Upload golden image mismatches
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: golden-image-mismatches
+          path: /tmp/golden-artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
 
   swiftlint:
     runs-on: macos-latest
