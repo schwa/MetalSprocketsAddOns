@@ -3,22 +3,28 @@
 ---
 
 ## 1: Replace histogram image comparison with GoldenImage package
+
++++
 status: new
 priority: medium
 kind: none
 created: 2026-01-17T00:00:00Z
++++
 
 The test Support.swift uses a homebrew histogram-based image comparison (vImage, CoreImage, Histogram struct). Replace this with the GoldenImage package which provides PSNR-based comparison. Requires publishing GoldenImage to GitHub first, then adding it as a dependency.
 
 ---
 
 ## 2: Remove local cross-environment macros and adopt them from MetalSprockets
+
++++
 status: closed
 priority: medium
 kind: task
 created: 2026-04-02T18:30:29Z
 updated: 2026-04-02T18:43:48Z
 closed: 2026-04-02T18:43:48Z
++++
 
 Once MetalSprockets#305 is complete, remove the locally defined cross-environment macros from `Sources/MetalSprocketsAddOnsShaders/include/Support.h` (TEXTURE2D, DEPTH2D, TEXTURECUBE, SAMPLER, BUFFER, ATTRIBUTE, MS_ENUM) and import them from MetalSprockets instead.
 
@@ -27,67 +33,85 @@ Blocked on MetalSprockets#305.
 ---
 
 ## 3: Demo views render with wrong size/aspect ratio on initial load
+
++++
 status: closed
 priority: medium
 kind: bug
 created: 2026-04-13T05:04:24Z
 updated: 2026-04-14T02:52:38Z
 closed: 2026-04-14T02:52:38Z
++++
 
 RenderView-based demos (Spinning Cube, GraphicsContext3D) render with incorrect aspect ratio or empty content on first load. Requires window resize or navigating away and back to fix. Likely caused by RenderView receiving a stale/zero drawable size before the NavigationSplitView detail column finishes layout. May be a DemoKit or MetalSprockets RenderView issue.
 
 ---
 
 ## 4: GraphicsContext3D fill renders as white instead of specified color
+
++++
 status: new
 priority: medium
 kind: bug
 created: 2026-04-13T05:07:02Z
 updated: 2026-04-13T05:10:47Z
++++
 
 Fill geometry in GraphicsContext3D renders as white when using fractional alpha (e.g. opacity 0.3). With full opacity the color is correct. The fill render pipeline has no blending enabled — alpha values are written to the framebuffer but don't affect compositing, resulting in near-white output for low-alpha fills. Need to enable alpha blending via renderPipelineDescriptorModifier on the fill pipeline.
 
 ---
 
 ## 5: GraphicsContext3D fill projection hardcoded to XY plane — fails for XZ/YZ geometry
+
++++
 status: new
 priority: medium
 kind: bug
 created: 2026-04-13T05:08:59Z
++++
 
 generateFillGeometry() projects 3D points onto XY (drops Z) for earcut triangulation. This produces degenerate geometry for paths on the XZ or YZ planes (e.g. the star on the ground plane at y=0 — all points project to a line). Should detect the dominant plane or use the path's normal to choose the projection axis.
 
 ---
 
 ## 6: Integrate Slug text rendering into GraphicsContext3D
+
++++
 status: new
 priority: low
 kind: feature
 created: 2026-04-13T05:26:59Z
++++
 
 Add a text drawing API to GraphicsContext3D (e.g. ctx.text("label", at: position, font:, color:)) that uses Slug for GPU-rendered text. Would allow placing text labels in 3D scenes without manually managing SlugScene/SlugTextMeshBuilder alongside the graphics context.
 
 ---
 
 ## 7: GraphicsContext3D does not render until window is resized
+
++++
 status: closed
 priority: high
 kind: bug
 created: 2026-04-13T17:21:37Z
 updated: 2026-04-14T02:52:38Z
 closed: 2026-04-14T02:52:38Z
++++
 
 GraphicsContext3D content is completely invisible on initial load. Requires a window resize to trigger rendering. Affects both the standalone GraphicsContext3D demo and the BlinnPhong demo light marker. Possibly related to #3 (wrong size/aspect on initial load) but this is a complete rendering failure, not just wrong aspect.
 
 ---
 
 ## 8: Shadow map (rasterization-based) shadows
+
++++
 status: closed
 priority: medium
 kind: feature
 created: 2026-04-13T17:48:11Z
 updated: 2026-04-13T19:44:23Z
 closed: 2026-04-13T19:44:23Z
++++
 
 Add shadow mapping support using a traditional rasterization approach. Render depth from the light's POV into a shadow map texture, then sample it in the fragment shader to determine shadow visibility. This avoids ray tracing entirely and can reuse existing pipeline patterns. Integrates with the existing Lighting and BlinnPhong infrastructure.
 
@@ -96,12 +120,15 @@ Add shadow mapping support using a traditional rasterization approach. Render de
 ---
 
 ## 9: Ray traced shadows
+
++++
 status: closed
 priority: medium
 kind: feature
 created: 2026-04-13T17:48:18Z
 updated: 2026-04-13T23:03:52Z
 closed: 2026-04-13T23:03:52Z
++++
 
 Add ray traced shadow support using Metal ray tracing APIs. Build MTLPrimitiveAccelerationStructure from meshes and MTLInstanceAccelerationStructure for the scene. Cast shadow rays in the fragment shader against the acceleration structure to determine visibility. Provides higher quality shadows than shadow maps (no aliasing, no acne, correct for all geometry). Requires new MetalSprockets Element wrappers for acceleration structure management and resource binding.
 
@@ -154,12 +181,15 @@ The feature follows the same pattern as the existing shadow map implementation (
 ---
 
 ## 10: Shadow map: fix shadow acne / self-shadowing on teapot surfaces
+
++++
 status: closed
 priority: high
 kind: bug
 created: 2026-04-13T18:47:31Z
 updated: 2026-04-13T22:46:01Z
 closed: 2026-04-13T22:46:01Z
++++
 
 With shadow debug enabled, teapot surfaces facing the light show as magenta (shadowed) due to self-shadowing artifacts. The bias direction in sample_compare needs to be corrected — subtracting bias makes it worse, adding bias breaks shadows entirely. Need to investigate proper bias strategy (e.g., slope-scale bias or receiver-plane bias).
 
@@ -168,12 +198,15 @@ With shadow debug enabled, teapot surfaces facing the light show as magenta (sha
 ---
 
 ## 11: Shadow map: decouple shadow sampling from Blinn-Phong shader
+
++++
 status: closed
 priority: medium
 kind: feature
 created: 2026-04-13T18:47:37Z
 updated: 2026-04-13T22:03:02Z
 closed: 2026-04-13T22:03:02Z
++++
 
 Decouple shadow mapping from Blinn-Phong into a screen-space shadow mask pass.
 
@@ -198,12 +231,15 @@ Requires: access to scene depth buffer as a texture in the shadow mask pass.
 ---
 
 ## 12: Shadow map: sample_compare logic may be inverted
+
++++
 status: closed
 priority: high
 kind: bug
 created: 2026-04-13T18:47:44Z
 updated: 2026-04-13T20:02:39Z
 closed: 2026-04-13T20:02:39Z
++++
 
 The comparison sampler uses .lessEqual and sample_compare returns 1.0 when storedDepth <= compareDepth. The current logic treats 1.0 as lit, but the teapots appear mostly magenta (shadowed) on light-facing surfaces. The comparison direction or the interpretation of the result may need to be inverted. Related to shadow acne issue #10.
 
@@ -212,12 +248,15 @@ The comparison sampler uses .lessEqual and sample_compare returns 1.0 when store
 ---
 
 ## 13: Shadow map demo: floor is too dark
+
++++
 status: closed
 priority: medium
 kind: bug
 created: 2026-04-13T18:47:51Z
 updated: 2026-04-13T20:02:45Z
 closed: 2026-04-13T20:02:45Z
++++
 
 Even with ambient light bumped to [0.3, 0.3, 0.35] and light intensity at 150, the ground plane appears too dark. The quadratic attenuation in the Blinn-Phong shader (1.0 / (1.0 + 0.09*d² + 0.032*d⁴)) heavily attenuates at the orbit distance (~7 units). Consider making attenuation configurable or using a less aggressive falloff.
 
@@ -226,6 +265,8 @@ Even with ambient light bumped to [0.3, 0.3, 0.35] and light intensity at 150, t
 ---
 
 ## 14: Use inverse Z (reversed depth buffer) by default
+
++++
 status: closed
 priority: medium
 kind: enhancement
@@ -233,6 +274,7 @@ labels: rendering, depth-buffer, graphics, precision
 created: 2026-04-13T19:58:58Z
 updated: 2026-04-13T21:37:03Z
 closed: 2026-04-13T21:37:03Z
++++
 
 Switch shadow map depth buffer to inverse Z (reversed depth). Changes needed:
 - Shadow map orthographic projection: map near→1.0, far→0.0 instead of near→0.0, far→1.0
@@ -249,6 +291,8 @@ Scope: shadow map only for now. Main scene depth pass is controlled by MetalSpro
 ---
 
 ## 15: Support shadows with multiple lights and texture arrays
+
++++
 status: closed
 priority: medium
 kind: feature
@@ -256,6 +300,7 @@ labels: shadows, lighting, rendering, texture-array
 created: 2026-04-13T20:03:45Z
 updated: 2026-04-13T22:50:23Z
 closed: 2026-04-13T22:50:23Z
++++
 
 Add support for shadow rendering when using multiple light sources. Investigate and implement texture arrays to efficiently manage shadow maps for multiple lights (e.g., shadow map atlases or array textures). This may include:
 - Shadow casting/receiving for multiple simultaneous lights
@@ -267,22 +312,28 @@ Add support for shadow rendering when using multiple light sources. Investigate 
 ---
 
 ## 16: ShadowMaskPass: use compute shader instead of fullscreen quad rasterization
+
++++
 status: new
 priority: low
 kind: enhancement
 created: 2026-04-13T22:03:19Z
++++
 
 The shadow mask pass currently uses a fullscreen triangle with a raster pipeline and alpha blending. Replace with a compute shader that reads the scene depth texture and shadow map, computes the shadow factor, and writes directly to the color texture (read-modify-write). This avoids the overhead of a render pass and blending setup, and is more natural for a screen-space post-process on Apple Silicon.
 
 ---
 
 ## 17: Shadow map: support multiple lights using depth2d_array
+
++++
 status: closed
 priority: medium
 kind: feature
 created: 2026-04-13T22:49:47Z
 updated: 2026-04-13T23:04:03Z
 closed: 2026-04-13T23:04:03Z
++++
 
 Support shadow maps for multiple lights. Use a depth2d_array texture to store all shadow maps, pass light view-projection matrices as an array, and loop over all lights in the ShadowMaskPass shader to combine shadow factors.
 
@@ -298,34 +349,43 @@ Changes needed:
 ---
 
 ## 18: Move demo code back into MetalSprocketsExamples
+
++++
 status: closed
 priority: medium
 kind: task
 created: 2026-04-14T01:56:33Z
 updated: 2026-04-14T02:52:39Z
 closed: 2026-04-14T02:52:39Z
++++
 
 AddOns packages should NOT contain demo code. Move any demo code currently in MetalSprocketsAddOns back into MetalSprocketsExamples.
 
 ---
 
 ## 19: AccelerationStructureManager should accept Mesh (not just MTKMesh) and expose enough API for external extension
+
++++
 status: new
 priority: high
 kind: enhancement
 created: 2026-04-14T23:50:30Z
++++
 
 AccelerationStructureManager.build() only accepts [MTKMesh], but projects using the custom Mesh type (e.g. MetalSprocketsSceneGraph) cannot build acceleration structures without converting to MTKMesh.\n\nAdditionally, the struct's internals (device, commandQueue, primitiveAccelerationStructures setter, instanceAccelerationStructure setter, buildAccelerationStructure(descriptor:), buildInstanceAccelerationStructure(...)) are all private, making it impossible to add a Mesh overload via extension from another module.\n\nEither:\n1. Add a build(meshes: [Mesh], instances:) overload, or\n2. Make enough internals internal/public to allow external extensions.
 
 ---
 
 ## 20: MeshWithEdges edge extraction produces wrong indices with MetalMesh
+
++++
 status: closed
 priority: medium
 kind: bug
 created: 2026-04-15T01:36:37Z
 updated: 2026-04-15T01:37:23Z
 closed: 2026-04-15T01:37:23Z
++++
 
 MetalMesh splits vertices per-corner (each half-edge corner becomes a unique vertex in the output buffer). MeshWithEdges.init(metalMesh:) reads the raw index buffer, so the extracted edges reference these per-corner indices instead of the original shared vertex indices. This means shared edges between triangles are never deduplicated — e.g. a cube produces 50 edges instead of 18. Either MeshWithEdges needs to work in terms of per-corner indices (and tests updated), or it needs a way to map back to original vertex positions to identify shared edges.
 
@@ -333,3 +393,46 @@ MetalMesh splits vertices per-corner (each half-edge corner becomes a unique ver
 
 ---
 
+## 21: BlinnPhongShader and DebugRenderPipeline tests render black (likely vertex-buffer index collision)
+
++++
+status: new
+priority: medium
+kind: bug
+labels: testing,shader
+created: 2026-04-19T19:53:17Z
++++
+
+Five golden-image tests are currently disabled with `.disabled(\"Renders black — see FIXME above\")` because the resulting render is entirely (or near-entirely) black even though the pipeline runs end-to-end without errors:
+
+- `testBlinnPhongShader_litBox` (Tests/MetalSprocketsAddOnsTests/BlinnPhongShaderTests.swift)
+- `testBlinnPhongShader_litSphereTwoLights` (Tests/MetalSprocketsAddOnsTests/BlinnPhongShaderTests.swift)
+- `testDebugRenderPipeline_normalMode` (Tests/MetalSprocketsAddOnsTests/DebugRenderPipelineTests.swift)
+- `testDebugRenderPipeline_localPositionMode` (Tests/MetalSprocketsAddOnsTests/DebugRenderPipelineTests.swift)
+- `testDebugRenderPipeline_faceNormalMode` (Tests/MetalSprocketsAddOnsTests/DebugRenderPipelineTests.swift)
+
+## Root cause hypothesis
+
+`BlinnPhongShaders.metal` and `DebugShaders.metal` bind uniforms at vertex/fragment buffer indices 1, 2, 3. The test meshes are built via `MDLMesh.addNormals` + `addTangentBasis`, which produces a vertex layout that uses **multiple vertex buffer indices** (buffer 0 for position+normal+texCoord, buffer 1+ for tangent/bitangent). The mesh's `setVertexBuffers(of:)` then binds the tangent buffer at index 1, **clobbering the shader's `modelViewMatrix [[buffer(1)]]` uniform**. Net result: matrices are effectively zero, fragments shade against an all-zero MVP, output is black.
+
+The Lambertian, Wireframe, and FlatShader tests use the same mesh helpers but those shaders consume their uniforms at higher buffer indices (or accept inferred descriptors), so they render correctly.
+
+## Coverage impact
+
+Disabling these tests dropped coverage on the affected files back to 0%:
+- `BlinnPhongShader.swift` (18 lines)
+- `BlinnPhongShader+Support.swift` (32 lines)
+- `Lighting.swift` (42 lines)
+- `DebugRenderPipeline.swift` (36 lines)
+
+Re-enabling will recover ~3% of total line coverage.
+
+## Suggested fix paths
+
+1. Build the test mesh into a single interleaved vertex buffer (manually constructed `MDLVertexBufferLayout` with `stride` and `bufferIndex: 0` for all attributes), so no mesh-side buffer binds collide with shader uniform indices.
+2. Or rebind shader uniforms to higher buffer indices (e.g. 16+) in the relevant Metal shaders.
+3. Or add a test fixture that vendors a small teapot (`MTKMesh.teapot()` from MetalSprocketsExamples support) so we render against a known-good mesh layout.
+
+Once fixed, remove the `.disabled(...)` arguments from the five tests, refresh their golden PNGs, and verify the rendered output is non-black.
+
+---
