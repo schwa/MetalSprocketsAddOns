@@ -21,6 +21,7 @@ let package = Package(
         .package(url: "https://github.com/schwa/MetalSprockets", branch: "main"),
         .package(url: "https://github.com/schwa/SwiftMesh", branch: "main"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.3.0"),
+        .package(url: "https://github.com/schwa/GoldenImage", branch: "main"),
     ],
     targets: [
         .target(
@@ -51,9 +52,11 @@ let package = Package(
                 "MetalSprocketsAddOnsShaders",
                 .product(name: "MetalSupport", package: "MetalSupport"),
                 .product(name: "SwiftMesh", package: "SwiftMesh"),
+                .product(name: "GoldenImage", package: "GoldenImage"),
             ],
             resources: [
-                .copy("Golden Images")
+                .copy("Golden Images"),
+                .copy("Fixtures")
             ],
         ),
 
