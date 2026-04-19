@@ -206,6 +206,41 @@ func testGraphicsContext3D_debugWireframe() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GraphicsContext3DDebugWireframe"))
 }
 
+// Fill paths that include quadratic and cubic curves — exercises the curve
+// branches in `generateFillGeometry` (separate from the stroke variants).
+@Test
+@MainActor
+func testGraphicsContext3D_filledShapeWithCurves() throws {
+    let projection = perspectiveProjection()
+    let camera = float4x4(translation: SIMD3<Float>(0, 0, 3))
+    let viewProjection = projection * camera.inverse
+    let viewport = SIMD2<Float>(Float(defaultRenderSize.width), Float(defaultRenderSize.height))
+
+    let context = GraphicsContext3D { ctx in
+        ctx.fill(
+            Path3D { p in
+                p.move(to: [-0.5, -0.5, 0])
+                p.addQuadCurve(to: [0.5, -0.5, 0], control: [0, -0.8, 0])
+                p.addCurve(to: [-0.5, 0.5, 0], control1: [0.8, 0.2, 0], control2: [-0.8, 0.2, 0])
+                p.closeSubpath()
+            },
+            with: .orange
+        )
+    }
+
+    let renderPass = try RenderPass {
+        GraphicsContext3DRenderPipeline(
+            context: context,
+            viewProjection: viewProjection,
+            viewport: viewport
+        )
+    }
+
+    let renderer = try OffscreenRenderer(size: defaultRenderSize)
+    let rendering = try renderer.render(renderPass)
+    #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GraphicsContext3DFilledCurves"))
+}
+
 @Test
 @MainActor
 func testGraphicsContext3D_filledQuad() throws {

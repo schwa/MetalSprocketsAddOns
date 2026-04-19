@@ -248,6 +248,57 @@ func testSlugTextMeshBuilder_gridLayout_perCharacterColors() throws {
 
 // MARK: - SwiftUI AttributedString overload
 
+// Grayscale CGColor path: NSAttributedString carrying a 2-component (gray + alpha)
+// CGColor exercises the `n >= 2` else branch in the foreground-color extraction.
+@Test
+@MainActor
+func testSlugTextMeshBuilder_grayscaleForegroundColor() throws {
+    let device = _MTLCreateSystemDefaultDevice()
+    let builder = SlugTextMeshBuilder(device: device)
+
+    let grayColorSpace = CGColorSpaceCreateDeviceGray()
+    let grayColor = CGColor(colorSpace: grayColorSpace, components: [0.6, 1.0])!
+
+    let font = helveticaFont()
+    let attrs: [NSAttributedString.Key: Any] = [
+        .font: font,
+        .foregroundColor: grayColor
+    ]
+    let attr = NSAttributedString(string: "G", attributes: attrs)
+    _ = builder.buildMesh(attributedString: attr)
+
+    let scene = try builder.finalize()
+    let mesh = scene.meshes[0]
+    let ptr = mesh.vertexBuffer.contents()
+        .advanced(by: mesh.vertexBufferOffset)
+        .assumingMemoryBound(to: GlyphVertex.self)
+    // Grayscale gets broadcast to RGB so all three channels should match.
+    let c = ptr[0].color
+    #expect(abs(c.x - c.y) < 0.01)
+    #expect(abs(c.y - c.z) < 0.01)
+    #expect(c.w > 0.5)
+}
+
+// SwiftUI AttributedString overload that does NOT take an explicit font.
+// Per the implementation comment fonts don't survive conversion, but it should
+// still build a mesh (with whatever default the system provides).
+@Test
+@MainActor
+func testSlugTextMeshBuilder_swiftUIAttributedString_noExplicitFont() throws {
+    let device = _MTLCreateSystemDefaultDevice()
+    let builder = SlugTextMeshBuilder(device: device)
+
+    var attr = AttributedString("Z")
+    attr.foregroundColor = .red
+    // We need at least one mesh with a font to give finalize() something to work with,
+    // so seed a small one first.
+    _ = builder.buildMesh(attributedString: makeAttributed("seed"))
+    _ = builder.buildMesh(attributedString: attr)
+
+    let scene = try builder.finalize()
+    #expect(scene.meshCount == 2)
+}
+
 @Test
 @MainActor
 func testSlugTextMeshBuilder_swiftUIAttributedString_withFont() throws {
