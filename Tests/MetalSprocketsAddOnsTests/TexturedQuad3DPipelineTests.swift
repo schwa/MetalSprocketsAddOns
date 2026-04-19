@@ -103,7 +103,8 @@ private func makeRG8Texture(from cgImage: CGImage, device: MTLDevice) throws -> 
 
 // MARK: - Tests
 
-@Test
+// YCbCr texture sampling returns green on the CI paravirt GPU — see issue #29.
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Texture sampling broken on CI paravirt GPU — see issue #29"))
 @MainActor
 func testTexturedQuad3DPipeline_mandrillFlat() throws {
     let device = _MTLCreateSystemDefaultDevice()
@@ -140,7 +141,7 @@ func testTexturedQuad3DPipeline_mandrillFlat() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "TexturedQuad3DMandrill"))
 }
 
-@Test
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Texture sampling broken on CI paravirt GPU — see issue #29"))
 @MainActor
 func testTexturedQuad3DPipeline_mandrillRotatedInPerspective() throws {
     let device = _MTLCreateSystemDefaultDevice()

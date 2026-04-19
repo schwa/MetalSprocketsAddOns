@@ -2,6 +2,7 @@
 // SimpleStitchedFunctionGraph indirectly.
 
 import CoreGraphics
+import Foundation
 import Metal
 import MetalSprockets
 @testable import MetalSprocketsAddOns
@@ -10,7 +11,8 @@ import MetalSupport
 import simd
 import Testing
 
-@Test
+// Texture sampling returns white on the CI paravirt GPU — see issue #29.
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Texture sampling broken on CI paravirt GPU — see issue #29"))
 @MainActor
 func testTextureBillboardPipeline_checkerboard() throws {
     let device = _MTLCreateSystemDefaultDevice()
@@ -85,7 +87,7 @@ func testTextureBillboardPipeline_initWithCustomTextureCoordinatesArray() throws
 // Render the checkerboard into only the upper-right quadrant of clip space
 // (positions [0,0] to [1,1]) instead of the default fullscreen quad.
 // Verifies that custom `positions` parameters are respected.
-@Test
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Texture sampling broken on CI paravirt GPU — see issue #29"))
 @MainActor
 func testTextureBillboardPipeline_upperRightQuadrant() throws {
     let device = _MTLCreateSystemDefaultDevice()
