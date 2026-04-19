@@ -5,10 +5,12 @@
 ## 1: Replace histogram image comparison with GoldenImage package
 
 +++
-status: new
+status: closed
 priority: medium
 kind: none
 created: 2026-01-17T00:00:00Z
+updated: 2026-04-19T20:33:41Z
+closed: 2026-04-19T20:33:41Z
 +++
 
 The test Support.swift uses a homebrew histogram-based image comparison (vImage, CoreImage, Histogram struct). Replace this with the GoldenImage package which provides PSNR-based comparison. Requires publishing GoldenImage to GitHub first, then adding it as a dependency.
@@ -558,5 +560,232 @@ coverage. Until then, consider:
   caller.
 - Or remove if BlinnPhong is refactored to call `toArgumentBuffer()` /
   `useResource` directly like the RT path does.
+
+---
+
+## 25: GraphicsContext3D fill of curved paths renders angular shapes (low-resolution subdivision)
+
++++
+status: new
+priority: low
+kind: bug
+created: 2026-04-19T20:42:15Z
++++
+
+When `GraphicsContext3D.fill(_:with:)` is given a path containing
+`addQuadCurve` / `addCurve` segments, the rendered fill looks angular even
+though `GeometryGenerator.extractPoints(from:)` calls `subdivideQuadCurve`
+(adaptive, up to 40 segments) and `subdivideCubicCurve`.
+
+Reproduce with the test `testGraphicsContext3D_strokedEllipse` /
+the (now-removed) `testGraphicsContext3D_filledShapeWithCurves`: a
+4-quad-curve ellipse approximation renders as a "lemon" shape with sharp
+left/right corners rather than smooth arcs.
+
+Hypothesis: the adaptive subdivision uses `estimateQuadCurveScreenLength`
+which projects the curve through `viewProjection` to estimate pixel length.
+For a small render target (256×256 in tests) this yields very few segments
+(maybe 3-4 per quarter arc), producing the visible polygonal silhouette.
+
+## Suggested investigation
+
+- Print the segment count for the four ellipse quarter-arcs at 256×256 vs.
+  1024×1024 to confirm.
+- Consider raising the floor (currently `max(3, ...)`).
+- Or expose the segment count / `pixelsPerSegment` as a tunable on
+  `GraphicsContext3DRenderPipeline`.
+
+---
+
+## 26: GraphicsContext3D stroke line width varies along curved paths
+
++++
+status: new
+priority: low
+kind: bug
+created: 2026-04-19T20:42:23Z
++++
+
+When `GraphicsContext3D.stroke(_:with:style:)` strokes a curved path with
+a constant `lineWidth`, the rendered line width visibly varies along the path.
+
+Reproduce with `testGraphicsContext3D_strokedEllipse`: a 6pt round-cap stroke
+of a 4-quad-curve ellipse (rx=0.55, ry=0.4) renders chunky on the top/bottom
+arcs and noticeably thinner on the left/right arcs.
+
+Hypothesis: line width is applied per-segment in screen space, but the
+per-vertex extrusion direction may not be normalized correctly when the
+underlying segment is short (subdivided curves produce tiny segments at low
+resolutions, see related issue about fill curves looking angular). Cap/join
+overlap may also contribute.
+
+## Suggested investigation
+
+- Log the per-segment screen lengths for the ellipse arcs.
+- Inspect `LineJoinGPUData.normal` computation around the curve endpoints.
+- Check whether the `.round` join interpolation is using arc length or
+  segment count.
+
+---
+
+## 27: Element.useResource(_ color:) skips textureCube and depth2D (uv-eg-3 workaround)
+
++++
+status: new
+priority: low
+kind: bug
+created: 2026-04-19T20:42:31Z
++++
+
+In `Sources/MetalSprocketsAddOns/Support/ColorSource.swift`, the
+`Element.useResource(_ color:usage:stages:)` modifier deliberately omits
+`useResource` calls for the `textureCube` and `depth2D` cases:
+
+```swift
+public extension Element {
+    func useResource(_ color: ColorSource, usage: MTLResourceUsage, stages: MTLRenderStages) -> some Element {
+        self
+            .useResource(color.texture2D, usage: usage, stages: stages)
+        // uv-eg-3: textureCube and depth2D useResource calls cause hangs on iOS/macOS
+        // Only texture2D works reliably when used with argument buffers
+        //            .useResource(color.textureCube, usage: usage, stages: stages)
+        //            .useResource(color.depth2D, usage: usage, stages: stages)
+    }
+}
+```
+
+The "uv-eg-3" reference suggests this was a workaround for a specific bug.
+Effects:
+
+1. Anyone consuming a `ColorSource.textureCube(...)` or `.depth2D(...)`
+   through this modifier silently gets no useResource declaration for
+   that texture, which can lead to GPU hangs / validation errors when
+   the argument buffer is later sampled.
+2. The modifier is currently called by no addon code (see issue #23),
+   so the missing branches don't bite us in practice — but anyone who
+   adopts it externally for cube/depth ColorSources will hit issues.
+
+## Suggested action
+
+Investigate whether the `uv-eg-3` workaround still applies on current
+macOS / iOS, and either:
+
+- Re-enable the cube/depth `useResource` calls if the hang is fixed; or
+- Remove this modifier entirely (per #23, no caller currently uses it); or
+- Document the limitation in the public API docstring so consumers know
+  to call `useResource` manually for cube/depth ColorSources.
+
+Cross-references: #23 (dead code in ColorSource).
+
+---
+
+## 28: Bump golden-image render size from 256x256 to 512x512
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: testing
+created: 2026-04-19T20:42:56Z
++++
+
+All golden-image tests currently render at 256×256 (set by
+`defaultRenderSize` in `Tests/MetalSprocketsAddOnsTests/Support/RenderTestSupport.swift`).
+At this resolution several pipelines produce visibly degraded output that
+makes the goldens hard to inspect:
+
+- `GraphicsContext3D` curve subdivision is too coarse (see #25, #26): the
+  4-quad-curve ellipse renders as a "lemon" / blobby diamond.
+- `RayTracedShadowSphere` shadow edge is heavily aliased.
+- Some Slug text glyphs render at sub-pixel sizes.
+
+Bump `defaultRenderSize` to **512×512** for all golden-image tests, then
+regenerate every golden PNG once and commit the updated set.
+
+## Suggested action
+
+1. Change `defaultRenderSize` from 256×256 to 512×512 in `RenderTestSupport.swift`.
+2. Delete every golden PNG that uses `defaultRenderSize` (most of them).
+3. Run the test suite once; the GoldenImage library writes the new PNGs to
+   `/tmp/<name>.png` on the first miss.
+4. Inspect each new render visually, then promote them into
+   `Tests/MetalSprocketsAddOnsTests/Golden Images/`.
+5. Tests outside the default size (e.g. `GaussianBlurSquare` at 128×128) can
+   stay at their explicit sizes if there's a reason.
+
+## Cost
+
+- Larger goldens → bigger repo. Most current PNGs are 1.7-15 KB; at 512×512
+  they'll be ~4-50 KB each. With ~30 goldens this adds maybe 1 MB total.
+- One-time regeneration effort.
+
+---
+
+## 29: testGraphicsContext3D_filledQuad crashes on CI (Apple paravirt GPU)
+
++++
+status: new
+priority: medium
+kind: bug
+labels: testing,ci
+created: 2026-04-19T20:49:27Z
++++
+
+`testGraphicsContext3D_filledQuad` (in
+`Tests/MetalSprocketsAddOnsTests/GraphicsContext3DTests.swift`) crashes the test
+process when run on GitHub Actions `macos-26` runners (Apple paravirtualized
+GPU).
+
+## Symptom
+
+```
+*** Terminating app due to uncaught exception 'NSInvalidArgumentException',
+    reason: '-[AppleParavirtRenderCommandEncoder setMeshBuffer:offset:atIndex:]:
+    unrecognized selector sent to instance 0xad2474000'
+libc++abi: terminating due to uncaught exception of type NSException
+error: Exited with unexpected signal code 6
+```
+
+The crash aborts the entire `MetalSprocketsAddOnsPackageTests` process so no
+subsequent tests run.
+
+## Reproduction
+
+- GitHub Actions run: <https://github.com/schwa/MetalSprocketsAddOns/actions/runs/24638506941>
+- Workflow: `.github/workflows/swift.yml` (`swift-build-26` job)
+- Local runs (Apple silicon, real GPU) pass cleanly.
+
+## Workaround
+
+Test is currently disabled on CI via:
+
+```swift
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil,
+                "Crashes on CI paravirt GPU — see issue #29"))
+```
+
+## What we know
+
+- The CI host uses an `AppleParavirtRenderCommandEncoder` (paravirtualized GPU
+  exposed inside the GitHub Actions VM).
+- The selector `setMeshBuffer:offset:atIndex:` is part of the mesh-shader API.
+  `GraphicsContext3D` does **not** use mesh shaders — only plain vertex/fragment
+  shaders — so it is unclear why this selector is being dispatched against the
+  fill render encoder.
+- Other tests in the same suite that DO use mesh shaders (e.g.
+  `EdgeLinesRenderPipeline*`) and ray tracing
+  (`AccelerationStructureManager*`, `RayTracedShadowComputePass*`) almost
+  certainly fail on this hardware too, but we have no direct evidence yet
+  because the suite aborts before reaching them.
+
+## Next steps
+
+1. Re-enable the test on CI once we either:
+   - Confirm the underlying issue is in MetalSprockets / GraphicsContext3D's
+     parameter-binding code path and fix it; or
+   - Determine the paravirt GPU genuinely cannot run this pipeline and gate it
+     properly (e.g. via a runtime feature check rather than `CI` env var).
+2. Verify whether the mesh-shader and RT tests also fail on CI (run them
+   individually now that the suite can complete).
 
 ---
