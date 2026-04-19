@@ -2,6 +2,7 @@
 // Builds a small MeshWithEdges from a SwiftMesh cube and renders its edges.
 
 import CoreGraphics
+import Foundation
 import GeometryLite3D
 import Metal
 import MetalSprockets
@@ -48,7 +49,8 @@ private func makeCubeMeshWithEdges() -> MeshWithEdges {
     return MeshWithEdges(metalMesh: metalMesh)
 }
 
-@Test
+// Mesh shaders unsupported on the paravirt GPU used by GitHub Actions runners.
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Mesh shaders unsupported on CI paravirt GPU — see issue #29"))
 @MainActor
 func testEdgeLinesRenderPipeline_cube() throws {
     let meshWithEdges = makeCubeMeshWithEdges()
@@ -73,7 +75,7 @@ func testEdgeLinesRenderPipeline_cube() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "EdgeLinesCube"))
 }
 
-@Test
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Mesh shaders unsupported on CI paravirt GPU — see issue #29"))
 @MainActor
 func testEdgeLinesRenderPipeline_debugMode_renderTriangleLines() throws {
     // debugMode = true causes the pipeline to set triangle fill mode to .lines,
@@ -100,7 +102,7 @@ func testEdgeLinesRenderPipeline_debugMode_renderTriangleLines() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "EdgeLinesCubeDebug"))
 }
 
-@Test
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Mesh shaders unsupported on CI paravirt GPU — see issue #29"))
 @MainActor
 func testEdgeLinesRenderPipeline_cubeColorizedByTriangle() throws {
     let meshWithEdges = makeCubeMeshWithEdges()

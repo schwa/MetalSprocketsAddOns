@@ -13,7 +13,7 @@ import simd
 import SwiftUI
 import Testing
 
-@Test
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Crashes on CI paravirt GPU — see issue #29"))
 @MainActor
 func testGraphicsContext3D_axisCross() throws {
     let projection = perspectiveProjection()
@@ -61,7 +61,7 @@ func testGraphicsContext3D_axisCross() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GraphicsContext3DAxisCross"))
 }
 
-@Test
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Crashes on CI paravirt GPU — see issue #29"))
 @MainActor
 func testGraphicsContext3D_strokedTriangleWithRoundCaps() throws {
     let projection = perspectiveProjection()
@@ -96,7 +96,7 @@ func testGraphicsContext3D_strokedTriangleWithRoundCaps() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GraphicsContext3DTriangle"))
 }
 
-@Test
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Crashes on CI paravirt GPU — see issue #29"))
 @MainActor
 func testGraphicsContext3D_strokeStyles_capsAndJoins() throws {
     // Exercise every cap (.butt, .round, .square) and join (.miter, .round, .bevel)
@@ -171,7 +171,7 @@ func testGraphicsContext3D_strokeStyles_capsAndJoins() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GraphicsContext3DCapsJoins"))
 }
 
-@Test
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Crashes on CI paravirt GPU — see issue #29"))
 @MainActor
 func testGraphicsContext3D_debugWireframe() throws {
     let projection = perspectiveProjection()
@@ -232,7 +232,7 @@ private func ellipsePath(centerX: Float = 0, centerY: Float = 0, rx: Float = 0.5
     }
 }
 
-@Test
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Crashes on CI paravirt GPU — see issue #29"))
 @MainActor
 func testGraphicsContext3D_strokedEllipse() throws {
     // Stroke an ellipse path so the bezier curve approximation is clearly

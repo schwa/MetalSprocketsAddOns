@@ -6,6 +6,7 @@
 // Skips automatically on devices that do not support ray tracing.
 
 import CoreGraphics
+import Foundation
 import GeometryLite3D
 import Metal
 import MetalKit
@@ -17,7 +18,7 @@ import MetalSupport
 import simd
 import Testing
 
-@Test
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Ray tracing unsupported on CI paravirt GPU — see issue #29"))
 @MainActor
 func testRayTracedShadowComputePass_endToEnd() throws {
     let device = _MTLCreateSystemDefaultDevice()
