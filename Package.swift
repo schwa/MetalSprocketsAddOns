@@ -12,6 +12,7 @@ let package = Package(
     products: [
         .library(name: "MetalSprocketsAddOns", targets: ["MetalSprocketsAddOns"]),
         .library(name: "MetalSprocketsAddOnsShaders", targets: ["MetalSprocketsAddOnsShaders"]),
+        .library(name: "MetalSprocketsAddOnsUI", targets: ["MetalSprocketsAddOnsUI"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.0.0"),
@@ -44,6 +45,14 @@ let package = Package(
             plugins: [
                 .plugin(name: "MetalCompilerPlugin", package: "MetalCompilerPlugin")
             ]
+        ),
+        .target(
+            name: "MetalSprocketsAddOnsUI",
+            dependencies: [
+                "MetalSprocketsAddOns",
+                .product(name: "MetalSprockets", package: "MetalSprockets"),
+                .product(name: "MetalSupport", package: "MetalSupport"),
+            ],
         ),
         .testTarget(
             name: "MetalSprocketsAddOnsTests",
