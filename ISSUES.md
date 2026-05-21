@@ -171,12 +171,11 @@ The feature follows the same pattern as the existing shadow map implementation (
 
 ### Tradeoffs vs shadow maps
 
-- **Quality**: Shadow maps have aliasing, acne, peter-panning. Ray traced shadows are pixel-perfect with no artifacts.
-- **Performance**: Shadow maps are cheap (one extra depth pass). Ray tracing is more expensive (per-pixel ray cast).
-- **Geometry**: Shadow maps work with any rasterizable geometry. Ray tracing needs acceleration structures built from triangle meshes.
-- **Soft shadows**: Shadow maps use PCF approximation. Ray traced would need multiple rays (not implemented yet — single ray = hard shadows).
-- **Dynamic geometry**: Shadow maps just re-render the depth pass. Ray tracing must rebuild/refit acceleration structures.
-
+- `2026-04-13T17:48:18Z`: **Quality**: Shadow maps have aliasing, acne, peter-panning. Ray traced shadows are pixel-perfect with no artifacts.
+- `2026-04-13T17:48:18Z`: **Performance**: Shadow maps are cheap (one extra depth pass). Ray tracing is more expensive (per-pixel ray cast).
+- `2026-04-13T17:48:18Z`: **Geometry**: Shadow maps work with any rasterizable geometry. Ray tracing needs acceleration structures built from triangle meshes.
+- `2026-04-13T17:48:18Z`: **Soft shadows**: Shadow maps use PCF approximation. Ray traced would need multiple rays (not implemented yet — single ray = hard shadows).
+- `2026-04-13T17:48:18Z`: **Dynamic geometry**: Shadow maps just re-render the depth pass. Ray tracing must rebuild/refit acceleration structures.
 - `2026-04-13T23:03:52Z`: Implemented ray traced shadows using Metal ray tracing APIs
 - `2026-04-13T23:11:15Z`: ## Design Overview
 
@@ -305,10 +304,10 @@ closed: 2026-04-13T22:50:23Z
 +++
 
 Add support for shadow rendering when using multiple light sources. Investigate and implement texture arrays to efficiently manage shadow maps for multiple lights (e.g., shadow map atlases or array textures). This may include:
-- Shadow casting/receiving for multiple simultaneous lights
-- Texture array implementation for shadow maps
-- Performance considerations for multi-light shadow rendering
 
+- `2026-04-13T20:03:45Z`: Shadow casting/receiving for multiple simultaneous lights
+- `2026-04-13T20:03:45Z`: Texture array implementation for shadow maps
+- `2026-04-13T20:03:45Z`: Performance considerations for multi-light shadow rendering
 - `2026-04-13T22:50:23Z`: Duplicate of #17 which has more detailed implementation plan.
 
 ---
@@ -340,12 +339,12 @@ closed: 2026-04-13T23:04:03Z
 Support shadow maps for multiple lights. Use a depth2d_array texture to store all shadow maps, pass light view-projection matrices as an array, and loop over all lights in the ShadowMaskPass shader to combine shadow factors.
 
 Changes needed:
-- ShadowMap: allocate depth2d_array with one slice per light
-- ShadowMapDepthPass: render each light's depth into its own array slice
-- ShadowMaskPass shader: accept depth2d_array + array of light VP matrices, loop and multiply shadow factors
-- ShadowMapParameters: extend to hold multiple light matrices and light count
-- Demo: add a second light with its own shadow
 
+- `2026-04-13T22:49:47Z`: ShadowMap: allocate depth2d_array with one slice per light
+- `2026-04-13T22:49:47Z`: ShadowMapDepthPass: render each light's depth into its own array slice
+- `2026-04-13T22:49:47Z`: ShadowMaskPass shader: accept depth2d_array + array of light VP matrices, loop and multiply shadow factors
+- `2026-04-13T22:49:47Z`: ShadowMapParameters: extend to hold multiple light matrices and light count
+- `2026-04-13T22:49:47Z`: Demo: add a second light with its own shadow
 - `2026-04-13T23:04:03Z`: Implemented: depth2d_array with one slice per light, separate depth passes per light, ShadowMapParameters extended with per-light matrices, sampleShadow loops over all lights and multiplies shadow factors. Demo has two orbiting lights with warm/cool colors and independent shadow maps visible in inspector.
 
 ---
@@ -847,5 +846,36 @@ failure is a separate but related GPU driver gap on the GitHub Actions
 runner image. Worth keeping eye on whether GitHub upgrades the runner
 host's macOS / paravirt driver in future image rolls — these tests can be
 re-enabled if/when that happens.
+
+---
+
+## 30: Support equirectangular and other sky map modes in SkyboxRenderPipeline
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-05-21T03:32:30Z
++++
+
+Today `SkyboxRenderPipeline` only supports cubemap textures. Real-world sky/star maps (e.g. Tycho skymap, HDRI environments from Poly Haven) are usually distributed as **equirectangular** (lat-long) panoramas, and occasionally as horizontal/vertical cross layouts.
+
+Currently users have to either:
+- Pre-convert their equirectangular textures to cubemaps offline, or
+- Reimplement the panorama shader themselves (as the `PanoramaDemo` in MetalSprocketsExamples does).
+
+### Proposal
+
+Extend the skybox support to handle multiple input formats. Options:
+
+1. Add a new `PanoramaSkyboxRenderPipeline` that takes a 2D equirectangular texture and renders it via an inward-facing sphere or a fullscreen-pass + direction-to-UV conversion (see `MetalSprocketsExamples/.../PanoramaDemo/PanoramaShaders.metal`).
+2. Or: make `SkyboxRenderPipeline` polymorphic over a `SkyMapMode` enum (`.cube`, `.equirectangular`, `.horizontalCross`, `.verticalCross`) and pick the right shader internally.
+3. Provide a helper that converts an equirectangular texture to a cubemap at load time (one-shot compute pass), so the existing pipeline keeps working unchanged.
+
+Option 1 or 2 is preferred — option 3 wastes memory for what is essentially a UV transform.
+
+### Use case
+
+Planet/space scenes commonly want a starfield from sources like the Tycho skymap, which ships as a 16384x8192 equirectangular JPEG. The fullscreen technique already used in the existing `SkyboxRenderPipeline` (inverse view-projection per pixel) maps cleanly to equirectangular sampling — just replace the cubemap sample with a direction-to-(u,v) conversion.
 
 ---
