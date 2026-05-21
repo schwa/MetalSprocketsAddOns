@@ -7,6 +7,7 @@ public struct SkyboxRenderPipeline: Element {
     let cameraMatrix: simd_float4x4
     let rotation: simd_quatf
     let texture: MTLTexture
+    let brightness: Float
 
     @MSState
     var vertexShader: VertexShader
@@ -14,11 +15,12 @@ public struct SkyboxRenderPipeline: Element {
     @MSState
     var fragmentShader: FragmentShader
 
-    public init(projectionMatrix: simd_float4x4, cameraMatrix: simd_float4x4, rotation: simd_quatf = .init(ix: 0, iy: 0, iz: 0, r: 1), texture: MTLTexture) throws {
+    public init(projectionMatrix: simd_float4x4, cameraMatrix: simd_float4x4, rotation: simd_quatf = .init(ix: 0, iy: 0, iz: 0, r: 1), texture: MTLTexture, brightness: Float = 1.0) throws {
         self.projectionMatrix = projectionMatrix
         self.cameraMatrix = cameraMatrix
         self.rotation = rotation
         self.texture = texture
+        self.brightness = brightness
         let shaderLibrary = ShaderLibrary.module.namespaced("SkyboxShader")
         vertexShader = try shaderLibrary.vertex_main
         fragmentShader = try shaderLibrary.fragment_main
@@ -41,6 +43,7 @@ public struct SkyboxRenderPipeline: Element {
                 }
                 .parameter("inverseViewProjectionMatrix", functionType: .vertex, value: inverseVP)
                 .parameter("inverseViewProjectionMatrix", functionType: .fragment, value: inverseVP)
+                .parameter("brightness", functionType: .fragment, value: brightness)
             }
         }
     }

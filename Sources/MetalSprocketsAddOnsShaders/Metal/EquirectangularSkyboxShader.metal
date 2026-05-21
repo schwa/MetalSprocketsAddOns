@@ -34,6 +34,7 @@ namespace EquirectangularSkyboxShader {
     [[fragment]] float4 fragment_main(
         VertexOut in [[stage_in]],
         constant float4x4 &inverseViewProjectionMatrix [[buffer(0)]],
+        constant float &brightness [[buffer(1)]],
         texture2d<float, access::sample> texture [[texture(0)]]
     ) {
         constexpr sampler s(mag_filter::linear, min_filter::linear, s_address::repeat, t_address::clamp_to_edge);
@@ -44,7 +45,8 @@ namespace EquirectangularSkyboxShader {
         float3 direction = normalize(worldPos.xyz / worldPos.w);
 
         float2 uv = direction_to_equirectangular_uv(direction);
-        return texture.sample(s, uv);
+        float4 color = texture.sample(s, uv);
+        return float4(color.rgb * brightness, color.a);
     }
 
 } // namespace EquirectangularSkyboxShader
