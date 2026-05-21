@@ -121,6 +121,46 @@ func makeSphereMeshWithTangents(extent: SIMD3<Float> = [1, 1, 1], segments: SIMD
     return try MTKMesh(mesh: mdlMesh, device: device)
 }
 
+/// Make a simple equirectangular (lat-long) panorama texture for skybox tests.
+///
+/// The image is divided into a coarse grid where the hemisphere is split into
+/// quadrants by longitude (left-right halves around the seam, front/back) and
+/// horizontal bands by latitude (top sky / middle / bottom ground). This makes
+/// it easy to visually verify direction-to-UV mapping in golden images.
+func makeGradientEquirectangularTexture(device: MTLDevice, width: Int = 64, height: Int = 32) throws -> MTLTexture {
+    let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .rgba8Unorm,
+        width: width,
+        height: height,
+        mipmapped: false
+    )
+    descriptor.usage = [.shaderRead]
+    descriptor.storageMode = .shared
+    let texture = try device.makeTexture(descriptor: descriptor)
+        .orThrow(.resourceCreationFailure("Failed to create equirectangular texture"))
+    var pixels = [UInt8]()
+    pixels.reserveCapacity(width * height * 4)
+    for y in 0..<height {
+        let v = Float(y) / Float(height)
+        // Latitude bands: top = blue (sky), middle gradient, bottom = brown (ground)
+        let topColor = SIMD3<Float>(64, 128, 255)
+        let bottomColor = SIMD3<Float>(180, 120, 60)
+        let band = topColor * (1.0 - v) + bottomColor * v
+        for x in 0..<width {
+            let u = Float(x) / Float(width)
+            // Longitude tint: red in the front (u ~ 0.5), green on the sides
+            let frontness = 1.0 - abs(u - 0.5) * 2.0
+            let r = UInt8(clamping: Int(band.x + frontness * 32))
+            let g = UInt8(clamping: Int(band.y + (1.0 - frontness) * 32))
+            let b = UInt8(clamping: Int(band.z))
+            pixels.append(contentsOf: [r, g, b, 255])
+        }
+    }
+    let region = MTLRegionMake2D(0, 0, width, height)
+    texture.replace(region: region, mipmapLevel: 0, withBytes: pixels, bytesPerRow: width * 4)
+    return texture
+}
+
 /// Make a simple gradient cube texture for skybox tests.
 func makeGradientCubeTexture(device: MTLDevice, size: Int = 8) throws -> MTLTexture {
     let descriptor = MTLTextureDescriptor()

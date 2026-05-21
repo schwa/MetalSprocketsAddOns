@@ -852,10 +852,12 @@ re-enabled if/when that happens.
 ## 30: Support equirectangular and other sky map modes in SkyboxRenderPipeline
 
 +++
-status: new
+status: closed
 priority: medium
 kind: feature
 created: 2026-05-21T03:32:30Z
+updated: 2026-05-21T03:40:32Z
+closed: 2026-05-21T03:40:32Z
 +++
 
 Today `SkyboxRenderPipeline` only supports cubemap textures. Real-world sky/star maps (e.g. Tycho skymap, HDRI environments from Poly Haven) are usually distributed as **equirectangular** (lat-long) panoramas, and occasionally as horizontal/vertical cross layouts.
