@@ -56,11 +56,11 @@ public struct TextureView: View {
         let cgImage = cache.image(for: texture) ?? Self.placeholder
         if let label {
             return Image(cgImage, scale: scale, label: label)
-        } else {
-            return Image(decorative: cgImage, scale: scale)
         }
+        return Image(decorative: cgImage, scale: scale)
     }
 
+    // swiftlint:disable force_unwrapping multiline_arguments
     private static let placeholder: CGImage = {
         let cs = CGColorSpaceCreateDeviceRGB()
         let bytes: [UInt8] = [0, 0, 0, 0]
@@ -72,6 +72,7 @@ public struct TextureView: View {
             provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent
         )!
     }()
+    // swiftlint:enable force_unwrapping multiline_arguments
 }
 
 /// Reference-typed cache so `body` can update it without triggering
@@ -87,8 +88,12 @@ private final class ImageCache {
             return nil
         }
         let id = ObjectIdentifier(texture)
-        if id == cachedID, let cachedImage { return cachedImage }
-        guard let image = try? texture.toCGImage() else { return nil }
+        if id == cachedID, let cachedImage {
+            return cachedImage
+        }
+        guard let image = try? texture.toCGImage() else {
+            return nil
+        }
         cachedID = id
         cachedImage = image
         return image
