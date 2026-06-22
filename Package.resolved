@@ -1,5 +1,5 @@
 {
-  "originHash" : "84764b7c75a574a0de9b8c56b9b66e02d96629cc83111ce5b993e1c973722761",
+  "originHash" : "912588b8a2673dbbb11c95b6b7f30786258b6012241597f94fa2898548f47a5b",
   "pins" : [
     {
       "identity" : "geometrylite3d",
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/schwa/MetalSupport",
       "state" : {
-        "revision" : "bbd05e3292b7b5808e04c93be11a75e141aadf02",
-        "version" : "1.0.1"
+        "revision" : "4546c33a93435d7fce1f172fcc77fd1371a6a927",
+        "version" : "1.0.3"
       }
     },
     {

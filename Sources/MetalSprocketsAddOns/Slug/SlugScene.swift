@@ -1,3 +1,5 @@
+#if arch(arm64)
+
 @preconcurrency import Metal
 import simd
 
@@ -44,3 +46,5 @@ public class SlugScene: @unchecked Sendable {
         self.modelMatricesBuffer = modelMatricesBuffer
     }
 }
+
+#endif // arch(arm64)

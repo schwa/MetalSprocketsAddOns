@@ -1,3 +1,5 @@
+#if arch(arm64)
+
 import CoreGraphics
 import CoreText
 import Metal
@@ -649,3 +651,5 @@ public extension SlugTextMeshBuilder {
         return buildMesh(attributedString: result, maximumSize: maximumSize)
     }
 }
+
+#endif // arch(arm64)

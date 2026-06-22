@@ -1,3 +1,5 @@
+#if arch(arm64)
+
 import Metal
 import MetalSprockets
 import MetalSprocketsAddOnsShaders
@@ -152,3 +154,5 @@ public struct SlugTextRenderPipeline: Element {
         }
     }
 }
+
+#endif // arch(arm64)

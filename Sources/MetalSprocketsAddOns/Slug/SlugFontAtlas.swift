@@ -1,3 +1,5 @@
+#if arch(arm64)
+
 import CoreGraphics
 import CoreText
 import Metal
@@ -477,3 +479,5 @@ internal final class SlugFontAtlas {
         ]
     }
 }
+
+#endif // arch(arm64)

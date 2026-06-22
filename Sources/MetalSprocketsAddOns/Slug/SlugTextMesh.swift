@@ -1,3 +1,5 @@
+#if arch(arm64)
+
 @preconcurrency import Metal
 import simd
 
@@ -55,3 +57,5 @@ public enum SlugError: Error, CustomStringConvertible {
         }
     }
 }
+
+#endif // arch(arm64)

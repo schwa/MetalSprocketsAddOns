@@ -1,3 +1,5 @@
+#if arch(arm64)
+
 // SlugFontAtlas tests.
 // Exercise the (internal) atlas: glyph insertion, caching, texture upload,
 // QuadBezier predicates, and the empty-glyph paths.
@@ -227,3 +229,5 @@ func testSlugFontAtlas_multipleGlyphs_distinctCurveOffsets() {
     // Each glyph occupies a distinct slice of the curve texture.
     #expect(infoO.curveTexStart != infoQ.curveTexStart)
 }
+
+#endif // arch(arm64)
