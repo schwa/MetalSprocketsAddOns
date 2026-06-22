@@ -92,7 +92,7 @@ public struct TextureBillboardPipeline: Element {
                 .useResource(specifierB.textureCube, usage: .read, stages: .fragment)
                 .useResource(specifierB.depth2D, usage: .read, stages: .fragment)
             }
-            .vertexDescriptor(try vertexShader.inferredVertexDescriptor())
+            .vertexDescriptor(vertexShader.inferredVertexDescriptor())
             .environment(\.linkedFunctions, colorTransformGraph.linkedFunctions)
         }
     }

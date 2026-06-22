@@ -122,7 +122,7 @@ public struct GridShader: Element {
                 .parameter("majorDivision", value: majorDivisionBuffer)
                 .parameter("backfaceColor", value: backfaceColor)
             }
-            .vertexDescriptor(try vertexShader.inferredVertexDescriptor())
+            .vertexDescriptor(vertexShader.inferredVertexDescriptor())
             .depthCompare(function: .less, enabled: true)
         }
     }

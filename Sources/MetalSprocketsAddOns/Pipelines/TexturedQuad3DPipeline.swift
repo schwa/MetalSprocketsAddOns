@@ -41,7 +41,7 @@ public struct TexturedQuad3DPipeline: Element {
                 .useResource(textureY, usage: .read, stages: .fragment)
                 .useResource(textureCbCr, usage: .read, stages: .fragment)
             }
-            .vertexDescriptor(try vertexShader.inferredVertexDescriptor())
+            .vertexDescriptor(vertexShader.inferredVertexDescriptor())
         }
     }
 }

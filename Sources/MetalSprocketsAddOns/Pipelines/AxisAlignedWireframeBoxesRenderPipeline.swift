@@ -30,7 +30,7 @@ public struct AxisAlignedWireframeBoxesRenderPipeline: Element {
                     encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: 24, instanceCount: boxes.count)
                 }
             }
-            .vertexDescriptor(try vertexShader.inferredVertexDescriptor())
+            .vertexDescriptor(vertexShader.inferredVertexDescriptor())
         }
     }
 }

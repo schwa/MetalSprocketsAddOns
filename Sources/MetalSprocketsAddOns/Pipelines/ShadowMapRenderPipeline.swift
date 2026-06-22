@@ -174,7 +174,7 @@ public struct ShadowMapDepthPass<Content>: Element where Content: Element {
             let useInverseZ = shadowMap.useInverseZ
 
             // One render pass per light, each targeting a different array slice
-            try ForEach(Array(0..<shadowMap.lightCount), id: \.self) { lightIndex in
+            ForEach(Array(0..<shadowMap.lightCount), id: \.self) { lightIndex in
                 let lightVP = shadowMap.lightViewProjectionMatrices[lightIndex]
                 try RenderPass(label: "Shadow Map Depth [\(lightIndex)]") {
                     try RenderPipeline(label: "Shadow Map Depth [\(lightIndex)]", vertexShader: vertexShader, fragmentShader: fragmentShader) {

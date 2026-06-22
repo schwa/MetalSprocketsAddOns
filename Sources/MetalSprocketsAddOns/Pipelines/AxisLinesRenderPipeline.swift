@@ -62,7 +62,7 @@ public struct AxisLinesRenderPipeline: Element {
                     encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 18)
                 }
             }
-            .vertexDescriptor(try vertexShader.inferredVertexDescriptor())
+            .vertexDescriptor(vertexShader.inferredVertexDescriptor())
         }
     }
 }
