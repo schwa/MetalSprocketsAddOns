@@ -19,7 +19,7 @@ let package = Package(
         .package(url: "https://github.com/schwa/GeometryLite3D", from: "0.1.0"),
         .package(url: "https://github.com/schwa/MetalCompilerPlugin", from: "0.1.4"),
         .package(url: "https://github.com/schwa/MetalSupport", from: "1.0.3"),
-        .package(url: "https://github.com/schwa/MetalSprockets", branch: "0.1.10"),
+        .package(url: "https://github.com/schwa/MetalSprockets", from: "0.1.10"),
         .package(url: "https://github.com/schwa/SwiftMesh", branch: "main"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.3.0"),
         .package(url: "https://github.com/schwa/GoldenImage", branch: "main"),
