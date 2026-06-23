@@ -114,7 +114,9 @@ func testCube() {
     // A cube has 6 quad faces. Each quad is triangulated into 2 triangles = 12 triangles.
     // A triangulated cube has 18 unique edges: 12 wireframe + 6 diagonals.
     let device = _MTLCreateSystemDefaultDevice()
-    let swiftMesh = Mesh.box()
+    // Position-only box so coincident corner vertices are shared (not split by
+    // per-face normals/UVs), giving the expected 8 vertices and 18 unique edges.
+    let swiftMesh = Mesh.box(attributes: [])
     let metalMesh = MetalMesh(mesh: swiftMesh, device: device)
     let meshWithEdges = MeshWithEdges(metalMesh: metalMesh)
 
