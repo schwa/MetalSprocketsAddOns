@@ -130,15 +130,25 @@ public struct ShadowMap {
 
 /// An Element that renders geometry into a shadow map depth texture from the light's POV.
 ///
+/// - Important: This element emits its own `RenderPass` per shadow-casting light, so it must be
+/// placed as a *sibling* of the scene's render pass, never inside one. Nesting it inside a
+/// `RenderPass` opens a second command encoder on the same command buffer, which Metal rejects
+/// with "A command encoder is already encoding to this command buffer".
+///
 /// Usage:
 /// ```swift
-/// ShadowMapDepthPass(shadowMap: shadowMap) {
-///     // Draw calls for shadow casters — same geometry, just needs positions
-///     Draw { encoder in
-///         encoder.setVertexBuffers(of: mesh)
-///         encoder.draw(mesh)
+/// Group {
+///     ShadowMapDepthPass(shadowMap: shadowMap, vertexDescriptor: mesh.vertexDescriptor) {
+///         // Draw calls for shadow casters — same geometry, just needs positions
+///         Draw { encoder in
+///             encoder.setVertexBuffers(of: mesh)
+///             encoder.draw(mesh)
+///         }
+///         .parameter("modelMatrix", functionType: .vertex, value: modelMatrix)
 ///     }
-///     .parameter("modelMatrix", functionType: .vertex, value: modelMatrix)
+///     RenderPass {
+///         // ... scene, then ShadowMaskPass ...
+///     }
 /// }
 /// ```
 public struct ShadowMapDepthPass<Content>: Element where Content: Element {

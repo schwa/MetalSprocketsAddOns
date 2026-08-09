@@ -109,8 +109,96 @@ func testFloat4x4_orthographic_standardZ_mapsNearAndFar() {
     #expect(abs(farProjected.z - 1.0) < 1e-3)
 }
 
-// NOTE: An end-to-end ShadowMapDepthPass + ShadowMaskPass render test was attempted
-// but triggers a Metal command-buffer assertion ("A command encoder is already encoding
-// to this command buffer") inside OffscreenRenderer when the depth pass nests its own
-// RenderPass per light. Until OffscreenRenderer can host nested render passes, the
-// shadow render-pipeline code paths remain uncovered. Tracked separately.
+// MARK: - End-to-end shadow chain
+
+// `ShadowMapDepthPass` emits its own `RenderPass` per light, so it must be a sibling of
+// the scene's render pass, not nested inside it. Nesting opens a second command encoder
+// on the same command buffer and trips a Metal assertion.
+@Test
+@MainActor
+func testShadowPipelines_depthPassThenMaskPass_darkensScene() throws {
+    let litLuminance = try renderShadowScene(applyShadowMask: false)
+    let shadowedLuminance = try renderShadowScene(applyShadowMask: true)
+    // The cast shadow covers a sizeable part of the ground plane, so the drop is well
+    // clear of per-GPU rasterisation noise.
+    #expect(shadowedLuminance < litLuminance * 0.97)
+}
+
+/// Renders a sphere above a ground plane lit by a single shadow-casting directional light,
+/// optionally applying the shadow mask, and returns the mean luminance of the result.
+@MainActor
+private func renderShadowScene(applyShadowMask: Bool) throws -> Double {
+    let sphere = MTKMesh.sphere(extent: [0.6, 0.6, 0.6])
+    let plane = MTKMesh.plane(width: 4, height: 4)
+    let sphereTransform = float4x4(translation: SIMD3<Float>(0, 0.5, 0))
+    let planeTransform = float4x4(translation: SIMD3<Float>(0, -1.0, 0))
+
+    let camera = float4x4(translation: SIMD3<Float>(0, 1.5, 4))
+        * float4x4(simd_quatf(angle: -.pi / 8, axis: SIMD3<Float>(1, 0, 0)))
+    let viewProjection = perspectiveProjection() * camera.inverse
+
+    var shadowMap = try ShadowMap(resolution: 512, lightCount: 1)
+    shadowMap.updateDirectionalLight(at: 0, position: SIMD3<Float>(3, 5, 2), orthoSize: 3, near: 0.1, far: 20)
+
+    let renderer = try OffscreenRenderer(size: defaultRenderSize, depthUsage: [.renderTarget, .shaderRead])
+
+    let content = try MetalSprockets.Group {
+        try ShadowMapDepthPass(shadowMap: shadowMap, vertexDescriptor: sphere.vertexDescriptor) {
+            Draw { encoder in
+                encoder.setVertexBuffers(of: sphere)
+                encoder.draw(sphere)
+            }
+            .parameter("modelMatrix", functionType: .vertex, value: sphereTransform)
+            Draw { encoder in
+                encoder.setVertexBuffers(of: plane)
+                encoder.draw(plane)
+            }
+            .parameter("modelMatrix", functionType: .vertex, value: planeTransform)
+        }
+
+        try RenderPass {
+            try MetalSprockets.Group {
+                try FlatShader(
+                    modelViewProjection: viewProjection * sphereTransform,
+                    textureSpecifier: ColorSource.color([0.8, 0.6, 0.4])
+                ) {
+                    Draw { encoder in
+                        encoder.setVertexBuffers(of: sphere)
+                        encoder.draw(sphere)
+                    }
+                }
+                .vertexDescriptor(MTLVertexDescriptor(sphere.vertexDescriptor))
+                .depthCompare(function: .less, enabled: true)
+
+                try FlatShader(
+                    modelViewProjection: viewProjection * planeTransform,
+                    textureSpecifier: ColorSource.color([0.8, 0.8, 0.85])
+                ) {
+                    Draw { encoder in
+                        encoder.setVertexBuffers(of: plane)
+                        encoder.draw(plane)
+                    }
+                }
+                .vertexDescriptor(MTLVertexDescriptor(plane.vertexDescriptor))
+                .depthCompare(function: .less, enabled: true)
+            }
+        }
+
+        if applyShadowMask {
+            try RenderPass {
+                try ShadowMaskPass(
+                    sceneDepthTexture: renderer.depthTexture,
+                    shadowMap: shadowMap,
+                    inverseViewProjection: viewProjection.inverse
+                )
+            }
+            .renderPassDescriptorModifier { descriptor in
+                descriptor.colorAttachments[0].loadAction = .load
+                descriptor.depthAttachment.loadAction = .load
+            }
+        }
+    }
+
+    let rendering = try renderer.render(content)
+    return try rendering.cgImage.meanLuminance()
+}

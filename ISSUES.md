@@ -455,12 +455,13 @@ Once fixed, remove the `.disabled(...)` arguments from the five tests, refresh t
 ## 22: ShadowMapDepthPass renders fail under OffscreenRenderer (nested RenderPass + command encoder collision)
 
 +++
-status: open
+status: closed
 priority: low
 kind: bug
 labels: testing, shader, effort:l
 created: 2026-04-19T20:04:33Z
-updated: 2026-08-09T00:13:48Z
+updated: 2026-08-09T00:40:13Z
+closed: 2026-08-09T00:40:13Z
 +++
 
 An end-to-end test for `ShadowMapDepthPass` + `ShadowMaskPass` triggers a Metal
