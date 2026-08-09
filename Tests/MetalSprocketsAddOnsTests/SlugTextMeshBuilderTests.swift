@@ -418,9 +418,31 @@ func testSlugScene_modelMatrices_areIdentityByDefault() throws {
     let scene = try builder.finalize()
 
     let identity = float4x4(diagonal: SIMD4<Float>(1, 1, 1, 1))
-    for matrix in scene.modelMatrices {
-        #expect(matrix == identity)
+    for index in 0..<scene.meshCount {
+        #expect(scene.modelMatrix(at: index) == identity)
     }
+}
+
+@Test
+@MainActor
+func testSlugScene_modelMatrixAccess_isScopedNotEscaping() throws {
+    let device = _MTLCreateSystemDefaultDevice()
+    let builder = SlugTextMeshBuilder(device: device)
+    _ = builder.buildMesh(attributedString: makeAttributed("Scoped"))
+    let scene = try builder.finalize()
+
+    // The only public views of the model matrices are scoped: a bounds-checked span for writes
+    // and a by-value read. Neither hands out a pointer that can outlive the scene.
+    #expect(scene.withModelMatrices { $0.count } == scene.meshCount)
+
+    // SlugScene owns unsynchronized GPU storage and non-Sendable MTLTextures.
+    #expect(conformsToSendable(SlugScene.self) == false)
+
+    let scale = float4x4(diagonal: SIMD4<Float>(2, 2, 2, 1))
+    scene.withModelMatrices { span in
+        span[0] = scale
+    }
+    #expect(scene.modelMatrix(at: 0) == scale)
 }
 
 @Test
@@ -435,7 +457,7 @@ func testSlugScene_withModelMatrices_boundsCheckedWriteAndRead() throws {
     scene.withModelMatrices { span in
         span[0] = translation
     }
-    #expect(scene.modelMatrices[0] == translation)
+    #expect(scene.modelMatrix(at: 0) == translation)
 }
 
 // MARK: - SlugFrameConstants

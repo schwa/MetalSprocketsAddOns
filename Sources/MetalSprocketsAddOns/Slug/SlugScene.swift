@@ -1,13 +1,17 @@
 #if arch(arm64)
 
-@preconcurrency import Metal
+import Metal
 import simd
 
 // MARK: - Scene
 
 /// Bundles all GPU resources needed to render text meshes.
 /// Created by `SlugTextMeshBuilder.finalize()`.
-public class SlugScene: @unchecked Sendable {
+///
+/// - Important: A scene is not `Sendable`. It owns shared GPU storage (notably the model
+/// matrices buffer) with no synchronization, and `MTLTexture` itself is not `Sendable`, so a
+/// scene must stay within the isolation domain that created it.
+public class SlugScene {
     /// Shared vertex/index buffers.
     public let bufferStorage: SlugBufferStorage
     /// All meshes in the scene.
@@ -20,16 +24,23 @@ public class SlugScene: @unchecked Sendable {
     /// Total index count across all meshes.
     public var totalIndexCount: Int { bufferStorage.totalIndexCount }
 
-    /// Unsafe mutable view over the model matrices buffer. Prefer `withModelMatrices(_:)` for bounds-checked access.
-    public var modelMatrices: UnsafeMutableBufferPointer<float4x4> {
+    // The buffer memory outlives every scoped accessor below, so binding it per call is safe;
+    // the pointer itself must never escape.
+    private var modelMatricesPointer: UnsafeMutableBufferPointer<float4x4> {
         let ptr = modelMatricesBuffer.contents().bindMemory(to: float4x4.self, capacity: meshCount)
         return UnsafeMutableBufferPointer(start: ptr, count: meshCount)
     }
 
-    /// Bounds-checked mutable access to model matrices via MutableSpan.
+    /// Bounds-checked mutable access to the model matrices, one per mesh.
     public func withModelMatrices<R>(_ body: (inout MutableSpan<float4x4>) throws -> R) rethrows -> R {
-        var span = modelMatrices.mutableSpan
+        var span = modelMatricesPointer.mutableSpan
         return try body(&span)
+    }
+
+    /// The model matrix for the mesh at `index`.
+    public func modelMatrix(at index: Int) -> float4x4 {
+        precondition(index >= 0 && index < meshCount, "model matrix index out of range")
+        return modelMatricesPointer[index]
     }
     /// Number of meshes in the scene.
     public var meshCount: Int { meshes.count }

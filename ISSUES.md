@@ -1014,12 +1014,13 @@ Note that SlugTextMeshBuilder itself is correctly not Sendable, so the Sendable 
 ## 34: SlugScene publishes an escaping mutable pointer into GPU memory while claiming Sendable
 
 +++
-status: open
+status: closed
 priority: medium
 kind: bug
 labels: concurrency, effort:s
 created: 2026-08-09T00:09:27Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T00:20:02Z
+closed: 2026-08-09T00:20:02Z
 +++
 
 SlugScene (Sources/MetalSprocketsAddOns/Slug/SlugScene.swift) is declared @unchecked Sendable while exposing unrestricted mutable aliasing of shared GPU storage.
