@@ -67,3 +67,58 @@ func testGraphicsContext3D_equality() {
     #expect(a == b)
     #expect(a != c)
 }
+
+// MARK: - Fill triangulation plane selection (issue #5)
+
+private func quad(on plane: (Float, Float) -> SIMD3<Float>) -> Path3D {
+    Path3D { p in
+        p.move(to: plane(-1, -1))
+        p.addLine(to: plane(1, -1))
+        p.addLine(to: plane(1, 1))
+        p.addLine(to: plane(-1, 1))
+        p.closeSubpath()
+    }
+}
+
+@Test
+func testGeometryGenerator_polygonNormal_matchesPlane() {
+    let xy: [SIMD3<Float>] = [[-1, -1, 0], [1, -1, 0], [1, 1, 0], [-1, 1, 0]]
+    let xz: [SIMD3<Float>] = [[-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1]]
+    let yz: [SIMD3<Float>] = [[0, -1, -1], [0, 1, -1], [0, 1, 1], [0, -1, 1]]
+
+    #expect(abs(normalize(GeometryGenerator.polygonNormal(xy)).z) == 1)
+    #expect(abs(normalize(GeometryGenerator.polygonNormal(xz)).y) == 1)
+    #expect(abs(normalize(GeometryGenerator.polygonNormal(yz)).x) == 1)
+
+    // Collinear points have no plane.
+    #expect(GeometryGenerator.polygonNormal([[0, 0, 0], [1, 1, 1], [2, 2, 2]]) == .zero)
+}
+
+@Test
+func testGeometryGenerator_projectToDominantPlane_dropsPerpendicularAxis() {
+    // A polygon on the XZ plane must not flatten to a line.
+    let xz: [SIMD3<Float>] = [[-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1]]
+    let projected = GeometryGenerator.projectToDominantPlane(xz)
+    let spreadX = projected.map(\.x).max()! - projected.map(\.x).min()!
+    let spreadY = projected.map(\.y).max()! - projected.map(\.y).min()!
+    #expect(spreadX > 0)
+    #expect(spreadY > 0)
+}
+
+@Test
+func testGeometryGenerator_fillGeometry_worksOnEveryAxisAlignedPlane() {
+    let generator = GeometryGenerator(viewProjection: matrix_identity_float4x4, viewport: [256, 256])
+    let color = SIMD4<Float>(1, 0, 0, 1)
+
+    let planes: [(String, (Float, Float) -> SIMD3<Float>)] = [
+        ("XY", { [$0 * 0.5, $1 * 0.5, 0] }),
+        ("XZ", { [$0 * 0.5, 0, $1 * 0.5] }),
+        ("YZ", { [0, $0 * 0.5, $1 * 0.5] })
+    ]
+
+    for (name, plane) in planes {
+        let vertices = generator.generateFillGeometry(path: quad(on: plane), color: color)
+        // A quad triangulates into two triangles.
+        #expect(vertices.count == 6, "\(name) plane quad produced \(vertices.count) vertices")
+    }
+}

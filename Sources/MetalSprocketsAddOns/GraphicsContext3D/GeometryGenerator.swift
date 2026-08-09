@@ -90,7 +90,7 @@ internal struct GeometryGenerator {
             fatalError("Fill requires at least 3 points, got \(points.count)")
         }
 
-        let projectedPoints = points.map { SIMD2<Float>($0.x, $0.y) }
+        let projectedPoints = Self.projectToDominantPlane(points)
         let indices = earcut(polygon: [projectedPoints])
 
         var vertices: [Vertex] = []
@@ -113,6 +113,40 @@ internal struct GeometryGenerator {
         }
 
         return vertices
+    }
+
+    /// The normal of the plane a polygon most closely lies in, via Newell's method.
+    ///
+    /// Returns a zero vector for degenerate (collinear or empty) input.
+    internal static func polygonNormal(_ points: [SIMD3<Float>]) -> SIMD3<Float> {
+        guard points.count >= 3 else {
+            return .zero
+        }
+        var normal = SIMD3<Float>.zero
+        for i in points.indices {
+            let current = points[i]
+            let next = points[(i + 1) % points.count]
+            normal.x += (current.y - next.y) * (current.z + next.z)
+            normal.y += (current.z - next.z) * (current.x + next.x)
+            normal.z += (current.x - next.x) * (current.y + next.y)
+        }
+        return normal
+    }
+
+    /// Flatten 3D polygon points to 2D for triangulation, dropping the axis the
+    /// polygon's plane is most perpendicular to.
+    ///
+    /// Always dropping Z would collapse paths drawn on the XZ or YZ planes into a
+    /// line, producing no triangles at all.
+    internal static func projectToDominantPlane(_ points: [SIMD3<Float>]) -> [SIMD2<Float>] {
+        let normal = abs(polygonNormal(points))
+        if normal.x > normal.y && normal.x > normal.z {
+            return points.map { SIMD2<Float>($0.y, $0.z) }
+        }
+        if normal.y > normal.z {
+            return points.map { SIMD2<Float>($0.z, $0.x) }
+        }
+        return points.map { SIMD2<Float>($0.x, $0.y) }
     }
 
     private func extractPoints(from path: Path3D) -> [SIMD3<Float>] {

@@ -68,12 +68,13 @@ Fill geometry in GraphicsContext3D renders as white when using fractional alpha 
 ## 5: GraphicsContext3D fill projection hardcoded to XY plane — fails for XZ/YZ geometry
 
 +++
-status: open
+status: closed
 priority: medium
 kind: bug
 labels: effort:m
 created: 2026-04-13T05:08:59Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T00:22:08Z
+closed: 2026-08-09T00:22:08Z
 +++
 
 generateFillGeometry() projects 3D points onto XY (drops Z) for earcut triangulation. This produces degenerate geometry for paths on the XZ or YZ planes (e.g. the star on the ground plane at y=0 — all points project to a line). Should detect the dominant plane or use the path's normal to choose the projection axis.
