@@ -1,8 +1,12 @@
 // Runtime GPU capability probes used to gate tests that need hardware features
 // the current device may not have (see issue #29).
 
+import CoreGraphics
 import Metal
+import MetalSprockets
+@testable import MetalSprocketsAddOns
 import MetalSupport
+import simd
 
 /// True when the current default device can encode mesh-shader draws.
 ///
@@ -45,6 +49,31 @@ let supportsMeshShaders: Bool = {
 
 /// True when the current default device supports ray tracing.
 let supportsRaytracing: Bool = MTLCreateSystemDefaultDevice()?.supportsRaytracing ?? false
+
+/// True when the current default device samples textures correctly.
+///
+/// The GitHub Actions runner's paravirtual GPU returns a constant instead of texel data —
+/// plain `rgba8Unorm` samples as white — so every golden image that samples a texture is
+/// wrong there (see issue #44). Sample a known solid-blue texture and check the result is
+/// actually blue.
+///
+/// A probe that fails for any other reason reports support, so the affected tests run and
+/// report the real error rather than silently disappearing.
+let supportsTextureSampling: Bool = {
+    do {
+        let device = _MTLCreateSystemDefaultDevice()
+        let texture = try makeSolidColorTexture(device: device, size: 4, color: [0, 0, 255, 255])
+        let renderer = try OffscreenRenderer(size: CGSize(width: 32, height: 32))
+        let rendering = try renderer.render(try RenderPass {
+            try TextureBillboardPipeline(specifier: ColorSource.texture2D(texture))
+        })
+        let pixel = try rendering.cgImage.pixel(atX: 16, y: 16)
+        return pixel.z > 200 && pixel.x < 64
+    } catch {
+        print("Texture sampling probe failed, assuming sampling works: \(error)")
+        return true
+    }
+}()
 
 extension MTLDevice {
     /// True for the paravirtualized GPU exposed inside macOS VMs, including CI runners.

@@ -76,6 +76,12 @@ extension CGImage {
 
     /// Luminance of a single pixel, in the range 0...1, with the origin at the top-left of the image.
     func luminance(atX x: Int, y: Int) throws -> Double {
+        let pixel = try self.pixel(atX: x, y: y)
+        return (0.2126 * Double(pixel.x) + 0.7152 * Double(pixel.y) + 0.0722 * Double(pixel.z)) / 255.0
+    }
+
+    /// The RGBA bytes of a single pixel, with the origin at the top-left of the image.
+    func pixel(atX x: Int, y: Int) throws -> SIMD4<UInt8> {
         let width = self.width
         let height = self.height
         precondition((0..<width).contains(x) && (0..<height).contains(y), "Pixel (\(x), \(y)) is outside the \(width)x\(height) image")
@@ -87,7 +93,7 @@ extension CGImage {
         }
         context.draw(self, in: CGRect(x: 0, y: 0, width: width, height: height))
         let index = (y * width + x) * 4
-        return (0.2126 * Double(pixels[index]) + 0.7152 * Double(pixels[index + 1]) + 0.0722 * Double(pixels[index + 2])) / 255.0
+        return SIMD4<UInt8>(pixels[index], pixels[index + 1], pixels[index + 2], pixels[index + 3])
     }
 
     /// Mean luminance of the image, in the range 0...1.

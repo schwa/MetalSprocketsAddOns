@@ -1513,12 +1513,13 @@ Move the probes into MetalSupport so they can be shared, and have this test targ
 ## 52: Texture-sampling tests are gated by the CI env var and cite the wrong issue
 
 +++
-status: open
+status: closed
 priority: low
 kind: task
 labels: testing, ci, effort:s
 created: 2026-08-09T02:36:03Z
-updated: 2026-08-09T02:37:00Z
+updated: 2026-08-09T02:43:31Z
+closed: 2026-08-09T02:43:31Z
 +++
 
 Five texture-sampling tests are skipped with .disabled(if: ProcessInfo.processInfo.environment["CI"] != nil):

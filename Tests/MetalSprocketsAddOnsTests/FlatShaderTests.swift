@@ -86,8 +86,7 @@ func testFlatShaderWithColor() throws {
     #expect(try image.isEqualToGoldenImage(named: "FlatShaderRed"))
 }
 
-// Texture sampling returns white on the CI paravirt GPU — see issue #29.
-@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Texture sampling broken on CI paravirt GPU — see issue #29"))
+@Test(.disabled(if: !supportsTextureSampling, "Texture sampling broken on this GPU — see issue #44"))
 @MainActor
 func testFlatShaderWithTexture() throws {
     // Define vertex structure

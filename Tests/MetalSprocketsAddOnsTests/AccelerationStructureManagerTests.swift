@@ -77,7 +77,7 @@ func testAccelerationStructureManager_build_multipleMeshesAndInstances() throws 
     #expect(manager.instanceAccelerationStructure != nil)
 }
 
-@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Ray tracing unsupported on CI paravirt GPU — see issue #29"))
+@Test(.disabled(if: !supportsRaytracing, "Ray tracing unsupported on this GPU — see issue #29"))
 @MainActor
 func testAccelerationStructureManager_build_metalMeshes() throws {
     try ensureRayTracingSupported()
