@@ -53,6 +53,27 @@ extension CGImage {
 // MARK: - Image Utilities
 
 extension CGImage {
+    /// Fraction of pixels whose red, green and blue channels are all at or below `threshold`.
+    ///
+    /// Used by render tests to catch pipelines that run without error but produce no
+    /// visible output (see issue #21).
+    func fractionOfBlackPixels(threshold: UInt8 = 8) throws -> Double {
+        let width = self.width
+        let height = self.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
+        guard let context = CGContext(data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4, space: colorSpace, bitmapInfo: bitmapInfo) else {
+            throw MetalSprocketsError.resourceCreationFailure("Failed to create bitmap context")
+        }
+        context.draw(self, in: CGRect(x: 0, y: 0, width: width, height: height))
+        var blackCount = 0
+        for index in stride(from: 0, to: pixels.count, by: 4) where pixels[index] <= threshold && pixels[index + 1] <= threshold && pixels[index + 2] <= threshold {
+            blackCount += 1
+        }
+        return Double(blackCount) / Double(width * height)
+    }
+
     func write(to url: URL) throws {
         guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
             throw MetalSprocketsError.resourceCreationFailure("Failed to create image destination")

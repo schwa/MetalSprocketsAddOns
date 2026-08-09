@@ -80,6 +80,40 @@ func makeSolidColorTexture(device: MTLDevice, size: Int = 4, color: SIMD4<UInt8>
 
 // MARK: - Mesh helpers
 
+/// Vertex descriptor for tangent-space meshes: position, normal, texcoord, tangent and
+/// bitangent, all interleaved into a single vertex buffer.
+///
+/// Everything must live in buffer 0. `MTKMesh.addTangentBasis` otherwise spreads attributes
+/// across several `MTLBuffer`s, and `setVertexBuffers(of:)` binds those at vertex buffer
+/// indices 1, 2, ... — clobbering the uniform buffers the shaders declare at those indices.
+private func tangentBasisVertexDescriptor() -> MDLVertexDescriptor {
+    let descriptor = MDLVertexDescriptor()
+    let attributes: [(String, MDLVertexFormat, Int)] = [
+        (MDLVertexAttributePosition, .float3, 0),
+        (MDLVertexAttributeNormal, .float3, 12),
+        (MDLVertexAttributeTextureCoordinate, .float2, 24),
+        (MDLVertexAttributeTangent, .float3, 32),
+        (MDLVertexAttributeBitangent, .float3, 44)
+    ]
+    descriptor.attributes = NSMutableArray(array: attributes.map { name, format, offset in
+        MDLVertexAttribute(name: name, format: format, offset: offset, bufferIndex: 0)
+    })
+    descriptor.layouts = NSMutableArray(array: [MDLVertexBufferLayout(stride: 56)])
+    return descriptor
+}
+
+/// Convert an `MDLMesh` into an `MTKMesh` with a tangent basis packed into a single vertex buffer.
+private func makeTangentBasisMesh(from mdlMesh: MDLMesh, device: MTLDevice) throws -> MTKMesh {
+    mdlMesh.addNormals(withAttributeNamed: MDLVertexAttributeNormal, creaseThreshold: 0.0)
+    mdlMesh.addTangentBasis(
+        forTextureCoordinateAttributeNamed: MDLVertexAttributeTextureCoordinate,
+        tangentAttributeNamed: MDLVertexAttributeTangent,
+        bitangentAttributeNamed: MDLVertexAttributeBitangent
+    )
+    mdlMesh.vertexDescriptor = tangentBasisVertexDescriptor()
+    return try MTKMesh(mesh: mdlMesh, device: device)
+}
+
 /// Make a box MTKMesh with a full vertex layout (position, normal, texcoord, tangent, bitangent),
 /// suitable for shaders like the debug/Blinn-Phong shaders that require tangent space attributes.
 func makeBoxMeshWithTangents(extent: SIMD3<Float> = [1, 1, 1]) throws -> MTKMesh {
@@ -92,13 +126,7 @@ func makeBoxMeshWithTangents(extent: SIMD3<Float> = [1, 1, 1]) throws -> MTKMesh
         geometryType: .triangles,
         allocator: allocator
     )
-    mdlMesh.addNormals(withAttributeNamed: MDLVertexAttributeNormal, creaseThreshold: 0.0)
-    mdlMesh.addTangentBasis(
-        forTextureCoordinateAttributeNamed: MDLVertexAttributeTextureCoordinate,
-        tangentAttributeNamed: MDLVertexAttributeTangent,
-        bitangentAttributeNamed: MDLVertexAttributeBitangent
-    )
-    return try MTKMesh(mesh: mdlMesh, device: device)
+    return try makeTangentBasisMesh(from: mdlMesh, device: device)
 }
 
 /// Make a sphere MTKMesh with a full vertex layout (position, normal, texcoord, tangent, bitangent).
@@ -112,13 +140,7 @@ func makeSphereMeshWithTangents(extent: SIMD3<Float> = [1, 1, 1], segments: SIMD
         geometryType: .triangles,
         allocator: allocator
     )
-    mdlMesh.addNormals(withAttributeNamed: MDLVertexAttributeNormal, creaseThreshold: 0.0)
-    mdlMesh.addTangentBasis(
-        forTextureCoordinateAttributeNamed: MDLVertexAttributeTextureCoordinate,
-        tangentAttributeNamed: MDLVertexAttributeTangent,
-        bitangentAttributeNamed: MDLVertexAttributeBitangent
-    )
-    return try MTKMesh(mesh: mdlMesh, device: device)
+    return try makeTangentBasisMesh(from: mdlMesh, device: device)
 }
 
 /// Make a simple equirectangular (lat-long) panorama texture for skybox tests.

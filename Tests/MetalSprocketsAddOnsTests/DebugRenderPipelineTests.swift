@@ -46,31 +46,29 @@ private func renderDebugMode(_ mode: DebugShadersMode, mesh: MTKMesh) throws -> 
     return try renderer.render(renderPass).cgImage
 }
 
-// FIXME: Renders black. Pipeline runs but produces no visible output — likely a vertex-buffer
-// index collision between the mesh tangent/bitangent buffers and the shader uniform buffers.
-// Still useful for coverage; revisit when the shader buffer layout is reconciled.
-@Test(.disabled("Renders black — see FIXME above"))
+@Test
 @MainActor
 func testDebugRenderPipeline_normalMode() throws {
     let mesh = try makeSphereMeshWithTangents()
     let image = try renderDebugMode(.normal, mesh: mesh)
+    #expect(try image.fractionOfBlackPixels() < 0.95)
     #expect(try image.isEqualToGoldenImage(named: "DebugNormal"))
 }
 
-// FIXME: Renders black — see note on `testDebugRenderPipeline_normalMode`.
-@Test(.disabled("Renders black — see FIXME above"))
+@Test
 @MainActor
 func testDebugRenderPipeline_localPositionMode() throws {
     let mesh = try makeBoxMeshWithTangents()
     let image = try renderDebugMode(.localPosition, mesh: mesh)
+    #expect(try image.fractionOfBlackPixels() < 0.95)
     #expect(try image.isEqualToGoldenImage(named: "DebugLocalPosition"))
 }
 
-// FIXME: Renders black — see note on `testDebugRenderPipeline_normalMode`.
-@Test(.disabled("Renders black — see FIXME above"))
+@Test
 @MainActor
 func testDebugRenderPipeline_faceNormalMode() throws {
     let mesh = try makeBoxMeshWithTangents()
     let image = try renderDebugMode(.faceNormal, mesh: mesh)
+    #expect(try image.fractionOfBlackPixels() < 0.95)
     #expect(try image.isEqualToGoldenImage(named: "DebugFaceNormal"))
 }

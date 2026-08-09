@@ -13,10 +13,7 @@ import MetalSupport
 import simd
 import Testing
 
-// FIXME: Renders black. Likely vertex-buffer index collision between the mesh's
-// tangent/bitangent buffers and the shader's uniform buffers (1, 2, 3). The pipeline
-// still runs end-to-end (good for coverage) but the golden image is mostly black.
-@Test(.disabled("Renders black — see FIXME above"))
+@Test
 @MainActor
 func testBlinnPhongShader_litBox() throws {
     let mesh = try makeBoxMeshWithTangents()
@@ -61,11 +58,11 @@ func testBlinnPhongShader_litBox() throws {
 
     let renderer = try OffscreenRenderer(size: defaultRenderSize)
     let rendering = try renderer.render(renderPass)
+    #expect(try rendering.cgImage.fractionOfBlackPixels() < 0.95)
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "BlinnPhongBox"))
 }
 
-// FIXME: Renders black — see note on `testBlinnPhongShader_litBox`.
-@Test(.disabled("Renders black — see FIXME above"))
+@Test
 @MainActor
 func testBlinnPhongShader_litSphereTwoLights() throws {
     let mesh = try makeSphereMeshWithTangents()
@@ -111,5 +108,6 @@ func testBlinnPhongShader_litSphereTwoLights() throws {
 
     let renderer = try OffscreenRenderer(size: defaultRenderSize)
     let rendering = try renderer.render(renderPass)
+    #expect(try rendering.cgImage.fractionOfBlackPixels() < 0.95)
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "BlinnPhongSphereTwoLights"))
 }

@@ -408,12 +408,13 @@ MetalMesh splits vertices per-corner (each half-edge corner becomes a unique ver
 ## 21: BlinnPhongShader and DebugRenderPipeline tests render black (likely vertex-buffer index collision)
 
 +++
-status: open
+status: closed
 priority: medium
 kind: bug
 labels: testing, shader, effort:m
 created: 2026-04-19T19:53:17Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T00:38:18Z
+closed: 2026-08-09T00:38:18Z
 +++
 
 Five golden-image tests are currently disabled with `.disabled(\"Renders black — see FIXME above\")` because the resulting render is entirely (or near-entirely) black even though the pipeline runs end-to-end without errors:
