@@ -142,7 +142,7 @@ internal struct GeometryGenerator {
     /// line, producing no triangles at all.
     internal static func projectToDominantPlane(_ points: [SIMD3<Float>]) -> [SIMD2<Float>] {
         let normal = abs(polygonNormal(points))
-        if normal.x > normal.y && normal.x > normal.z {
+        if normal.x > normal.y, normal.x > normal.z {
             return points.map { SIMD2<Float>($0.y, $0.z) }
         }
         if normal.y > normal.z {

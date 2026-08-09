@@ -102,6 +102,8 @@ func testMakeTextureCubeFromCrossTexture_facesCopied() throws {
 }
 
 @Test
+// The `async` is the point of the test: it runs off the main actor, so there is nothing to await.
+// swiftlint:disable:next async_without_await
 func testMakeTextureCubeFromCrossTexture_offMainActor() async throws {
     // Guards the isolation contract: this must stay callable without hopping to
     // the main actor. Re-adding @MainActor breaks compilation of this test.
