@@ -992,12 +992,13 @@ Actual: one loop from the first play() is still running; pause() only cancelled 
 ## 33: FontAtlasCache is marked Sendable but shares mutable, non-thread-safe atlas objects
 
 +++
-status: open
+status: closed
 priority: high
 kind: bug
 labels: concurrency, effort:s
 created: 2026-08-09T00:09:19Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T00:18:52Z
+closed: 2026-08-09T00:18:52Z
 +++
 
 FontAtlasCache (Sources/MetalSprocketsAddOns/Slug/SlugTextMeshBuilder.swift) is declared @unchecked Sendable, but its stored cache is [String: SlugFontAtlas] and SlugFontAtlas is a mutable class with no internal synchronization.

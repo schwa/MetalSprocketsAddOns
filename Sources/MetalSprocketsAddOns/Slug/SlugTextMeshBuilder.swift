@@ -26,7 +26,11 @@ private typealias PlatformFont = UIFont
 /// ```
 /// Opaque container for sharing font atlas data between SlugTextMeshBuilder instances.
 /// Avoids re-rasterizing glyphs when rebuilding scenes with the same fonts.
-public struct FontAtlasCache: @unchecked Sendable {
+///
+/// - Important: This type is deliberately not `Sendable`. The atlases it holds are mutable
+/// reference types with no internal synchronization, so a cache (and any builder created from
+/// it) must stay within a single isolation domain.
+public struct FontAtlasCache {
     internal var cache: [String: SlugFontAtlas]
     internal var orderedFontNames: [String]
 }

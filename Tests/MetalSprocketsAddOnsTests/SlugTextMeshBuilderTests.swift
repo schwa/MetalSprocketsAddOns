@@ -165,6 +165,20 @@ func testSlugTextMeshBuilder_colorAttributePropagatesToVertices() throws {
 
 // MARK: - FontAtlasCache reuse
 
+// Overload pair used to observe a type's `Sendable` conformance at runtime: the constrained
+// overload wins whenever the conformance exists. `is any Sendable.Type` cannot be used because
+// Sendable is a marker protocol.
+private func conformsToSendable<T: Sendable>(_: T.Type) -> Bool { true }
+private func conformsToSendable<T>(_: T.Type) -> Bool { false }
+
+@Test
+func testFontAtlasCache_isNotSendable() {
+    // FontAtlasCache holds mutable, unsynchronized SlugFontAtlas instances, so it must not
+    // advertise cross-isolation transfer.
+    #expect(conformsToSendable(FontAtlasCache.self) == false)
+    #expect(conformsToSendable(Int.self) == true)
+}
+
 @Test
 @MainActor
 func testSlugTextMeshBuilder_fontAtlasCache_isShareable() throws {
