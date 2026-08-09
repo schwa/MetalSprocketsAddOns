@@ -61,8 +61,7 @@ public struct GridShader: Element {
     @MSState
     private var fragmentShader = ShaderLibrary.module.namespaced("GridShader").requiredFunction(named: "fragment_main", type: FragmentShader.self)
 
-    var projectionMatrix: simd_float4x4
-    var cameraMatrix: simd_float4x4
+    var viewTransforms: ViewTransforms
     var lineWidth: SIMD2<Float>
     var gridColor: SIMD4<Float>
     var backgroundColor: SIMD4<Float>
@@ -70,6 +69,26 @@ public struct GridShader: Element {
     var highlightedLines: [HighlightedLine]
     var majorDivision: MajorDivision?
     var backfaceColor: SIMD4<Float>
+
+    public init(
+        viewTransforms: ViewTransforms,
+        lineWidth: SIMD2<Float> = SIMD2<Float>(0.01, 0.01),
+        gridColor: SIMD4<Float> = SIMD4<Float>(1, 1, 1, 1),
+        backgroundColor: SIMD4<Float> = SIMD4<Float>(0.1, 0.1, 0.1, 1),
+        gridScale: SIMD2<Float> = SIMD2<Float>(1, 1),
+        highlightedLines: [HighlightedLine] = [],
+        majorDivision: MajorDivision? = nil,
+        backfaceColor: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 0)
+    ) {
+        self.viewTransforms = viewTransforms
+        self.lineWidth = lineWidth
+        self.gridColor = gridColor
+        self.backgroundColor = backgroundColor
+        self.gridScale = gridScale
+        self.highlightedLines = highlightedLines
+        self.majorDivision = majorDivision
+        self.backfaceColor = backfaceColor
+    }
 
     public init(
         projectionMatrix: simd_float4x4,
@@ -82,22 +101,23 @@ public struct GridShader: Element {
         majorDivision: MajorDivision? = nil,
         backfaceColor: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 0)
     ) {
-        self.projectionMatrix = projectionMatrix
-        self.cameraMatrix = cameraMatrix
-        self.lineWidth = lineWidth
-        self.gridColor = gridColor
-        self.backgroundColor = backgroundColor
-        self.gridScale = gridScale
-        self.highlightedLines = highlightedLines
-        self.majorDivision = majorDivision
-        self.backfaceColor = backfaceColor
+        self.init(
+            viewTransforms: ViewTransforms(projectionMatrix: projectionMatrix, cameraMatrix: cameraMatrix),
+            lineWidth: lineWidth,
+            gridColor: gridColor,
+            backgroundColor: backgroundColor,
+            gridScale: gridScale,
+            highlightedLines: highlightedLines,
+            majorDivision: majorDivision,
+            backfaceColor: backfaceColor
+        )
     }
 
     public var body: some Element {
         get throws {
             try RenderPipeline(label: "Grid", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 let modelMatrix = float4x4(xRotation: .degrees(90))
-                let modelViewProjectionMatrix = projectionMatrix * cameraMatrix.inverse * modelMatrix
+                let modelViewProjectionMatrix = viewTransforms.transforms(modelMatrix: modelMatrix).modelViewProjectionMatrix
                 Draw { encoder in
                     // Push grid slightly back in depth to avoid z-fighting with coplanar geometry
                     encoder.setDepthBias(1, slopeScale: 1, clamp: 0)

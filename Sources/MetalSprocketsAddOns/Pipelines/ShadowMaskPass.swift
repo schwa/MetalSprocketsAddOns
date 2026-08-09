@@ -64,6 +64,25 @@ public struct ShadowMaskPass: Element {
         computeKernel = try shaderLibrary.function(named: "shadow_mask_compute", type: ComputeKernel.self, constants: constants)
     }
 
+    /// Creates a shadow mask compute pass from shared camera transforms.
+    public init(
+        sceneDepthTexture: MTLTexture,
+        outputTexture: MTLTexture,
+        shadowMap: ShadowMap,
+        viewTransforms: ViewTransforms,
+        shadowIntensity: Float = 1.0,
+        debug: Bool = false
+    ) throws {
+        try self.init(
+            sceneDepthTexture: sceneDepthTexture,
+            outputTexture: outputTexture,
+            shadowMap: shadowMap,
+            inverseViewProjection: viewTransforms.inverseViewProjectionMatrix,
+            shadowIntensity: shadowIntensity,
+            debug: debug
+        )
+    }
+
     public var body: some Element {
         get throws {
             var maskParams = ShadowMaskParameters(

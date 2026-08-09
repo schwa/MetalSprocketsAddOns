@@ -42,6 +42,20 @@ public struct FlatShader <Content>: Element where Content: Element {
         self.fragmentShader = try shaderLibrary.function(named: "fragment_main", type: FragmentShader.self, constants: constants)
     }
 
+    public init(
+        transforms: Transforms,
+        textureSpecifier: ColorSource,
+        useVertexColors: Bool = false,
+        @ElementBuilder content: () throws -> Content
+    ) throws {
+        try self.init(
+            modelViewProjection: transforms.modelViewProjectionMatrix,
+            textureSpecifier: textureSpecifier,
+            useVertexColors: useVertexColors,
+            content: content
+        )
+    }
+
     public var body: some Element {
         get throws {
             try RenderPipeline(label: "FlatShader", vertexShader: vertexShader, fragmentShader: fragmentShader) {

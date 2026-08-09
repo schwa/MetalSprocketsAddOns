@@ -1163,12 +1163,13 @@ Effect: callers are forced onto the main thread to perform what can be a large G
 ## 39: Matrix conventions differ between pipelines with no shared transform type
 
 +++
-status: open
+status: closed
 priority: medium
 kind: enhancement
 labels: architecture, testability, effort:l
 created: 2026-08-09T00:11:17Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T01:20:37Z
+closed: 2026-08-09T01:20:37Z
 +++
 
 Each render pipeline invents its own camera/matrix convention:

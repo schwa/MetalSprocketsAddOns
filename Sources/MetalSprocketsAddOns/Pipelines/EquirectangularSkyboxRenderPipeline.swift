@@ -32,6 +32,11 @@ public struct EquirectangularSkyboxRenderPipeline: Element {
         fragmentShader = try shaderLibrary.fragment_main
     }
 
+    /// Creates an equirectangular skybox pipeline from shared camera transforms.
+    public init(viewTransforms: ViewTransforms, rotation: simd_quatf = .init(ix: 0, iy: 0, iz: 0, r: 1), texture: MTLTexture, brightness: Float = 1.0) throws {
+        try self.init(projectionMatrix: viewTransforms.projectionMatrix, cameraMatrix: viewTransforms.cameraMatrix, rotation: rotation, texture: texture, brightness: brightness)
+    }
+
     private var inverseViewProjectionMatrix: simd_float4x4 {
         var viewMatrix = cameraMatrix.inverse
         viewMatrix.columns.3 = [0, 0, 0, 1]

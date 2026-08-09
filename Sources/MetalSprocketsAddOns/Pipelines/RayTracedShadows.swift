@@ -284,6 +284,29 @@ public struct RayTracedShadowComputePass: Element {
         computeKernel = try shaderLibrary.function(named: "shadow_compute", type: ComputeKernel.self, constants: constants)
     }
 
+    /// Creates a ray-traced shadow compute pass from shared camera transforms.
+    public init(
+        sceneDepthTexture: MTLTexture,
+        outputTexture: MTLTexture,
+        accelerationStructureManager: AccelerationStructureManager,
+        lighting: Lighting,
+        viewTransforms: ViewTransforms,
+        maxRayDistance: Float = 0,
+        shadowIntensity: Float = 1.0,
+        debug: Bool = false
+    ) throws {
+        try self.init(
+            sceneDepthTexture: sceneDepthTexture,
+            outputTexture: outputTexture,
+            accelerationStructureManager: accelerationStructureManager,
+            lighting: lighting,
+            inverseViewProjection: viewTransforms.inverseViewProjectionMatrix,
+            maxRayDistance: maxRayDistance,
+            shadowIntensity: shadowIntensity,
+            debug: debug
+        )
+    }
+
     public var body: some Element {
         get throws {
             let instanceAS = accelerationStructureManager.instanceAccelerationStructure
