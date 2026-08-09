@@ -63,6 +63,25 @@ func testSlugTextRenderPipeline_helloHelvetica() throws {
 
 @Test
 @MainActor
+func testSlugTextRenderPipeline_usesSceneDevice() throws {
+    let device = _MTLCreateSystemDefaultDevice()
+    let builder = SlugTextMeshBuilder(device: device)
+    _ = builder.buildMesh(attributedString: attributedHello())
+    let scene = try builder.finalize()
+
+    let viewport = SIMD2<Float>(64, 64)
+    let frame = SlugFrameConstants(viewProjectionMatrix: .identity, viewportSize: viewport)
+    let pipeline = try SlugTextRenderPipeline(scene: scene, frameConstants: frame)
+
+    // The pipeline must allocate from the device that owns the scene's resources rather than
+    // reaching for the system default device.
+    #expect(pipeline.fontTextureBuffer.device === scene.device)
+    #expect(scene.device === device)
+    #expect(pipeline.fontTextureBuffer.length == scene.fontTexturePairs.count * 16)
+}
+
+@Test
+@MainActor
 func testSlugTextRenderPipeline_wireframe() throws {
     let device = _MTLCreateSystemDefaultDevice()
     let builder = SlugTextMeshBuilder(device: device)

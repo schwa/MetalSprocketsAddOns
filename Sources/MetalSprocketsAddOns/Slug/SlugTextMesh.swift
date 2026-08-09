@@ -1,14 +1,17 @@
 #if arch(arm64)
 
-@preconcurrency import Metal
+import Metal
 import simd
 
 // MARK: - Text Mesh
 
 /// A renderable text mesh referencing ranges within shared vertex/index buffers.
+///
+/// The buffer ranges are an implementation detail of the Slug pipeline; callers see only the
+/// index count and the layout bounds.
 public struct SlugTextMesh {
     /// Reference to the shared buffer storage.
-    public var bufferStorage: SlugBufferStorage
+    var bufferStorage: SlugBufferStorage
     /// Offset into the vertex buffer (in bytes).
     var vertexBufferOffset: Int
     /// Offset into the index buffer (in bytes).
@@ -27,12 +30,12 @@ public struct SlugTextMesh {
 // MARK: - Buffer Storage
 
 /// Shared storage for all text mesh vertices and indices.
-public final class SlugBufferStorage {
+final class SlugBufferStorage {
     let vertexBuffer: MTLBuffer
     let indexBuffer: MTLBuffer
 
     /// Total number of indices across all meshes.
-    public let totalIndexCount: Int
+    let totalIndexCount: Int
 
     init(vertexBuffer: MTLBuffer, indexBuffer: MTLBuffer, totalIndexCount: Int) {
         self.vertexBuffer = vertexBuffer

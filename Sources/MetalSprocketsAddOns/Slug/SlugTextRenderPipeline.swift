@@ -60,8 +60,9 @@ public struct SlugTextRenderPipeline: Element {
         self.reverseZ = reverseZ
         self.shaderLibrary = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders())
 
-        // Create font texture entries buffer
-        let device = _MTLCreateSystemDefaultDevice()
+        // Create font texture entries buffer. The entry order is the scene's font index order,
+        // which is what the vertices' font index refers to.
+        let device = scene.device
         let entries = scene.fontTexturePairs.map { pair in
             FontTexturesEntry(
                 curveTextureID: pair.curveTexture.gpuResourceID,

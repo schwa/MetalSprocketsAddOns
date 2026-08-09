@@ -12,17 +12,20 @@ import simd
 /// matrices buffer) with no synchronization, and `MTLTexture` itself is not `Sendable`, so a
 /// scene must stay within the isolation domain that created it.
 public class SlugScene {
-    /// Shared vertex/index buffers.
-    public let bufferStorage: SlugBufferStorage
-    /// All meshes in the scene.
+    /// The device that owns every buffer and texture in this scene.
+    public let device: MTLDevice
+    /// All meshes in the scene, in the order they were built.
     public let meshes: [SlugTextMesh]
-    /// Font texture pairs for argument buffer.
-    public let fontTexturePairs: [(curveTexture: MTLTexture, bandTexture: MTLTexture)]
-    /// Pre-allocated model matrices buffer (one matrix per mesh).
-    public let modelMatricesBuffer: MTLBuffer
+
+    /// Shared vertex/index buffers.
+    let bufferStorage: SlugBufferStorage
+    /// Font texture pairs, indexed by the font index stored in each vertex.
+    let fontTexturePairs: [(curveTexture: MTLTexture, bandTexture: MTLTexture)]
+    /// Pre-allocated model matrices buffer, one matrix per mesh.
+    let modelMatricesBuffer: MTLBuffer
 
     /// Total index count across all meshes.
-    public var totalIndexCount: Int { bufferStorage.totalIndexCount }
+    var totalIndexCount: Int { bufferStorage.totalIndexCount }
 
     // The buffer memory outlives every scoped accessor below, so binding it per call is safe;
     // the pointer itself must never escape.
@@ -46,11 +49,13 @@ public class SlugScene {
     public var meshCount: Int { meshes.count }
 
     init(
+        device: MTLDevice,
         bufferStorage: SlugBufferStorage,
         meshes: [SlugTextMesh],
         fontTexturePairs: [(curveTexture: MTLTexture, bandTexture: MTLTexture)],
         modelMatricesBuffer: MTLBuffer
     ) {
+        self.device = device
         self.bufferStorage = bufferStorage
         self.meshes = meshes
         self.fontTexturePairs = fontTexturePairs

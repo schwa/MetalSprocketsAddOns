@@ -1192,12 +1192,13 @@ What's wrong:
 ## 41: Slug text pipeline requires public access to SlugScene GPU internals
 
 +++
-status: open
+status: closed
 priority: medium
 kind: enhancement
 labels: architecture, testability, effort:l
 created: 2026-08-09T00:11:42Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T00:22:59Z
+closed: 2026-08-09T00:22:59Z
 +++
 
 The Slug cluster (`SlugTextMeshBuilder`, `SlugFontAtlas`, `SlugScene`, `SlugTextMesh`/`SlugBufferStorage`, `SlugTextRenderPipeline`, `FontAtlasCache`) has no boundary that hides its GPU representation.
@@ -1234,5 +1235,26 @@ Evidence in the code:
 - `ColorSourceTests` asserts on argument-buffer struct fields rather than on whether a bound resource is actually sampled correctly, so the missing `useResource` cases are not caught.
 
 Note: some of this may belong upstream in MetalSprockets rather than in this package.
+
+---
+
+## 43: SlugTextMeshBuilderTests pins buffer layout instead of behaviour
+
++++
+status: new
+priority: low
+kind: task
+labels: testing, effort:m
+created: 2026-08-09T00:22:50Z
++++
+
+SlugTextMeshBuilderTests is ~500 lines and asserts largely on internal vertex/index offsets and buffer layout, so the tests must be rewritten whenever the GPU representation changes.
+
+Follow-up to #41, which hid the GPU internals behind the public API but left the test suite as-is (it reaches in via @testable).
+
+Suggested direction:
+- Keep a small number of layout tests as explicit representation tests, clearly marked.
+- Express the rest in terms of observable behaviour: mesh count, index count, bounds, and golden renders.
+- Add golden coverage for the fixed-grid buildMesh(characters:font:cellSize:columns:) path, which currently has no rendering test.
 
 ---

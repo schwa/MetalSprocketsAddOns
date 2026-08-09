@@ -37,6 +37,8 @@ public struct FontAtlasCache {
 
 public let defaultMaximumSize = CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
 
+/// - Note: A builder accumulates meshes into shared buffers, so `finalize()` may be called
+/// exactly once and `buildMesh` is illegal afterwards. Both are enforced by precondition.
 public final class SlugTextMeshBuilder {
     private struct PendingMesh {
         let vertexBufferOffset: Int
@@ -219,72 +221,25 @@ public final class SlugTextMeshBuilder {
 
                     if info.isEmpty { continue }
 
-                    let posX = Float(lineOrigin.x + positions[glyphIdx].x)
-                    let posY = Float(lineOrigin.y - firstLineY + positions[glyphIdx].y)
+                    let origin = SIMD2<Float>(
+                        Float(lineOrigin.x + positions[glyphIdx].x),
+                        Float(lineOrigin.y - firstLineY + positions[glyphIdx].y)
+                    )
 
-                    let margin: Float = 0.02
-                    let ex0 = info.xMin - margin
-                    let ex1 = info.xMax + margin
-                    let ey0 = info.yMin - margin
-                    let ey1 = info.yMax + margin
+                    let quad = appendGlyphQuad(
+                        info: info,
+                        origin: origin,
+                        fontSize: Float(fontSize),
+                        color: runColor,
+                        fontIndex: UInt32(fontIndexMap[fontName] ?? 0),
+                        vertices: &vertices,
+                        indices: &indices
+                    )
 
-                    let fontScale = Float(fontSize)
-                    let px0 = ex0 * fontScale
-                    let py0 = ey0 * fontScale
-                    let px1 = ex1 * fontScale
-                    let py1 = ey1 * fontScale
-
-                    boundsMinX = min(boundsMinX, posX + px0)
-                    boundsMinY = min(boundsMinY, posY + py0)
-                    boundsMaxX = max(boundsMaxX, posX + px1)
-                    boundsMaxY = max(boundsMaxY, posY + py1)
-
-                    let glocX = UInt32(info.bandTexX)
-                    let glocY = UInt32(info.bandTexY)
-                    let texZPacked = glocX | (glocY << 16)
-                    let texZ = Float(bitPattern: texZPacked)
-
-                    let bmaxX = UInt32(info.numVertBands - 1)
-                    let bmaxY = UInt32(info.numHorizBands - 1)
-                    let texWPacked = bmaxX | (bmaxY << 16)
-                    let texW = Float(bitPattern: texWPacked)
-
-                    let band = SIMD4<Float>(info.bandScaleX, info.bandScaleY, info.bandOffsetX, info.bandOffsetY)
-
-                    let invScale = 1.0 / fontScale
-                    let invJacobian = SIMD4<Float>(invScale, 0, 0, invScale)
-
-                    let corners: [(px: Float, py: Float, ex: Float, ey: Float)] = [
-                        (px0, py0, ex0, ey0),
-                        (px1, py0, ex1, ey0),
-                        (px1, py1, ex1, ey1),
-                        (px0, py1, ex0, ey1)
-                    ]
-
-                    let baseIndex = UInt32(vertices.count)
-
-                    for corner in corners {
-                        let norm = simd_normalize(SIMD2<Float>(corner.ex, corner.ey))
-                        let vertex = GlyphVertex(
-                            posAndNorm: SIMD4(posX + corner.px, posY + corner.py, norm.x, norm.y),
-                            texAndAtlasOffsets: SIMD4(corner.ex, corner.ey, texZ, texW),
-                            invJacobian: invJacobian,
-                            bandTransform: band,
-                            color: runColor,
-                            indices: SIMD2<UInt32>(
-                                UInt32(fontIndexMap[fontName] ?? 0),
-                                UInt32(pendingMeshes.count)
-                            )
-                        )
-                        vertices.append(vertex)
-                    }
-
-                    indices.append(baseIndex)
-                    indices.append(baseIndex + 1)
-                    indices.append(baseIndex + 2)
-                    indices.append(baseIndex)
-                    indices.append(baseIndex + 2)
-                    indices.append(baseIndex + 3)
+                    boundsMinX = min(boundsMinX, quad.min.x)
+                    boundsMinY = min(boundsMinY, quad.min.y)
+                    boundsMaxX = max(boundsMaxX, quad.max.x)
+                    boundsMaxY = max(boundsMaxY, quad.max.y)
                 }
             }
         }
@@ -331,7 +286,13 @@ public final class SlugTextMeshBuilder {
         return index
     }
 
-    /// Finalizes all pending meshes and returns a SlugScene containing all GPU resources.
+    /// Finalizes all pending meshes and returns a `SlugScene` containing all GPU resources.
+    ///
+    /// The scene owns one model matrix per mesh, initialized to identity, and font textures in
+    /// the builder's font index order.
+    ///
+    /// - Precondition: `finalize()` has not been called; no meshes may be built afterwards.
+    /// - Throws: `SlugError.noMeshes` if no visible geometry was built.
     public func finalize() throws -> SlugScene {
         precondition(!isFinalized, "finalize() can only be called once")
         isFinalized = true
@@ -379,6 +340,7 @@ public final class SlugTextMeshBuilder {
         }
 
         return SlugScene(
+            device: device,
             bufferStorage: storage,
             meshes: meshes,
             fontTexturePairs: fontTexturePairs,
@@ -420,6 +382,64 @@ public final class SlugTextMeshBuilder {
     }
 
     // MARK: - Private
+
+    /// Appends the two triangles of one glyph quad and returns the quad's extent in mesh space.
+    ///
+    /// Shared by the CoreText and fixed-grid layout paths, which differ only in how they choose
+    /// `origin` and `color`.
+    private func appendGlyphQuad(
+        info: SlugFontAtlas.GlyphInfo,
+        origin: SIMD2<Float>,
+        fontSize: Float,
+        color: SIMD4<Float>,
+        fontIndex: UInt32,
+        vertices: inout [GlyphVertex],
+        indices: inout [UInt32]
+    ) -> (min: SIMD2<Float>, max: SIMD2<Float>) {
+        // Pad the quad so the analytic coverage filter has room outside the glyph outline.
+        let margin: Float = 0.02
+        let ex0 = info.xMin - margin
+        let ex1 = info.xMax + margin
+        let ey0 = info.yMin - margin
+        let ey1 = info.yMax + margin
+
+        let px0 = ex0 * fontSize
+        let py0 = ey0 * fontSize
+        let px1 = ex1 * fontSize
+        let py1 = ey1 * fontSize
+
+        // The shader unpacks these two floats as pairs of UInt16s.
+        let texZ = Float(bitPattern: UInt32(info.bandTexX) | (UInt32(info.bandTexY) << 16))
+        let texW = Float(bitPattern: UInt32(info.numVertBands - 1) | (UInt32(info.numHorizBands - 1) << 16))
+
+        let band = SIMD4<Float>(info.bandScaleX, info.bandScaleY, info.bandOffsetX, info.bandOffsetY)
+        let invScale = 1.0 / fontSize
+        let invJacobian = SIMD4<Float>(invScale, 0, 0, invScale)
+
+        let corners: [(px: Float, py: Float, ex: Float, ey: Float)] = [
+            (px0, py0, ex0, ey0),
+            (px1, py0, ex1, ey0),
+            (px1, py1, ex1, ey1),
+            (px0, py1, ex0, ey1)
+        ]
+
+        let baseIndex = UInt32(vertices.count)
+        for corner in corners {
+            let norm = simd_normalize(SIMD2<Float>(corner.ex, corner.ey))
+            vertices.append(GlyphVertex(
+                posAndNorm: SIMD4(origin.x + corner.px, origin.y + corner.py, norm.x, norm.y),
+                texAndAtlasOffsets: SIMD4(corner.ex, corner.ey, texZ, texW),
+                invJacobian: invJacobian,
+                bandTransform: band,
+                color: color,
+                indices: SIMD2<UInt32>(fontIndex, UInt32(pendingMeshes.count))
+            ))
+        }
+
+        indices.append(contentsOf: [baseIndex, baseIndex + 1, baseIndex + 2, baseIndex, baseIndex + 2, baseIndex + 3])
+
+        return (origin + SIMD2(px0, py0), origin + SIMD2(px1, py1))
+    }
 
     private func fontAtlas(for fontName: String) -> SlugFontAtlas {
         if let cached = fontAtlasCache[fontName] {
@@ -515,59 +535,15 @@ public extension SlugTextMeshBuilder {
             let info = atlas.glyphInfo(for: glyph)
             guard !info.isEmpty else { continue }
 
-            let margin: Float = 0.02
-            let ex0 = info.xMin - margin
-            let ex1 = info.xMax + margin
-            let ey0 = info.yMin - margin
-            let ey1 = info.yMax + margin
-
-            let px0 = ex0 * fontSize
-            let py0 = ey0 * fontSize
-            let px1 = ex1 * fontSize
-            let py1 = ey1 * fontSize
-
-            let glocX = UInt32(info.bandTexX)
-            let glocY = UInt32(info.bandTexY)
-            let texZPacked = glocX | (glocY << 16)
-            let texZ = Float(bitPattern: texZPacked)
-
-            let bmaxX = UInt32(info.numVertBands - 1)
-            let bmaxY = UInt32(info.numHorizBands - 1)
-            let texWPacked = bmaxX | (bmaxY << 16)
-            let texW = Float(bitPattern: texWPacked)
-
-            let band = SIMD4<Float>(info.bandScaleX, info.bandScaleY, info.bandOffsetX, info.bandOffsetY)
-            let invScale = 1.0 / fontSize
-            let invJacobian = SIMD4<Float>(invScale, 0, 0, invScale)
-
-            let corners: [(px: Float, py: Float, ex: Float, ey: Float)] = [
-                (px0, py0, ex0, ey0),
-                (px1, py0, ex1, ey0),
-                (px1, py1, ex1, ey1),
-                (px0, py1, ex0, ey1)
-            ]
-
-            let baseIndex = UInt32(vertices.count)
-            for corner in corners {
-                let norm = simd_normalize(SIMD2<Float>(corner.ex, corner.ey))
-                vertices.append(GlyphVertex(
-                    posAndNorm: SIMD4(posX + corner.px, posY + corner.py, norm.x, norm.y),
-                    texAndAtlasOffsets: SIMD4(corner.ex, corner.ey, texZ, texW),
-                    invJacobian: invJacobian,
-                    bandTransform: band,
-                    color: cc.color,
-                    indices: SIMD2<UInt32>(
-                        UInt32(fontIndexMap[fontName] ?? 0),
-                        UInt32(pendingMeshes.count)
-                    )
-                ))
-            }
-            indices.append(baseIndex)
-            indices.append(baseIndex + 1)
-            indices.append(baseIndex + 2)
-            indices.append(baseIndex)
-            indices.append(baseIndex + 2)
-            indices.append(baseIndex + 3)
+            _ = appendGlyphQuad(
+                info: info,
+                origin: SIMD2(posX, posY),
+                fontSize: fontSize,
+                color: cc.color,
+                fontIndex: UInt32(fontIndexMap[fontName] ?? 0),
+                vertices: &vertices,
+                indices: &indices
+            )
         }
 
         guard !vertices.isEmpty else {
