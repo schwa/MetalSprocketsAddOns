@@ -1197,13 +1197,14 @@ The transform math is pure and in-process, but it is currently only tested indir
 ## 40: Shadow rendering chain is uncovered by tests and hand-wired by callers
 
 +++
-status: open
+status: closed
 priority: high
 kind: enhancement
 labels: architecture, testability, effort:xl, has-subtasks
 depends: 45, 46, 47, 48, 49
 created: 2026-08-09T00:11:30Z
-updated: 2026-08-09T02:06:35Z
+updated: 2026-08-09T02:25:24Z
+closed: 2026-08-09T02:25:24Z
 +++
 
 The shadow subsystem is spread across `ShadowMap`, `ShadowMapDepthPass`, `ShadowMaskPass`, `AccelerationStructureManager`, and `RayTracedShadowComputePass`, with no shared entry point.
@@ -1231,6 +1232,8 @@ What's wrong:
 - #49 — same entry point for ray-traced shadows, depends on #48 (effort:m)
 
 Keeping this open as a tracking issue.
+
+- `2026-08-09T02:25:21Z`: All subtasks (#45–#49) are done: shared test fixture, inverse-Z contract tests, per-pixel shadow mask tests, and the ShadowTechnique entry point with shadow-mapped and ray-traced conformances.
 
 ---
 
