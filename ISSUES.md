@@ -52,11 +52,12 @@ RenderView-based demos (Spinning Cube, GraphicsContext3D) render with incorrect 
 ## 4: GraphicsContext3D fill renders as white instead of specified color
 
 +++
-status: new
+status: open
 priority: medium
 kind: bug
+labels: effort:s
 created: 2026-04-13T05:07:02Z
-updated: 2026-04-13T05:10:47Z
+updated: 2026-08-09T00:13:42Z
 +++
 
 Fill geometry in GraphicsContext3D renders as white when using fractional alpha (e.g. opacity 0.3). With full opacity the color is correct. The fill render pipeline has no blending enabled — alpha values are written to the framebuffer but don't affect compositing, resulting in near-white output for low-alpha fills. Need to enable alpha blending via renderPipelineDescriptorModifier on the fill pipeline.
@@ -66,10 +67,12 @@ Fill geometry in GraphicsContext3D renders as white when using fractional alpha 
 ## 5: GraphicsContext3D fill projection hardcoded to XY plane — fails for XZ/YZ geometry
 
 +++
-status: new
+status: open
 priority: medium
 kind: bug
+labels: effort:m
 created: 2026-04-13T05:08:59Z
+updated: 2026-08-09T00:13:42Z
 +++
 
 generateFillGeometry() projects 3D points onto XY (drops Z) for earcut triangulation. This produces degenerate geometry for paths on the XZ or YZ planes (e.g. the star on the ground plane at y=0 — all points project to a line). Should detect the dominant plane or use the path's normal to choose the projection axis.
@@ -79,10 +82,12 @@ generateFillGeometry() projects 3D points onto XY (drops Z) for earcut triangula
 ## 6: Integrate Slug text rendering into GraphicsContext3D
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
+labels: effort:l
 created: 2026-04-13T05:26:59Z
+updated: 2026-08-09T00:13:42Z
 +++
 
 Add a text drawing API to GraphicsContext3D (e.g. ctx.text("label", at: position, font:, color:)) that uses Slug for GPU-rendered text. Would allow placing text labels in 3D scenes without manually managing SlugScene/SlugTextMeshBuilder alongside the graphics context.
@@ -315,10 +320,12 @@ Add support for shadow rendering when using multiple light sources. Investigate 
 ## 16: ShadowMaskPass: use compute shader instead of fullscreen quad rasterization
 
 +++
-status: new
+status: open
 priority: low
 kind: enhancement
+labels: effort:m
 created: 2026-04-13T22:03:19Z
+updated: 2026-08-09T00:13:42Z
 +++
 
 The shadow mask pass currently uses a fullscreen triangle with a raster pipeline and alpha blending. Replace with a compute shader that reads the scene depth texture and shadow map, computes the shadow factor, and writes directly to the color texture (read-modify-write). This avoids the overhead of a render pass and blending setup, and is more natural for a screen-space post-process on Apple Silicon.
@@ -367,10 +374,12 @@ AddOns packages should NOT contain demo code. Move any demo code currently in Me
 ## 19: AccelerationStructureManager should accept Mesh (not just MTKMesh) and expose enough API for external extension
 
 +++
-status: new
+status: open
 priority: high
 kind: enhancement
+labels: effort:m
 created: 2026-04-14T23:50:30Z
+updated: 2026-08-09T00:13:42Z
 +++
 
 AccelerationStructureManager.build() only accepts [MTKMesh], but projects using the custom Mesh type (e.g. MetalSprocketsSceneGraph) cannot build acceleration structures without converting to MTKMesh.\n\nAdditionally, the struct's internals (device, commandQueue, primitiveAccelerationStructures setter, instanceAccelerationStructure setter, buildAccelerationStructure(descriptor:), buildInstanceAccelerationStructure(...)) are all private, making it impossible to add a Mesh overload via extension from another module.\n\nEither:\n1. Add a build(meshes: [Mesh], instances:) overload, or\n2. Make enough internals internal/public to allow external extensions.
@@ -397,11 +406,12 @@ MetalMesh splits vertices per-corner (each half-edge corner becomes a unique ver
 ## 21: BlinnPhongShader and DebugRenderPipeline tests render black (likely vertex-buffer index collision)
 
 +++
-status: new
+status: open
 priority: medium
 kind: bug
-labels: testing, shader
+labels: testing, shader, effort:m
 created: 2026-04-19T19:53:17Z
+updated: 2026-08-09T00:13:42Z
 +++
 
 Five golden-image tests are currently disabled with `.disabled(\"Renders black — see FIXME above\")` because the resulting render is entirely (or near-entirely) black even though the pipeline runs end-to-end without errors:
@@ -441,11 +451,12 @@ Once fixed, remove the `.disabled(...)` arguments from the five tests, refresh t
 ## 22: ShadowMapDepthPass renders fail under OffscreenRenderer (nested RenderPass + command encoder collision)
 
 +++
-status: new
+status: open
 priority: low
 kind: bug
-labels: testing, shader
+labels: testing, shader, effort:l
 created: 2026-04-19T20:04:33Z
+updated: 2026-08-09T00:13:48Z
 +++
 
 An end-to-end test for `ShadowMapDepthPass` + `ShadowMaskPass` triggers a Metal
@@ -480,16 +491,19 @@ and the entire `ShadowMaskPass` (78 lines) are uncovered until this is resolved.
 When fixed, restore the `testShadowPipelines_depthPassThenMaskPass_renders` test
 (see git history of `Tests/MetalSprocketsAddOnsTests/ShadowMapTests.swift`).
 
+- `2026-08-09T00:13:48Z`: Related: #40 — the same nested-RenderPass-in-OffscreenRenderer limitation is what leaves the shadow chain untested there.
+
 ---
 
 ## 23: Remove dead code in ColorSource (private color accessor + unused Element.useResource modifier)
 
 +++
-status: new
+status: open
 priority: low
 kind: enhancement
-labels: cleanup
+labels: cleanup, effort:xs
 created: 2026-04-19T20:18:18Z
+updated: 2026-08-09T00:13:41Z
 +++
 
 Two methods in `Sources/MetalSprocketsAddOns/Support/ColorSource.swift` are never
@@ -521,12 +535,13 @@ existing tests in `Tests/MetalSprocketsAddOnsTests/ColorSourceTests.swift`.
 ## 24: Element.lighting(_:) modifier has no coverage outside disabled BlinnPhong tests
 
 +++
-status: new
+status: open
 priority: low
 kind: enhancement
-labels: cleanup
+labels: cleanup, effort:xs
 depends: MetalSprocketsAddOns#21
 created: 2026-04-19T20:18:23Z
+updated: 2026-08-09T00:13:41Z
 +++
 
 The `Element.lighting(_:)` modifier in
@@ -565,10 +580,12 @@ coverage. Until then, consider:
 ## 25: GraphicsContext3D fill of curved paths renders angular shapes (low-resolution subdivision)
 
 +++
-status: new
+status: open
 priority: low
 kind: bug
+labels: effort:s
 created: 2026-04-19T20:42:15Z
+updated: 2026-08-09T00:13:48Z
 +++
 
 When `GraphicsContext3D.fill(_:with:)` is given a path containing
@@ -594,15 +611,19 @@ For a small render target (256×256 in tests) this yields very few segments
 - Or expose the segment count / `pixelsPerSegment` as a tunable on
   `GraphicsContext3DRenderPipeline`.
 
+- `2026-08-09T00:13:48Z`: Related: #28 — raising the golden render size to 512x512 may change the observed subdivision quality; investigate together.
+
 ---
 
 ## 26: GraphicsContext3D stroke line width varies along curved paths
 
 +++
-status: new
+status: open
 priority: low
 kind: bug
+labels: effort:m
 created: 2026-04-19T20:42:23Z
+updated: 2026-08-09T00:13:48Z
 +++
 
 When `GraphicsContext3D.stroke(_:with:style:)` strokes a curved path with
@@ -625,15 +646,19 @@ overlap may also contribute.
 - Check whether the `.round` join interpolation is using arc length or
   segment count.
 
+- `2026-08-09T00:13:48Z`: Related: #25 and #28 — same curve-subdivision/render-size area.
+
 ---
 
 ## 27: Element.useResource(_ color:) skips textureCube and depth2D (uv-eg-3 workaround)
 
 +++
-status: new
+status: open
 priority: low
 kind: bug
+labels: effort:s
 created: 2026-04-19T20:42:31Z
+updated: 2026-08-09T00:13:48Z
 +++
 
 In `Sources/MetalSprocketsAddOns/Support/ColorSource.swift`, the
@@ -676,16 +701,19 @@ macOS / iOS, and either:
 
 Cross-references: #23 (dead code in ColorSource).
 
+- `2026-08-09T00:13:48Z`: Related: #23 — if the Element.useResource(_ color:) modifier is deleted per #23, this issue becomes moot.
+
 ---
 
 ## 28: Bump golden-image render size from 256x256 to 512x512
 
 +++
-status: new
+status: open
 priority: low
 kind: enhancement
-labels: testing
+labels: testing, effort:m
 created: 2026-04-19T20:42:56Z
+updated: 2026-08-09T00:13:42Z
 +++
 
 All golden-image tests currently render at 256×256 (set by
@@ -723,11 +751,12 @@ regenerate every golden PNG once and commit the updated set.
 ## 29: testGraphicsContext3D_filledQuad crashes on CI (Apple paravirt GPU)
 
 +++
-status: new
+status: open
 priority: medium
 kind: bug
-labels: testing, ci
+labels: testing, ci, effort:l
 created: 2026-04-19T20:49:27Z
+updated: 2026-08-09T00:13:42Z
 +++
 
 `testGraphicsContext3D_filledQuad` (in
@@ -879,5 +908,314 @@ Option 1 or 2 is preferred — option 3 wastes memory for what is essentially a 
 ### Use case
 
 Planet/space scenes commonly want a starfield from sources like the Tycho skymap, which ships as a 16384x8192 equirectangular JPEG. The fullscreen technique already used in the existing `SkyboxRenderPipeline` (inverse view-projection per pixel) maps cleanly to equirectangular sampling — just replace the cubemap sample with a direction-to-(u,v) conversion.
+
+---
+
+## 31: VideoTexturePipeline has unsynchronized mutable state across isolation boundaries
+
++++
+status: open
+priority: high
+kind: bug
+labels: concurrency, effort:m
+created: 2026-08-09T00:09:03Z
+updated: 2026-08-09T00:13:42Z
++++
+
+VideoTexturePipeline is declared @unchecked Sendable but provides no synchronization for any of its stored properties.
+
+All stored properties are mutable with no lock and no actor isolation: player, playerItem, videoOutput, updateTask, currentTexture, textureCache, loopStart, loopEnd.
+
+They are accessed from mixed isolation domains:
+- loadVideo(url:loopStart:loopEnd:) and updateFrame() are @MainActor.
+- init(device:), play(), pause(), and deinit are nonisolated and touch the same storage.
+- @Observable additionally exposes currentTexture for reads from any thread.
+
+The @unchecked Sendable conformance suppresses the compiler diagnostics that would otherwise flag this; it does not make the type thread-safe.
+
+Concrete races:
+- play() and pause() called from different threads both write updateTask.
+- updateFrame() writes currentTexture on the main actor while a renderer reads it from a render thread.
+- deinit calls player?.pause() from whatever thread releases the last reference.
+
+Env: Swift 6.2, strict concurrency. Package currently builds without warnings because of the @unchecked escape hatch.
+
+---
+
+## 32: VideoTexturePipeline.play() leaks its update task and never deallocates during playback
+
++++
+status: open
+priority: high
+kind: bug
+labels: concurrency, effort:s
+created: 2026-08-09T00:09:12Z
+updated: 2026-08-09T00:13:42Z
++++
+
+Two related lifecycle defects in VideoTexturePipeline.play().
+
+1. The update task strongly captures self.
+
+play() assigns updateTask = Task { ... } and the closure body calls await updateFrame(), capturing self strongly. The task loops over an AsyncTimerSequence that never terminates on its own, so the task keeps the pipeline alive indefinitely.
+
+Consequence: deinit cannot run while playback is active, which means the updateTask?.cancel() and player?.pause() calls in deinit are unreachable in exactly the situation they exist for. The only way to release the pipeline is to call pause() first.
+
+2. play() overwrites updateTask without cancelling the previous one.
+
+Calling play() a second time (e.g. after a play/play sequence with no intervening pause) drops the existing task handle on the floor. The old task is never cancelled and keeps running its 16 ms loop, so each redundant play() adds another concurrent frame-update loop, all writing currentTexture.
+
+Repro for (2):
+1. Create a VideoTexturePipeline and loadVideo(url:).
+2. Call play() twice.
+3. Call pause() once.
+
+Expected: no frame-update loops remain running.
+Actual: one loop from the first play() is still running; pause() only cancelled the second.
+
+---
+
+## 33: FontAtlasCache is marked Sendable but shares mutable, non-thread-safe atlas objects
+
++++
+status: open
+priority: high
+kind: bug
+labels: concurrency, effort:s
+created: 2026-08-09T00:09:19Z
+updated: 2026-08-09T00:13:42Z
++++
+
+FontAtlasCache (Sources/MetalSprocketsAddOns/Slug/SlugTextMeshBuilder.swift) is declared @unchecked Sendable, but its stored cache is [String: SlugFontAtlas] and SlugFontAtlas is a mutable class with no internal synchronization.
+
+SlugFontAtlas exposes insertGlyphs(_:), which mutates atlas state and reallocates its curveTexture / bandTexture. Nothing guards those mutations.
+
+The documented purpose of FontAtlasCache is to hand the same SlugFontAtlas instances to a second SlugTextMeshBuilder (via init(device:fontAtlasCache:)) so glyphs are not re-rasterized. Declaring the container Sendable asserts that this handoff is safe across isolation domains, which is not true: two builders constructed from the same cache and driven from different threads will race inside insertGlyphs and on texture reallocation.
+
+Note that SlugTextMeshBuilder itself is correctly not Sendable, so the Sendable conformance on the cache is the only thing enabling the unsafe pattern.
+
+---
+
+## 34: SlugScene publishes an escaping mutable pointer into GPU memory while claiming Sendable
+
++++
+status: open
+priority: medium
+kind: bug
+labels: concurrency, effort:s
+created: 2026-08-09T00:09:27Z
+updated: 2026-08-09T00:13:42Z
++++
+
+SlugScene (Sources/MetalSprocketsAddOns/Slug/SlugScene.swift) is declared @unchecked Sendable while exposing unrestricted mutable aliasing of shared GPU storage.
+
+Two problems:
+
+1. The modelMatrices property returns an UnsafeMutableBufferPointer<float4x4> built from modelMatricesBuffer.contents(). The pointer escapes the accessor with no lifetime relationship to the buffer that owns the memory, so nothing prevents a caller from holding it past the lifetime of the SlugScene. The neighbouring withModelMatrices(_:) already provides scoped, bounds-checked access via MutableSpan; the escaping property undermines it.
+
+2. Combined with the Sendable conformance, the type invites concurrent writers to the same model-matrix buffer from different isolation domains. There is no synchronization.
+
+Additionally, the Sendable claim is inaccurate on its face: fontTexturePairs is [(curveTexture: MTLTexture, bandTexture: MTLTexture)], and MTLTexture does not conform to Sendable in the current SDK (verified against MacOSX27.0.sdk — MTLDevice, MTLCommandQueue, MTLBuffer and MTLAccelerationStructure do conform; MTLTexture does not).
+
+---
+
+## 35: Unnecessary @unchecked Sendable and @preconcurrency imports suppress future concurrency checking
+
++++
+status: open
+priority: low
+kind: enhancement
+labels: concurrency, cleanup, effort:xs
+created: 2026-08-09T00:09:34Z
+updated: 2026-08-09T00:13:42Z
++++
+
+Several concurrency escape hatches in the codebase appear to be unnecessary, and each one disables checking that would catch future regressions.
+
+1. AccelerationStructureManager (Sources/MetalSprocketsAddOns/Pipelines/RayTracedShadows.swift) is declared @unchecked Sendable, but every stored property is already Sendable: device (MTLDevice), commandQueue (MTLCommandQueue), primitiveAccelerationStructures ([MTLAccelerationStructure]) and instanceAccelerationStructure (MTLAccelerationStructure?). The nested Instance type is Int + simd_float4x4. Verified against MacOSX27.0.sdk that all four Metal protocols conform to Sendable. The unchecked conformance therefore buys nothing and silently accepts any future non-Sendable stored property.
+
+2. @preconcurrency import Metal appears in three Slug files: SlugScene.swift:3, SlugMetalTypes.swift:1, SlugTextMesh.swift:3. The types in those files already carry @unchecked Sendable, so the @preconcurrency attribute is likely redundant. Where it is redundant it downgrades all future Sendable-related diagnostics from the Metal module in those files to warnings, including genuine MTLTexture-crossing-isolation errors.
+
+Both should be removed where the build still succeeds, and kept only where removal produces a real error.
+
+---
+
+## 36: VideoTexturePipeline polls for video frames on a fixed 16ms timer
+
++++
+status: open
+priority: medium
+kind: enhancement
+labels: effort:m
+created: 2026-08-09T00:09:42Z
+updated: 2026-08-09T00:13:42Z
++++
+
+VideoTexturePipeline.play() drives frame updates from AsyncTimerSequence(interval: .milliseconds(16), clock: .continuous), then asks videoOutput.hasNewPixelBuffer(forItemTime:) on each tick.
+
+The 16 ms cadence is unrelated to both the display refresh rate and the video frame rate, so frames are duplicated or dropped whenever either differs from ~60 Hz. On a 120 Hz display the texture updates at half the available rate; on a 24 or 30 fps video the same frame is redundantly converted to a Metal texture multiple times; on a 60 Hz display the timer and the display will drift relative to one another.
+
+AVPlayerItemOutput provides requestNotificationOfMediaDataChange(withAdvanceInterval:) and an associated delegate for exactly this, and CADisplayLink provides display-synchronized callbacks.
+
+This is a rendering-quality and efficiency issue rather than a crash or race.
+
+---
+
+## 37: VideoTexturePipeline tests: unbounded busy-wait can hang the suite, and play() is uncovered
+
++++
+status: open
+priority: low
+kind: bug
+labels: testing, effort:s
+created: 2026-08-09T00:09:49Z
+updated: 2026-08-09T00:13:42Z
++++
+
+Two issues in Tests/MetalSprocketsAddOnsTests/VideoTexturePipelineTests.swift.
+
+1. Unbounded wait (writeTestMovie, around line 93):
+
+    while !input.isReadyForMoreMediaData {
+        try await Task.sleep(nanoseconds: 1_000_000)
+    }
+
+If AVAssetWriterInput never reports ready (writer failure, codec unavailable on the CI GPU), this loop never exits and the test suite hangs rather than failing with a diagnostic. There is no iteration cap and no check of writer.status inside the loop.
+
+Minor: the deprecated-style Task.sleep(nanoseconds:) is used rather than Task.sleep(for:).
+
+2. No coverage of play().
+
+The suite covers init, loadVideo and pause, but never calls play(). The task-lifetime defects described in the play() leak issue (retain cycle preventing deinit, and a second play() orphaning the first update loop) are both reachable from a test that calls play() twice and then asserts teardown, but nothing currently exercises that path.
+
+---
+
+## 38: makeTextureCubeFromCrossTexture is @MainActor despite doing no main-thread work
+
++++
+status: open
+priority: low
+kind: enhancement
+labels: concurrency, effort:xs
+created: 2026-08-09T00:09:56Z
+updated: 2026-08-09T00:13:42Z
++++
+
+MTLDevice.makeTextureCubeFromCrossTexture(texture:) in Sources/MetalSprocketsAddOns/Support/MTLDevice+TextureUtilities.swift is annotated @MainActor, but its body is a pure GPU blit: it builds an MTLTextureDescriptor, creates a cube map, and runs a BlitPass copying six faces.
+
+Nothing in it requires the main actor. By contrast the neighbouring makeTexture(content:) genuinely needs @MainActor because it uses SwiftUI ImageRenderer.
+
+My guess is that the annotation exists to make the non-Sendable MTLTexture parameter and return value typecheck rather than as a deliberate isolation decision, but I have not confirmed what BlitPass.run() requires.
+
+Effect: callers are forced onto the main thread to perform what can be a large GPU copy, and callers already off the main actor must hop for no reason.
+
+---
+
+## 39: Matrix conventions differ between pipelines with no shared transform type
+
++++
+status: open
+priority: medium
+kind: enhancement
+labels: architecture, testability, effort:l
+created: 2026-08-09T00:11:17Z
+updated: 2026-08-09T00:13:42Z
++++
+
+Each render pipeline invents its own camera/matrix convention:
+
+- `FlatShader` takes a pre-multiplied `modelViewProjection`.
+- `LambertianShader` / `LambertianShaderInstanced` take `projectionMatrix`, `cameraMatrix`, `modelMatrix` and recompute MVP, the normal matrix, and camera position inline.
+- `blinnPhongMatrices` takes `projectionMatrix`, `viewMatrix`, `modelMatrix`, `cameraMatrix` (view and camera both, unexplained).
+- `GridShader` takes projection + camera and inverts internally.
+- `ShadowMaskPass` and `RayTracedShadowComputePass` take an `inverseViewProjection` the caller must derive.
+- `ShadowMap` builds light matrices via its own private `float4x4.lookAt` / `orthographic` helpers, including an inverse-Z variant not used anywhere else.
+
+Consequences:
+
+- A caller must know which convention each pipeline chose; there is no shared vocabulary for projection/view/model/normal/inverse-VP.
+- Normal-matrix and camera-position derivation is copy-pasted across pipelines.
+- Passing the wrong-but-well-formed matrix produces a plausible image, so golden-image tests do not reliably catch it.
+- Tests re-implement the same camera setup helpers (`perspectiveProjection`, `lookAtOriginCameraMatrix`) separately from the library.
+
+The transform math is pure and in-process, but it is currently only tested indirectly through golden images, apart from two `lookAt`/`orthographic` tests in `ShadowMapTests`.
+
+---
+
+## 40: Shadow rendering chain is uncovered by tests and hand-wired by callers
+
++++
+status: open
+priority: high
+kind: enhancement
+labels: architecture, testability, effort:xl
+created: 2026-08-09T00:11:30Z
+updated: 2026-08-09T00:13:48Z
++++
+
+The shadow subsystem is spread across `ShadowMap`, `ShadowMapDepthPass`, `ShadowMaskPass`, `AccelerationStructureManager`, and `RayTracedShadowComputePass`, with no shared entry point.
+
+What's wrong:
+
+- Two techniques (shadow maps, ray-traced shadows) solve the same problem with completely different call protocols. A caller must know pass ordering, which textures to allocate with which usage flags, how to derive `inverseViewProjection`, how per-light matrices are updated, and which resources need `useResource` calls (acceleration structures, light buffers).
+- `ShadowMapTests` states the end-to-end path cannot be tested: nesting a `RenderPass` per light inside `ShadowMapDepthPass` triggers 'A command encoder is already encoding to this command buffer' in `OffscreenRenderer`. Verbatim note in the test file:
+
+      // NOTE: An end-to-end ShadowMapDepthPass + ShadowMaskPass render test was attempted
+      // but triggers a Metal command-buffer assertion ("A command encoder is already encoding
+      // to this command buffer") inside OffscreenRenderer when the depth pass nests its own
+      // RenderPass per light. Until OffscreenRenderer can host nested render passes, the
+      // shadow render-pipeline code paths remain uncovered. Tracked separately.
+
+- `2026-08-09T00:11:30Z`: As a result the only shadow-map coverage is struct getters (`resolution`, `lightCount`, texture descriptors) and the two matrix helpers. The actual rendering — bias sign flips for inverse Z, slice-per-light render pass descriptors, blend setup in the mask pass, depth reconstruction — has no tests.
+- `2026-08-09T00:11:30Z`: Ray-traced shadows do have a golden test, but only because its test hand-assembles the whole scene graph (~120 lines) including the exact texture usage flags the pass requires.
+- `2026-08-09T00:13:48Z`: Related: #22 — the OffscreenRenderer nested render pass limitation is tracked there and blocks end-to-end shadow tests.
+
+---
+
+## 41: Slug text pipeline requires public access to SlugScene GPU internals
+
++++
+status: open
+priority: medium
+kind: enhancement
+labels: architecture, testability, effort:l
+created: 2026-08-09T00:11:42Z
+updated: 2026-08-09T00:13:42Z
++++
+
+The Slug cluster (`SlugTextMeshBuilder`, `SlugFontAtlas`, `SlugScene`, `SlugTextMesh`/`SlugBufferStorage`, `SlugTextRenderPipeline`, `FontAtlasCache`) has no boundary that hides its GPU representation.
+
+What's wrong:
+
+- `SlugScene` publicly exposes `bufferStorage`, `fontTexturePairs`, `modelMatricesBuffer`, `totalIndexCount`, and an `UnsafeMutableBufferPointer` view of the model matrices. These exist so `SlugTextRenderPipeline` can reach back into the scene; they are not useful to a caller who just wants text on screen.
+- `SlugTextRenderPipeline.init` creates its own device via `_MTLCreateSystemDefaultDevice()` and builds the font-texture argument buffer itself, duplicating knowledge of the ordering that `SlugTextMeshBuilder` established in `orderedFontNames`/`fontIndexMap`.
+- The builder/scene/pipeline triple shares undocumented invariants: font index ordering must match the texture pair array, one model matrix per mesh, `finalize()` may be called exactly once, `buildMesh` is illegal after finalize (enforced only by `precondition`).
+- `SlugTextMeshBuilderTests` is 473 lines and asserts largely on internal offsets, index counts and buffer layout, so it pins the current representation rather than the rendering behaviour. Only two golden tests exercise the actual pipeline.
+- Two nearly identical vertex-emission loops exist (`buildMesh(attributedString:)` and `buildMesh(characters:font:cellSize:columns:)`), each recomputing glyph margin, band packing, and inverse Jacobian.
+
+---
+
+## 42: Argument-buffer packing and useResource calls are hand-paired per type
+
++++
+status: open
+priority: medium
+kind: enhancement
+labels: architecture, effort:l
+created: 2026-08-09T00:11:52Z
+updated: 2026-08-09T00:13:42Z
++++
+
+`ColorSource`, `BlinnPhongMaterial`, and `Lighting` each hand-roll a `toArgumentBuffer()` plus a separate, manually written set of `useResource` calls that must list exactly the resources referenced by that argument buffer. Nothing ties the two halves together, so they can drift silently and the GPU reads unbound resources.
+
+Evidence in the code:
+
+- `ColorSource.swift`: TODO comment — "We may want some kind of `argumentBufferRepresentable` protocol. Should also support `useResource`"
+- `ColorSource.swift`: `// TODO: This is duplicated with MetalSprocketsExampleShaders!`
+- `Element.useResource(_ color: ColorSource, ...)` has the `textureCube` and `depth2D` cases commented out with the note that they cause hangs on iOS/macOS with argument buffers, so those color source cases are silently unbound.
+- `FlatShader` bypasses that helper and writes the three `useResource` calls inline; `blinnPhongMaterial` writes three more; `RayTracedShadowComputePass` writes its own for the light buffers and acceleration structures.
+- `ColorSourceTests` asserts on argument-buffer struct fields rather than on whether a bound resource is actually sampled correctly, so the missing `useResource` cases are not caught.
+
+Note: some of this may belong upstream in MetalSprockets rather than in this package.
 
 ---
