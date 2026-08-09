@@ -666,12 +666,13 @@ Closing with a new regression test, testGraphicsContext3D_strokeWidthIsUniformAl
 ## 27: Element.useResource(_ color:) skips textureCube and depth2D (uv-eg-3 workaround)
 
 +++
-status: open
+status: closed
 priority: low
 kind: bug
 labels: effort:s
 created: 2026-04-19T20:42:31Z
-updated: 2026-08-09T00:13:48Z
+updated: 2026-08-09T00:19:06Z
+closed: 2026-08-09T00:19:06Z
 +++
 
 In `Sources/MetalSprocketsAddOns/Support/ColorSource.swift`, the
