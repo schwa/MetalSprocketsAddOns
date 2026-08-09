@@ -101,6 +101,29 @@ func testMakeTextureCubeFromCrossTexture_facesCopied() throws {
     }
 }
 
+@Test
+func testMakeTextureCubeFromCrossTexture_offMainActor() async throws {
+    // Guards the isolation contract: this must stay callable without hopping to
+    // the main actor. Re-adding @MainActor breaks compilation of this test.
+    let device = _MTLCreateSystemDefaultDevice()
+    let cellSize = 4
+    let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .rgba8Unorm,
+        width: cellSize * 4,
+        height: cellSize * 3,
+        mipmapped: false
+    )
+    descriptor.usage = [.shaderRead]
+    descriptor.storageMode = .shared
+    let crossTexture = try device.makeTexture(descriptor: descriptor)
+        .orThrow(.resourceCreationFailure("Failed to create cross texture"))
+
+    let cube = try device.makeTextureCubeFromCrossTexture(texture: crossTexture)
+    #expect(cube.textureType == .typeCube)
+    #expect(cube.width == cellSize)
+    #expect(cube.height == cellSize)
+}
+
 // MARK: - SwiftUI View → Texture
 
 @Test

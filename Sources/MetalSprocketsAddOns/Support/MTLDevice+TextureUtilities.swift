@@ -34,7 +34,6 @@ public extension MTLDevice {
         ])
     }
 
-    @MainActor
     func makeTextureCubeFromCrossTexture(texture: MTLTexture) throws -> MTLTexture {
         // Convert a skybox texture stored as a "cross" shape in a 2D texture into a texture cube:
         //     [5]

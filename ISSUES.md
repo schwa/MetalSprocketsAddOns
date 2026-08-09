@@ -1107,12 +1107,13 @@ The suite covers init, loadVideo and pause, but never calls play(). The task-lif
 ## 38: makeTextureCubeFromCrossTexture is @MainActor despite doing no main-thread work
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: concurrency, effort:xs
 created: 2026-08-09T00:09:56Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T00:20:06Z
+closed: 2026-08-09T00:20:06Z
 +++
 
 MTLDevice.makeTextureCubeFromCrossTexture(texture:) in Sources/MetalSprocketsAddOns/Support/MTLDevice+TextureUtilities.swift is annotated @MainActor, but its body is a pure GPU blit: it builds an MTLTextureDescriptor, creates a cube map, and runs a BlitPass copying six faces.
