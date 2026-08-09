@@ -4,16 +4,22 @@ import MetalSprocketsAddOnsShaders
 import MetalSprocketsSupport
 import simd
 
-/// A fullscreen post-process pass that reads the scene depth buffer and shadow map
-/// to produce a shadow overlay. Renders black with alpha = shadow darkness using
-/// multiplicative blending, so it darkens shadowed areas of the previously rendered scene.
+/// A screen-space post-process compute pass that reads the scene depth buffer and shadow map
+/// and darkens shadowed pixels of an already-rendered colour texture in place.
+///
+/// - Important: This element runs its own compute pass, so it must be placed as a *sibling* of
+/// the scene's render pass, not inside it. `outputTexture` needs `.shaderWrite` usage and
+/// `sceneDepthTexture` needs `.shaderRead`.
 ///
 /// Usage:
 /// ```swift
-/// RenderPass {
-///     // ... render scene with lighting (no shadow awareness needed) ...
+/// Group {
+///     RenderPass {
+///         // ... render scene with lighting (no shadow awareness needed) ...
+///     }
 ///     ShadowMaskPass(
 ///         sceneDepthTexture: sceneDepth,
+///         outputTexture: colorTexture,
 ///         shadowMap: shadowMap,
 ///         inverseViewProjection: inverseVP
 ///     )
@@ -21,59 +27,71 @@ import simd
 /// ```
 public struct ShadowMaskPass: Element {
     let sceneDepthTexture: MTLTexture
+    let outputTexture: MTLTexture
     let shadowMap: ShadowMap
     let inverseViewProjection: float4x4
-    let debug: Bool
+    let shadowIntensity: Float
 
     @MSState
-    var vertexShader: VertexShader
+    var computeKernel: ComputeKernel
 
-    @MSState
-    var fragmentShader: FragmentShader
-
-    public init(sceneDepthTexture: MTLTexture, shadowMap: ShadowMap, inverseViewProjection: float4x4, debug: Bool = false) throws {
+    /// Creates a shadow mask compute pass.
+    ///
+    /// - Parameters:
+    ///   - sceneDepthTexture: The depth texture from the main scene render.
+    ///   - outputTexture: The colour texture to darken in place.
+    ///   - shadowMap: The shadow map rendered by ``ShadowMapDepthPass``.
+    ///   - inverseViewProjection: Inverse of the camera's view-projection matrix.
+    ///   - shadowIntensity: Shadow darkness (0–1, default 1).
+    ///   - debug: When true, tints shadowed areas magenta instead of darkening them.
+    public init(
+        sceneDepthTexture: MTLTexture,
+        outputTexture: MTLTexture,
+        shadowMap: ShadowMap,
+        inverseViewProjection: float4x4,
+        shadowIntensity: Float = 1.0,
+        debug: Bool = false
+    ) throws {
         self.sceneDepthTexture = sceneDepthTexture
+        self.outputTexture = outputTexture
         self.shadowMap = shadowMap
         self.inverseViewProjection = inverseViewProjection
-        self.debug = debug
+        self.shadowIntensity = shadowIntensity
 
         let shaderLibrary = ShaderLibrary.module.namespaced("ShadowMask")
-        vertexShader = try shaderLibrary.vertex_main
         var constants = FunctionConstants()
         constants["DEBUG"] = .bool(debug)
-        fragmentShader = try shaderLibrary.function(named: "fragment_main", type: FragmentShader.self, constants: constants)
+        computeKernel = try shaderLibrary.function(named: "shadow_mask_compute", type: ComputeKernel.self, constants: constants)
     }
 
     public var body: some Element {
         get throws {
-            let params = shadowMap.toParameters()
-            try RenderPipeline(label: "ShadowMask", vertexShader: vertexShader, fragmentShader: fragmentShader) {
-                Draw { encoder in
-                    encoder.setFragmentTexture(sceneDepthTexture, index: 0)
-                    encoder.setFragmentTexture(shadowMap.depthTexture, index: 1)
-                    encoder.setFragmentSamplerState(shadowMap.sampler, index: 0)
-                    var invVP = inverseViewProjection
-                    encoder.setFragmentBytes(&invVP, length: MemoryLayout<float4x4>.stride, index: 0)
-                    var shadowParams = params
-                    encoder.setFragmentBytes(&shadowParams, length: MemoryLayout<ShadowMapParameters>.stride, index: 1)
-                    encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+            var maskParams = ShadowMaskParameters(
+                inverseViewProjection: inverseViewProjection,
+                shadowIntensity: shadowIntensity
+            )
+            var shadowParams = shadowMap.toParameters()
+            let width = outputTexture.width
+            let height = outputTexture.height
+
+            try ComputePass(label: "ShadowMask") {
+                try ComputePipeline(label: "ShadowMask", computeKernel: computeKernel) {
+                    try ComputeDispatch(
+                        threadsPerGrid: MTLSize(width: width, height: height, depth: 1),
+                        threadsPerThreadgroup: MTLSize(width: 8, height: 8, depth: 1)
+                    )
+                }
+                .onWorkloadEnter { environmentValues in
+                    guard let encoder = environmentValues.computeCommandEncoder
+                    else { return }
+                    encoder.setTexture(sceneDepthTexture, index: 0)
+                    encoder.setTexture(shadowMap.depthTexture, index: 1)
+                    encoder.setTexture(outputTexture, index: 2)
+                    encoder.setSamplerState(shadowMap.sampler, index: 0)
+                    encoder.setBytes(&maskParams, length: MemoryLayout<ShadowMaskParameters>.stride, index: 0)
+                    encoder.setBytes(&shadowParams, length: MemoryLayout<ShadowMapParameters>.stride, index: 1)
                 }
             }
-            .renderPipelineDescriptorTransformer { descriptor in
-                // Alpha blending: src * srcAlpha + dst * (1 - srcAlpha)
-                // Normal mode: src is black, so dst * (1 - alpha) = darkening
-                // Debug mode: src is magenta, blended over scene
-                guard let attachment = descriptor.colorAttachments[0]
-                else { return }
-                attachment.isBlendingEnabled = true
-                attachment.rgbBlendOperation = .add
-                attachment.alphaBlendOperation = .add
-                attachment.sourceRGBBlendFactor = .sourceAlpha
-                attachment.destinationRGBBlendFactor = .oneMinusSourceAlpha
-                attachment.sourceAlphaBlendFactor = .zero
-                attachment.destinationAlphaBlendFactor = .one
-            }
-            .depthCompare(function: .always, enabled: false)
         }
     }
 }

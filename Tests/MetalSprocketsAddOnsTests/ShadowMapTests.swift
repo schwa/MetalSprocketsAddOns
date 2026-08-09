@@ -140,7 +140,11 @@ private func renderShadowScene(applyShadowMask: Bool) throws -> Double {
     var shadowMap = try ShadowMap(resolution: 512, lightCount: 1)
     shadowMap.updateDirectionalLight(at: 0, position: SIMD3<Float>(3, 5, 2), orthoSize: 3, near: 0.1, far: 20)
 
-    let renderer = try OffscreenRenderer(size: defaultRenderSize, depthUsage: [.renderTarget, .shaderRead])
+    let renderer = try OffscreenRenderer(
+        size: defaultRenderSize,
+        colorUsage: [.renderTarget, .shaderRead, .shaderWrite],
+        depthUsage: [.renderTarget, .shaderRead]
+    )
 
     let content = try MetalSprockets.Group {
         try ShadowMapDepthPass(shadowMap: shadowMap, vertexDescriptor: sphere.vertexDescriptor) {
@@ -185,17 +189,12 @@ private func renderShadowScene(applyShadowMask: Bool) throws -> Double {
         }
 
         if applyShadowMask {
-            try RenderPass {
-                try ShadowMaskPass(
-                    sceneDepthTexture: renderer.depthTexture,
-                    shadowMap: shadowMap,
-                    inverseViewProjection: viewProjection.inverse
-                )
-            }
-            .renderPassDescriptorModifier { descriptor in
-                descriptor.colorAttachments[0].loadAction = .load
-                descriptor.depthAttachment.loadAction = .load
-            }
+            try ShadowMaskPass(
+                sceneDepthTexture: renderer.depthTexture,
+                outputTexture: renderer.colorTexture,
+                shadowMap: shadowMap,
+                inverseViewProjection: viewProjection.inverse
+            )
         }
     }
 

@@ -7,46 +7,41 @@ namespace ShadowMask {
 
     constant bool DEBUG [[function_constant(0)]];
 
-    struct VertexOut {
-        float4 position [[position]];
-        float2 texCoord;
-    };
-
-    // Fullscreen triangle — 3 vertices, no vertex buffer needed
-    [[vertex]] VertexOut vertex_main(uint vertexID [[vertex_id]]) {
-        float2 positions[] = { float2(-1, -1), float2(3, -1), float2(-1, 3) };
-        float2 texCoords[] = { float2(0, 1), float2(2, 1), float2(0, -1) };
-        VertexOut out;
-        out.position = float4(positions[vertexID], 0, 1);
-        out.texCoord = texCoords[vertexID];
-        return out;
-    }
-
-    [[fragment]] float4 fragment_main(
-        VertexOut in [[stage_in]],
-        depth2d<float, access::sample> sceneDepth [[texture(0)]],
+    [[kernel]] void shadow_mask_compute(
+        uint2 tid [[thread_position_in_grid]],
+        depth2d<float, access::read> sceneDepth [[texture(0)]],
         depth2d_array<float, access::sample> shadowMapTexture [[texture(1)]],
+        texture2d<float, access::read_write> outputTexture [[texture(2)]],
         sampler shadowMapSampler [[sampler(0)]],
-        constant float4x4 &inverseViewProjection [[buffer(0)]],
+        constant ShadowMaskParameters &params [[buffer(0)]],
         constant ShadowMapParameters &shadowMapParams [[buffer(1)]]
     ) {
-        // Sample scene depth
-        constexpr sampler depthSampler(filter::nearest);
-        float depth = sceneDepth.sample(depthSampler, in.texCoord);
+        uint2 outputSize = uint2(outputTexture.get_width(), outputTexture.get_height());
+        if (tid.x >= outputSize.x || tid.y >= outputSize.y) {
+            return;
+        }
+
+        // The depth texture may be a different size to the output texture.
+        uint2 depthSize = uint2(sceneDepth.get_width(), sceneDepth.get_height());
+        uint2 depthCoord = uint2(
+            uint(float(tid.x) * float(depthSize.x) / float(outputSize.x)),
+            uint(float(tid.y) * float(depthSize.y) / float(outputSize.y))
+        );
+        float depth = sceneDepth.read(depthCoord);
 
         // Skip background (depth at clear value — 0.0 for inverse Z, 1.0 for standard)
         if (depth == 0.0 || depth == 1.0) {
-            return float4(0, 0, 0, 0); // no shadow on background
+            return;
         }
 
         // Reconstruct world position from screen UV + depth
-        float2 ndc = in.texCoord * 2.0 - 1.0;
+        float2 texCoord = (float2(tid) + 0.5) / float2(outputSize);
+        float2 ndc = texCoord * 2.0 - 1.0;
         ndc.y = -ndc.y; // flip Y for Metal NDC
         float4 clipPos = float4(ndc, depth, 1.0);
-        float4 worldPos = inverseViewProjection * clipPos;
+        float4 worldPos = params.inverseViewProjection * clipPos;
         worldPos /= worldPos.w;
 
-        // Sample shadow map
         float shadowFactor = ShadowMap::sampleShadow(
             worldPos.xyz,
             shadowMapParams,
@@ -54,16 +49,18 @@ namespace ShadowMask {
             shadowMapSampler
         );
 
-        // Debug: magenta for shadowed areas over the scene
-        if (DEBUG) {
-            if (shadowFactor >= 1.0) {
-                return float4(0, 0, 0, 0); // fully lit — no overlay
-            }
-            return float4(1.0, 0.0, 1.0, 1.0 - shadowFactor);
+        if (shadowFactor >= 1.0) {
+            return; // Fully lit — leave the pixel alone.
         }
 
-        // Output: alpha = shadow darkness (1 = fully shadowed, 0 = fully lit)
-        return float4(0, 0, 0, 1.0 - shadowFactor);
+        float darkness = params.shadowIntensity * (1.0 - shadowFactor);
+        float4 existing = outputTexture.read(tid);
+        if (DEBUG) {
+            existing.rgb = mix(existing.rgb, float3(1.0, 0.0, 1.0), darkness);
+        } else {
+            existing.rgb *= 1.0 - darkness;
+        }
+        outputTexture.write(existing, tid);
     }
 
 }

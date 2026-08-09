@@ -11,13 +11,13 @@ Classic two-pass shadow mapping with support for multiple lights.
 ### How it works
 
 1. **Depth pass** (`ShadowMapDepthPass`): Renders scene geometry from each light's point of view into a `depth2d_array` texture (one slice per light). Uses an orthographic projection suited to directional lights.
-2. **Mask pass** (`ShadowMaskPass`): A fullscreen fragment shader reconstructs world position from the scene depth buffer, transforms it into each light's clip space, and samples the shadow map with a comparison sampler (hardware PCF). Outputs shadow darkness via alpha blending to darken the scene.
+2. **Mask pass** (`ShadowMaskPass`): A compute kernel reconstructs world position from the scene depth buffer, transforms it into each light's clip space, and samples the shadow map with a comparison sampler (hardware PCF). It darkens the colour texture in place, one thread per pixel.
 
 ### Key components
 
 - `ShadowMap` — owns the depth array texture, comparison sampler, per-light view-projection matrices, and bias parameters. Supports inverse-Z for better depth precision.
 - `ShadowMapDepthPass` — declarative element that renders shadow caster geometry into the depth texture, one render pass per light slice.
-- `ShadowMaskPass` — fullscreen post-process element that reads scene depth + shadow map and blends shadow darkness onto the scene.
+- `ShadowMaskPass` — screen-space post-process compute element that reads scene depth + shadow map and darkens shadowed pixels of the colour texture.
 
 ### Configuration
 

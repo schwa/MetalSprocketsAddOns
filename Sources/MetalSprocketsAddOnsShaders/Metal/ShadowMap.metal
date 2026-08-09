@@ -64,7 +64,8 @@ namespace ShadowMap {
         for (int x = -1; x <= 1; x++) {
             for (int y = -1; y <= 1; y++) {
                 float2 offset = float2(float(x), float(y)) * texelSize;
-                shadow += shadowMap.sample_compare(shadowSampler, shadowUV + offset, sliceIndex, compareDepth);
+                // Explicit level(0) — compute shaders have no implicit derivatives.
+                shadow += shadowMap.sample_compare(shadowSampler, shadowUV + offset, sliceIndex, compareDepth, level(0));
             }
         }
         return shadow / 9.0;

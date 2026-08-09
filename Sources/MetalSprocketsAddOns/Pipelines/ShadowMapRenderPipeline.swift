@@ -147,8 +147,9 @@ public struct ShadowMap {
 ///         .parameter("modelMatrix", functionType: .vertex, value: modelMatrix)
 ///     }
 ///     RenderPass {
-///         // ... scene, then ShadowMaskPass ...
+///         // ... scene ...
 ///     }
+///     ShadowMaskPass(...)
 /// }
 /// ```
 public struct ShadowMapDepthPass<Content>: Element where Content: Element {

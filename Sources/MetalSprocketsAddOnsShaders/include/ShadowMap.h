@@ -22,6 +22,15 @@ struct ShadowMapParameters {
 };
 typedef struct ShadowMapParameters ShadowMapParameters;
 
+/// Parameters for the screen-space shadow mask compute pass.
+struct ShadowMaskParameters {
+    /// Inverse of the camera's view-projection matrix, used to rebuild world position from depth.
+    simd_float4x4 inverseViewProjection;
+    /// Shadow darkness scale (0 = no darkening, 1 = full).
+    float shadowIntensity;
+};
+typedef struct ShadowMaskParameters ShadowMaskParameters;
+
 #if defined(__METAL_VERSION__)
 namespace ShadowMap {
     /// Computes shadow visibility for a world-space position across all shadow-casting lights.

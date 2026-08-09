@@ -322,12 +322,13 @@ Add support for shadow rendering when using multiple light sources. Investigate 
 ## 16: ShadowMaskPass: use compute shader instead of fullscreen quad rasterization
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: effort:m
 created: 2026-04-13T22:03:19Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T00:42:40Z
+closed: 2026-08-09T00:42:40Z
 +++
 
 The shadow mask pass currently uses a fullscreen triangle with a raster pipeline and alpha blending. Replace with a compute shader that reads the scene depth texture and shadow map, computes the shadow factor, and writes directly to the color texture (read-modify-write). This avoids the overhead of a render pass and blending setup, and is more natural for a screen-space post-process on Apple Silicon.
