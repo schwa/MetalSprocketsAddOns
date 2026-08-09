@@ -223,42 +223,60 @@ func testShadowMaskPass_shadowIntensityScalesDarkening() throws {
     #expect(half < unshadowed)
 }
 
+// MARK: - Shadow technique entry point
+
+@Test
+@MainActor
+func testShadowContext_rejectsTexturesMissingRequiredUsage() throws {
+    // Default offscreen usage is too narrow: no shaderWrite on colour, no shaderRead on depth.
+    let renderer = try OffscreenRenderer(size: CGSize(width: 16, height: 16))
+    #expect(throws: MetalSprocketsError.self) {
+        try ShadowContext(
+            viewTransforms: ViewTransforms(projectionMatrix: perspectiveProjection(), cameraMatrix: .identity),
+            colorTexture: renderer.colorTexture,
+            depthTexture: renderer.depthTexture
+        )
+    }
+}
+
 /// Renders a sphere above a ground plane lit by a single shadow-casting directional light,
 /// optionally applying the shadow mask.
 @MainActor
 private func renderShadowScene(applyShadowMask: Bool, shadowIntensity: Float = 1.0) throws -> CGImage {
     let scene = try ShadowTestScene()
-
-    var shadowMap = try ShadowMap(resolution: 512, lightCount: 1)
-    shadowMap.updateDirectionalLight(at: 0, position: scene.lightPosition, orthoSize: 3, near: 0.1, far: 20)
-
-    let content = try MetalSprockets.Group {
-        try ShadowMapDepthPass(shadowMap: shadowMap, vertexDescriptor: scene.sphere.vertexDescriptor) {
-            Draw { encoder in
-                encoder.setVertexBuffers(of: scene.sphere)
-                encoder.draw(scene.sphere)
-            }
-            .parameter("modelMatrix", functionType: .vertex, value: scene.sphereTransform)
-            Draw { encoder in
-                encoder.setVertexBuffers(of: scene.plane)
-                encoder.draw(scene.plane)
-            }
-            .parameter("modelMatrix", functionType: .vertex, value: scene.planeTransform)
-        }
-
-        try scene.scenePass
-
-        if applyShadowMask {
-            try ShadowMaskPass(
-                sceneDepthTexture: scene.renderer.depthTexture,
-                outputTexture: scene.renderer.colorTexture,
-                shadowMap: shadowMap,
-                viewTransforms: scene.viewTransforms,
-                shadowIntensity: shadowIntensity
-            )
-        }
+    guard applyShadowMask else {
+        return try scene.renderer.render(scene.scenePass).cgImage
     }
 
-    let rendering = try scene.renderer.render(content)
-    return try rendering.cgImage
+    let technique = try ShadowMapTechnique(
+        lightPositions: [scene.lightPosition],
+        resolution: 512,
+        orthoSize: 3,
+        near: 0.1,
+        far: 20,
+        vertexDescriptor: scene.sphere.vertexDescriptor
+    ) {
+        Draw { encoder in
+            encoder.setVertexBuffers(of: scene.sphere)
+            encoder.draw(scene.sphere)
+        }
+        .parameter("modelMatrix", functionType: .vertex, value: scene.sphereTransform)
+        Draw { encoder in
+            encoder.setVertexBuffers(of: scene.plane)
+            encoder.draw(scene.plane)
+        }
+        .parameter("modelMatrix", functionType: .vertex, value: scene.planeTransform)
+    }
+
+    let context = try ShadowContext(
+        viewTransforms: scene.viewTransforms,
+        colorTexture: scene.renderer.colorTexture,
+        depthTexture: scene.renderer.depthTexture,
+        shadowIntensity: shadowIntensity
+    )
+
+    let content = try ShadowedScene(technique: technique, context: context) {
+        try scene.scenePass
+    }
+    return try scene.renderer.render(content).cgImage
 }

@@ -1413,12 +1413,13 @@ Part of #40.
 ## 48: Add a shared shadow entry point for shadow-mapped shadows
 
 +++
-status: open
+status: closed
 priority: high
 kind: enhancement
 labels: architecture, effort:m, subtask
 created: 2026-08-09T02:06:15Z
-updated: 2026-08-09T02:06:49Z
+updated: 2026-08-09T02:24:01Z
+closed: 2026-08-09T02:24:01Z
 +++
 
 There is no shared entry point for shadows: a caller wiring up shadow maps must know the pass ordering (depth pass as a sibling of the scene pass, mask pass after it), which textures to allocate with which usage flags, how to derive the inverse view-projection, and how per-light matrices are updated.
