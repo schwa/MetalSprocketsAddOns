@@ -727,12 +727,13 @@ Cross-references: #23 (dead code in ColorSource).
 ## 28: Bump golden-image render size from 256x256 to 512x512
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: testing, effort:m
 created: 2026-04-19T20:42:56Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T01:23:19Z
+closed: 2026-08-09T01:23:19Z
 +++
 
 All golden-image tests currently render at 256×256 (set by

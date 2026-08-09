@@ -15,7 +15,10 @@ import Testing
 
 @MainActor
 private func attributedHello() -> NSAttributedString {
-    let font = CTFontCreateWithName("Helvetica" as CFString, 64, nil)
+    // Text is laid out in pixels, so the point size scales with the render size to keep the
+    // glyphs the same fraction of the golden image (and comfortably above sub-pixel detail).
+    let pointSize = defaultRenderSize.height / 4
+    let font = CTFontCreateWithName("Helvetica" as CFString, pointSize, nil)
     let attrs: [NSAttributedString.Key: Any] = [
         .font: font,
         .foregroundColor: CGColor(red: 1, green: 1, blue: 1, alpha: 1)

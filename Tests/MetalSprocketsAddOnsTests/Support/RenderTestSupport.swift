@@ -12,8 +12,9 @@ import simd
 // MARK: - Standard render size
 
 /// Default offscreen render size for golden-image tests.
-/// Smaller than UI sizes to keep golden PNGs lightweight.
-let defaultRenderSize = CGSize(width: 256, height: 256)
+/// Large enough that curve subdivision, shadow edges and text glyphs are legible when
+/// inspecting a golden by eye, without making the PNGs unreasonably large.
+let defaultRenderSize = CGSize(width: 512, height: 512)
 
 // MARK: - Camera helpers
 
