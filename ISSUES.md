@@ -765,12 +765,13 @@ regenerate every golden PNG once and commit the updated set.
 ## 29: testGraphicsContext3D_filledQuad crashes on CI (Apple paravirt GPU)
 
 +++
-status: open
+status: closed
 priority: medium
 kind: bug
 labels: testing, ci, effort:l
 created: 2026-04-19T20:49:27Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T00:39:59Z
+closed: 2026-08-09T00:39:59Z
 +++
 
 `testGraphicsContext3D_filledQuad` (in
@@ -889,6 +890,18 @@ failure is a separate but related GPU driver gap on the GitHub Actions
 runner image. Worth keeping eye on whether GitHub upgrades the runner
 host's macOS / paravirt driver in future image rolls — these tests can be
 re-enabled if/when that happens.
+
+- `2026-08-09T00:39:59Z`: Fixed. Root cause: GraphicsContext3DRenderPipeline always emitted its stroke MeshRenderPipeline, even for fill-only contexts. The Draw closure guarded on joinCount, but the .parameter(..., functionType: .mesh, ...) bindings were applied unconditionally, so setMeshBuffer:offset:atIndex: was still sent to the encoder — fatal on a paravirt GPU with no mesh-stage selectors.
+
+Both pipelines are now only built when they have geometry (joinCount > 0 / fillVertexCount > 0), so fill-only contexts never touch the mesh path. testGraphicsContext3D_filledQuad and testGraphicsContext3D_fillRespectsAlpha are re-enabled everywhere.
+
+The remaining GPU-feature gates now use runtime probes instead of the CI env var (Tests/MetalSprocketsAddOnsTests/Support/GPUCapabilities.swift):
+- supportsMeshShaders: probes whether a real MTLRenderCommandEncoder responds to setMeshBuffer:offset:atIndex: — used by the 6 GraphicsContext3D stroke tests and the 3 EdgeLines tests.
+- supportsRaytracing: device.supportsRaytracing — used by the 5 AccelerationStructureManager tests and the 1 RayTracedShadowComputePass test.
+
+CI-env gating for the 5 texture-sampling tests remains and is split out to #44.
+
+Local: 150 tests pass, none skipped.
 
 ---
 
@@ -1262,5 +1275,30 @@ Suggested direction:
 - Keep a small number of layout tests as explicit representation tests, clearly marked.
 - Express the rest in terms of observable behaviour: mesh count, index count, bounds, and golden renders.
 - Add golden coverage for the fixed-grid buildMesh(characters:font:cellSize:columns:) path, which currently has no rendering test.
+
+---
+
+## 44: Texture sampling returns constant values on GitHub Actions paravirt GPU
+
++++
+status: new
+priority: medium
+kind: bug
+labels: testing, ci, effort:m
+created: 2026-08-09T00:39:50Z
++++
+
+Five golden-image tests are gated off on GitHub Actions runners because `texture.sample(...)` returns a constant instead of texel data (plain rgba8Unorm -> white, YCbCr two-plane -> green). Geometry renders correctly; only sampling is wrong. Local Apple silicon and a local VirtualBuddy paravirt VM both sample correctly, so this looks specific to the GitHub Actions runner image's paravirt driver.
+
+Affected tests (currently disabled via the `CI` env var):
+- FlatShaderTests.testFlatShaderWithTexture
+- TextureBillboardPipelineTests.testTextureBillboardPipeline_checkerboard
+- TextureBillboardPipelineTests.testTextureBillboardPipeline_upperRightQuadrant
+- TexturedQuad3DPipelineTests.testTexturedQuad3DPipeline_mandrillFlat
+- TexturedQuad3DPipelineTests.testTexturedQuad3DPipeline_mandrillRotatedInPerspective
+
+Split out of #29, which covered the mesh-shader encoder crash (now fixed).
+
+Next steps: replace the env-var gate with a runtime probe (render a quad sampling a known texture, compare against expected texel), or re-enable once GitHub rolls a newer runner image.
 
 ---

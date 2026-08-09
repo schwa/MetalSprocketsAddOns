@@ -18,7 +18,7 @@ import MetalSupport
 import simd
 import Testing
 
-@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Ray tracing unsupported on CI paravirt GPU — see issue #29"))
+@Test(.disabled(if: !supportsRaytracing, "Ray tracing unsupported on this GPU — see issue #29"))
 @MainActor
 func testRayTracedShadowComputePass_endToEnd() throws {
     let device = _MTLCreateSystemDefaultDevice()

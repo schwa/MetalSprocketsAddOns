@@ -128,55 +128,56 @@ public struct GraphicsContext3DRenderPipeline: Element {
                 throw MetalSprocketsError.resourceCreationFailure("Failed to create required buffers")
             }
 
+            // Only build a pipeline when it has something to draw. An empty
+            // mesh pipeline still binds mesh-stage buffers, which traps on GPUs
+            // without mesh-shader support (issue #29).
             return try Group {
-                try MeshRenderPipeline(label: "GraphicsContext3D Stroke", objectShader: objectShader, meshShader: meshShader, fragmentShader: meshFragmentShader) {
-                    Draw { encoder in
-                        encoder.withDebugGroup("GraphicsContext3D Stroke Mesh Shader (joinCount: \(joinCount))") {
-                            guard joinCount > 0 else {
-                                return
+                if joinCount > 0 {
+                    try MeshRenderPipeline(label: "GraphicsContext3D Stroke", objectShader: objectShader, meshShader: meshShader, fragmentShader: meshFragmentShader) {
+                        Draw { encoder in
+                            encoder.withDebugGroup("GraphicsContext3D Stroke Mesh Shader (joinCount: \(joinCount))") {
+                                encoder.label = "GraphicsContext3D Stroke Mesh Encoder"
+                                encoder.setCullMode(.none)
+                                encoder.setTriangleFillMode(debugWireframe ? .lines : .fill)
+                                encoder.drawMeshThreadgroups(
+                                    MTLSize(width: joinCount, height: 1, depth: 1),
+                                    threadsPerObjectThreadgroup: MTLSize(width: 1, height: 1, depth: 1),
+                                    threadsPerMeshThreadgroup: MTLSize(width: 1, height: 1, depth: 1)
+                                )
                             }
-                            encoder.label = "GraphicsContext3D Stroke Mesh Encoder"
-                            encoder.setCullMode(.none)
-                            encoder.setTriangleFillMode(debugWireframe ? .lines : .fill)
-                            encoder.drawMeshThreadgroups(
-                                MTLSize(width: joinCount, height: 1, depth: 1),
-                                threadsPerObjectThreadgroup: MTLSize(width: 1, height: 1, depth: 1),
-                                threadsPerMeshThreadgroup: MTLSize(width: 1, height: 1, depth: 1)
-                            )
                         }
+                        .parameter("joinData", functionType: .mesh, buffer: joinDataBuffer, offset: 0)
+                        .parameter("uniforms", functionType: .mesh, buffer: uniformsBuffer, offset: 0)
                     }
-                    .parameter("joinData", functionType: .mesh, buffer: joinDataBuffer, offset: 0)
-                    .parameter("uniforms", functionType: .mesh, buffer: uniformsBuffer, offset: 0)
+                    .depthCompare(function: .less, enabled: true)
                 }
-                .depthCompare(function: .less, enabled: true)
 
-                try RenderPipeline(label: "GraphicsContext3D Fill", vertexShader: fillVertexShader, fragmentShader: fillFragmentShader) {
-                    Draw { encoder in
-                        encoder.withDebugGroup("GraphicsContext3D Fill Geometry (fillVertexCount: \(fillVertexCount))") {
-                            guard fillVertexCount > 0 else {
-                                return
+                if fillVertexCount > 0 {
+                    try RenderPipeline(label: "GraphicsContext3D Fill", vertexShader: fillVertexShader, fragmentShader: fillFragmentShader) {
+                        Draw { encoder in
+                            encoder.withDebugGroup("GraphicsContext3D Fill Geometry (fillVertexCount: \(fillVertexCount))") {
+                                encoder.label = "GraphicsContext3D Fill Encoder"
+                                encoder.setCullMode(.none)
+                                encoder.setTriangleFillMode(debugWireframe ? .lines : .fill)
+                                encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: fillVertexCount)
                             }
-                            encoder.label = "GraphicsContext3D Fill Encoder"
-                            encoder.setCullMode(.none)
-                            encoder.setTriangleFillMode(debugWireframe ? .lines : .fill)
-                            encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: fillVertexCount)
                         }
+                        .parameter("vertices", functionType: .vertex, buffer: fillVertexBuffer, offset: 0)
                     }
-                    .parameter("vertices", functionType: .vertex, buffer: fillVertexBuffer, offset: 0)
-                }
-                .depthCompare(function: .less, enabled: true)
-                .renderPipelineDescriptorTransformer { descriptor in
-                    // Fill colors are non-premultiplied, so composite source-over.
-                    guard let attachment = descriptor.colorAttachments[0] else {
-                        return
+                    .depthCompare(function: .less, enabled: true)
+                    .renderPipelineDescriptorTransformer { descriptor in
+                        // Fill colors are non-premultiplied, so composite source-over.
+                        guard let attachment = descriptor.colorAttachments[0] else {
+                            return
+                        }
+                        attachment.isBlendingEnabled = true
+                        attachment.rgbBlendOperation = .add
+                        attachment.alphaBlendOperation = .add
+                        attachment.sourceRGBBlendFactor = .sourceAlpha
+                        attachment.sourceAlphaBlendFactor = .sourceAlpha
+                        attachment.destinationRGBBlendFactor = .oneMinusSourceAlpha
+                        attachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
                     }
-                    attachment.isBlendingEnabled = true
-                    attachment.rgbBlendOperation = .add
-                    attachment.alphaBlendOperation = .add
-                    attachment.sourceRGBBlendFactor = .sourceAlpha
-                    attachment.sourceAlphaBlendFactor = .sourceAlpha
-                    attachment.destinationRGBBlendFactor = .oneMinusSourceAlpha
-                    attachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
                 }
             }
         }
