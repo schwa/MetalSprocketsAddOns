@@ -1359,12 +1359,13 @@ Part of #40.
 ## 46: Unit-test the shadow map inverse-Z contract
 
 +++
-status: open
+status: closed
 priority: high
 kind: enhancement
 labels: testing, effort:s, subtask
 created: 2026-08-09T02:06:01Z
-updated: 2026-08-09T02:06:49Z
+updated: 2026-08-09T02:20:20Z
+closed: 2026-08-09T02:20:20Z
 +++
 
 Only the `ShadowMap` struct getters and the two matrix helpers are covered. The inverse-Z details that actually break renders have no tests: depth bias and slope scale sign flips, the sampler compare function and border colour, the clear depth value, and the per-light depth attachment slice descriptors.

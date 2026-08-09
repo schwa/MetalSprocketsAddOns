@@ -71,6 +71,66 @@ func testShadowMap_toParameters_capturesLightCountAndMatrices() throws {
     #expect(params.mapSize == 128)
 }
 
+// MARK: - Inverse Z contract
+
+@Test
+@MainActor
+func testShadowMap_inverseZ_negatesDepthBiasAndSlopeScale() throws {
+    let inverseZ = try ShadowMap(resolution: 64, depthBias: 2.0, slopeScale: 3.0, useInverseZ: true)
+    #expect(inverseZ.appliedDepthBias == -2.0)
+    #expect(inverseZ.appliedSlopeScale == -3.0)
+
+    let standardZ = try ShadowMap(resolution: 64, depthBias: 2.0, slopeScale: 3.0, useInverseZ: false)
+    #expect(standardZ.appliedDepthBias == 2.0)
+    #expect(standardZ.appliedSlopeScale == 3.0)
+}
+
+@Test
+@MainActor
+func testShadowMap_inverseZ_flipsCompareFunctionAndBorderColor() throws {
+    let inverseZ = try ShadowMap(resolution: 64, useInverseZ: true)
+    #expect(inverseZ.depthCompareFunction == .greaterEqual)
+    #expect(inverseZ.samplerBorderColor == .opaqueBlack)
+
+    let standardZ = try ShadowMap(resolution: 64, useInverseZ: false)
+    #expect(standardZ.depthCompareFunction == .lessEqual)
+    #expect(standardZ.samplerBorderColor == .opaqueWhite)
+}
+
+@Test
+@MainActor
+func testShadowMap_inverseZ_clearsToFarPlane() throws {
+    #expect(try ShadowMap(resolution: 64, useInverseZ: true).clearDepth == 0.0)
+    #expect(try ShadowMap(resolution: 64, useInverseZ: false).clearDepth == 1.0)
+}
+
+@Test
+@MainActor
+func testShadowMap_renderPassDescriptor_targetsOneSlicePerLight() throws {
+    let shadowMap = try ShadowMap(resolution: 64, lightCount: 3, useInverseZ: true)
+    for lightIndex in 0..<3 {
+        let descriptor = MTLRenderPassDescriptor()
+        shadowMap.configureRenderPassDescriptor(descriptor, lightIndex: lightIndex)
+        #expect(descriptor.depthAttachment.texture === shadowMap.depthTexture)
+        #expect(descriptor.depthAttachment.slice == lightIndex)
+        #expect(descriptor.depthAttachment.loadAction == .clear)
+        #expect(descriptor.depthAttachment.storeAction == .store)
+        #expect(descriptor.depthAttachment.clearDepth == 0.0)
+        #expect(descriptor.renderTargetArrayLength == 1)
+        // The depth pass writes no colour, so slot 0 must stay unattached.
+        #expect(descriptor.colorAttachments[0].texture == nil)
+    }
+}
+
+@Test
+@MainActor
+func testShadowMap_renderPassDescriptor_standardZClearsToOne() throws {
+    let shadowMap = try ShadowMap(resolution: 64, useInverseZ: false)
+    let descriptor = MTLRenderPassDescriptor()
+    shadowMap.configureRenderPassDescriptor(descriptor, lightIndex: 0)
+    #expect(descriptor.depthAttachment.clearDepth == 1.0)
+}
+
 // MARK: - Matrix helpers
 
 @Test

@@ -70,10 +70,10 @@ public struct ShadowMap {
         let samplerDescriptor = MTLSamplerDescriptor()
         samplerDescriptor.minFilter = .linear
         samplerDescriptor.magFilter = .linear
-        samplerDescriptor.compareFunction = useInverseZ ? .greaterEqual : .lessEqual
+        samplerDescriptor.compareFunction = Self.depthCompareFunction(useInverseZ: useInverseZ)
         samplerDescriptor.sAddressMode = .clampToBorderColor
         samplerDescriptor.tAddressMode = .clampToBorderColor
-        samplerDescriptor.borderColor = useInverseZ ? .opaqueBlack : .opaqueWhite
+        samplerDescriptor.borderColor = Self.samplerBorderColor(useInverseZ: useInverseZ)
         sampler = try device.makeSamplerState(descriptor: samplerDescriptor)
             .orThrow(.resourceCreationFailure("Failed to create shadow map sampler"))
     }
@@ -108,6 +108,61 @@ public struct ShadowMap {
             inverseZ: useInverseZ
         )
         lightViewProjectionMatrices[index] = lightProjection * lightView
+    }
+
+    // MARK: Depth convention
+    //
+    // Every decision that depends on `useInverseZ` lives here so the depth pass, the sampler and
+    // the tests all agree on one set of answers.
+
+    static func depthCompareFunction(useInverseZ: Bool) -> MTLCompareFunction {
+        useInverseZ ? .greaterEqual : .lessEqual
+    }
+
+    static func samplerBorderColor(useInverseZ: Bool) -> MTLSamplerBorderColor {
+        useInverseZ ? .opaqueBlack : .opaqueWhite
+    }
+
+    /// Depth comparison used both by the depth pass's depth test and by the shadow sampler.
+    var depthCompareFunction: MTLCompareFunction {
+        Self.depthCompareFunction(useInverseZ: useInverseZ)
+    }
+
+    /// Border colour for shadow lookups outside the light's frustum — the "unshadowed" depth value.
+    var samplerBorderColor: MTLSamplerBorderColor {
+        Self.samplerBorderColor(useInverseZ: useInverseZ)
+    }
+
+    /// Depth value the shadow map is cleared to: the far plane for the depth convention in use.
+    var clearDepth: Double {
+        useInverseZ ? 0.0 : 1.0
+    }
+
+    /// ``depthBias`` with the sign the depth convention requires — inverse Z counts the other way,
+    /// so the bias has to be negated to still push samples away from the light.
+    var appliedDepthBias: Float {
+        useInverseZ ? -depthBias : depthBias
+    }
+
+    /// ``slopeScale`` with the sign the depth convention requires. See ``appliedDepthBias``.
+    var appliedSlopeScale: Float {
+        useInverseZ ? -slopeScale : slopeScale
+    }
+
+    /// Points `descriptor` at the shadow map slice belonging to `lightIndex`.
+    ///
+    /// The depth pass renders one light per pass into a single array slice, so there is no colour
+    /// attachment and the render target array length is 1.
+    func configureRenderPassDescriptor(_ descriptor: MTLRenderPassDescriptor, lightIndex: Int) {
+        descriptor.colorAttachments[0].texture = nil
+        descriptor.colorAttachments[0].loadAction = .dontCare
+        descriptor.colorAttachments[0].storeAction = .dontCare
+        descriptor.depthAttachment.texture = depthTexture
+        descriptor.depthAttachment.slice = lightIndex
+        descriptor.depthAttachment.loadAction = .clear
+        descriptor.depthAttachment.clearDepth = clearDepth
+        descriptor.depthAttachment.storeAction = .store
+        descriptor.renderTargetArrayLength = 1
     }
 
     /// Returns the `ShadowMapParameters` struct for passing to shaders.
@@ -179,10 +234,8 @@ public struct ShadowMapDepthPass<Content>: Element where Content: Element {
 
     public var body: some Element {
         get throws {
-            let biasSign: Float = shadowMap.useInverseZ ? -1 : 1
-            let depthBias = shadowMap.depthBias * biasSign
-            let slopeScale = shadowMap.slopeScale * biasSign
-            let useInverseZ = shadowMap.useInverseZ
+            let depthBias = shadowMap.appliedDepthBias
+            let slopeScale = shadowMap.appliedSlopeScale
 
             // One render pass per light, each targeting a different array slice
             ForEach(Array(0..<shadowMap.lightCount), id: \.self) { lightIndex in
@@ -198,7 +251,7 @@ public struct ShadowMapDepthPass<Content>: Element where Content: Element {
                         encoder.setDepthBias(depthBias, slopeScale: slopeScale, clamp: 0)
                     }
                     .vertexDescriptor(vertexDescriptor)
-                    .depthCompare(function: useInverseZ ? .greaterEqual : .lessEqual, enabled: true)
+                    .depthCompare(function: shadowMap.depthCompareFunction, enabled: true)
                     .renderPipelineDescriptorTransformer { descriptor in
                         descriptor.colorAttachments[0].pixelFormat = .invalid
                         descriptor.depthAttachmentPixelFormat = .depth32Float
@@ -206,15 +259,7 @@ public struct ShadowMapDepthPass<Content>: Element where Content: Element {
                     }
                 }
                 .renderPassDescriptorModifier { descriptor in
-                    descriptor.colorAttachments[0].texture = nil
-                    descriptor.colorAttachments[0].loadAction = .dontCare
-                    descriptor.colorAttachments[0].storeAction = .dontCare
-                    descriptor.depthAttachment.texture = shadowMap.depthTexture
-                    descriptor.depthAttachment.slice = lightIndex
-                    descriptor.depthAttachment.loadAction = .clear
-                    descriptor.depthAttachment.clearDepth = useInverseZ ? 0.0 : 1.0
-                    descriptor.depthAttachment.storeAction = .store
-                    descriptor.renderTargetArrayLength = 1
+                    shadowMap.configureRenderPassDescriptor(descriptor, lightIndex: lightIndex)
                 }
             }
         }
