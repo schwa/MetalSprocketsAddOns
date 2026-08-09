@@ -1061,12 +1061,13 @@ Both should be removed where the build still succeeds, and kept only where remov
 ## 36: VideoTexturePipeline polls for video frames on a fixed 16ms timer
 
 +++
-status: open
+status: closed
 priority: medium
 kind: enhancement
 labels: effort:m
 created: 2026-08-09T00:09:42Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T00:24:32Z
+closed: 2026-08-09T00:24:32Z
 +++
 
 VideoTexturePipeline.play() drives frame updates from AsyncTimerSequence(interval: .milliseconds(16), clock: .continuous), then asks videoOutput.hasNewPixelBuffer(forItemTime:) on each tick.
@@ -1076,6 +1077,8 @@ The 16 ms cadence is unrelated to both the display refresh rate and the video fr
 AVPlayerItemOutput provides requestNotificationOfMediaDataChange(withAdvanceInterval:) and an associated delegate for exactly this, and CADisplayLink provides display-synchronized callbacks.
 
 This is a rendering-quality and efficiency issue rather than a crash or race.
+
+- `2026-08-09T00:24:32Z`: Fixed by pacing the update loop to the video's own nominal frame rate (2x the frame rate, clamped to 250 Hz max) instead of a fixed 16 ms timer. Display-link synchronisation was not adopted: CADisplayLink needs a view/screen, which this pipeline (a headless texture producer) does not have, so the caller's renderer remains the right place for display sync. AVPlayerItemOutputPullDelegate was also not adopted - hasNewPixelBuffer already gates texture creation, so it would only save timer wakeups.
 
 ---
 

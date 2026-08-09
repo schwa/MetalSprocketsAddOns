@@ -67,6 +67,36 @@ public class VideoTexturePipeline {
     private var loopStart = CMTime.zero
     private var loopEnd = CMTime.zero
 
+    /// Fallback cadence when the video's frame rate is unknown.
+    nonisolated static let defaultFrameInterval = Duration.milliseconds(16)
+
+    /// Polling cadence for a video with the given nominal frame rate.
+    ///
+    /// Frames are polled at twice the video's frame rate, which bounds the latency of a new frame
+    /// to half a frame interval without waking up at an arbitrary rate unrelated to the content.
+    /// Very high frame rates are clamped so the loop cannot spin faster than 250 Hz.
+    nonisolated static func frameInterval(forNominalFrameRate nominalFrameRate: Float) -> Duration {
+        guard nominalFrameRate > 0 else {
+            return defaultFrameInterval
+        }
+        return max(.milliseconds(4), .seconds(1.0 / (Double(nominalFrameRate) * 2)))
+    }
+
+    /// Polling cadence for the currently loaded video.
+    func preferredFrameInterval() async -> Duration {
+        guard let asset = playerItem?.asset else {
+            return Self.defaultFrameInterval
+        }
+        do {
+            guard let track = try await asset.loadTracks(withMediaType: .video).first else {
+                return Self.defaultFrameInterval
+            }
+            return Self.frameInterval(forNominalFrameRate: try await track.load(.nominalFrameRate))
+        } catch {
+            return Self.defaultFrameInterval
+        }
+    }
+
     private func playerItemDidReachEnd() async {
         await player?.seek(to: loopStart)
     }
@@ -78,10 +108,12 @@ public class VideoTexturePipeline {
         // concurrent frame-update loop.
         updateTask?.cancel()
 
-        // Set up async task for frame updates (60 fps). self is captured weakly so a playing
-        // pipeline can still be deallocated - deinit cancels the task.
+        // Set up async task for frame updates, paced to the video rather than a fixed 60 Hz
+        // guess. self is captured weakly so a playing pipeline can still be deallocated - deinit
+        // cancels the task.
         updateTask = Task { [weak self] in
-            for await _ in AsyncTimerSequence(interval: .milliseconds(16), clock: .continuous) {
+            let interval = await self?.preferredFrameInterval() ?? Self.defaultFrameInterval
+            for await _ in AsyncTimerSequence(interval: interval, clock: .continuous) {
                 guard let self else {
                     return
                 }

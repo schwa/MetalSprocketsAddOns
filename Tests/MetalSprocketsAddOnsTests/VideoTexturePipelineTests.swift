@@ -86,9 +86,9 @@ func testVideoTexturePipeline_concurrentAccessFromOffTheMainActor() async {
 
 // MARK: - Tiny test video generation
 
-/// Generate a 0.5-second test movie (1 frame at 2 fps) at the given URL using
-/// AVAssetWriter. Returns the URL on success.
-private func writeTestMovie(to url: URL, size: CGSize = CGSize(width: 64, height: 64)) async throws {
+/// Generate a test movie at the given URL using AVAssetWriter, `frameCount` frames long at
+/// `framesPerSecond`.
+private func writeTestMovie(to url: URL, size: CGSize = CGSize(width: 64, height: 64), frameCount: Int = 1, framesPerSecond: Int32 = 30) async throws {
     if FileManager.default.fileExists(atPath: url.path) {
         try FileManager.default.removeItem(at: url)
     }
@@ -140,11 +140,13 @@ private func writeTestMovie(to url: URL, size: CGSize = CGSize(width: 64, height
     }
     CVPixelBufferUnlockBaseAddress(pb, [])
 
-    // Append the frame at t=0.
-    while !input.isReadyForMoreMediaData {
-        try await Task.sleep(nanoseconds: 1_000_000)
+    // Append the frames.
+    for frame in 0..<frameCount {
+        while !input.isReadyForMoreMediaData {
+            try await Task.sleep(nanoseconds: 1_000_000)
+        }
+        adaptor.append(pb, withPresentationTime: CMTime(value: CMTimeValue(frame), timescale: framesPerSecond))
     }
-    adaptor.append(pb, withPresentationTime: .zero)
 
     input.markAsFinished()
     await writer.finishWriting()
@@ -171,4 +173,41 @@ func testVideoTexturePipeline_loadVideo_thenPause() async throws {
     // Pause is safe even when the player is loaded but never played.
     pipeline.pause()
     pipeline.pause()  // and idempotent
+}
+
+// MARK: - Frame pacing
+
+@Test
+func testVideoTexturePipeline_frameIntervalTracksNominalFrameRate() {
+    // Unknown frame rate falls back to the default cadence.
+    #expect(VideoTexturePipeline.frameInterval(forNominalFrameRate: 0) == VideoTexturePipeline.defaultFrameInterval)
+    // Otherwise: twice the video frame rate, clamped to at most 250 Hz.
+    #expect(VideoTexturePipeline.frameInterval(forNominalFrameRate: 24) == .seconds(1.0 / 48))
+    #expect(VideoTexturePipeline.frameInterval(forNominalFrameRate: 30) == .seconds(1.0 / 60))
+    #expect(VideoTexturePipeline.frameInterval(forNominalFrameRate: 1_000) == .milliseconds(4))
+}
+
+@Test
+@MainActor
+func testVideoTexturePipeline_preferredFrameIntervalUsesLoadedVideo() async throws {
+    let device = _MTLCreateSystemDefaultDevice()
+    let pipeline = VideoTexturePipeline(device: device)
+
+    // With no video loaded there is nothing to pace against.
+    var interval = await pipeline.preferredFrameInterval()
+    #expect(interval == VideoTexturePipeline.defaultFrameInterval)
+
+    let movieURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("VideoTexturePipelineTest-\(UUID()).mp4")
+    try await writeTestMovie(to: movieURL, frameCount: 10, framesPerSecond: 30)
+    defer { try? FileManager.default.removeItem(at: movieURL) }
+
+    try pipeline.loadVideo(url: movieURL, loopStart: 0, loopEnd: 0.3)
+    interval = await pipeline.preferredFrameInterval()
+    // With a video loaded the cadence comes from the video track's own frame rate.
+    let track = try #require(await AVURLAsset(url: movieURL).loadTracks(withMediaType: .video).first)
+    let rate = try await track.load(.nominalFrameRate)
+    #expect(rate > 0)
+    #expect(interval == VideoTexturePipeline.frameInterval(forNominalFrameRate: rate))
+    #expect(interval != VideoTexturePipeline.defaultFrameInterval)
 }
