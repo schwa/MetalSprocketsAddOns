@@ -32,6 +32,24 @@ func testVideoTexturePipeline_pauseWithoutPlay_isSafe() {
     #expect(pipeline.currentTexture == nil)
 }
 
+@Test
+func testVideoTexturePipeline_concurrentAccessFromOffTheMainActor() async {
+    // The pipeline is main-actor isolated, so callers in nonisolated contexts have to hop to the
+    // main actor. Concurrent callers therefore serialize rather than racing on the shared
+    // player/task storage. Run under the thread sanitizer to make a regression here visible.
+    let device = _MTLCreateSystemDefaultDevice()
+    let pipeline = await VideoTexturePipeline(device: device)
+    await withTaskGroup(of: Void.self) { group in
+        for _ in 0..<8 {
+            group.addTask { await pipeline.play() }
+            group.addTask { await pipeline.pause() }
+        }
+    }
+    await pipeline.pause()
+    let hasTexture = await MainActor.run { pipeline.currentTexture != nil }
+    #expect(hasTexture == false)
+}
+
 // MARK: - Tiny test video generation
 
 /// Generate a 0.5-second test movie (1 frame at 2 fps) at the given URL using

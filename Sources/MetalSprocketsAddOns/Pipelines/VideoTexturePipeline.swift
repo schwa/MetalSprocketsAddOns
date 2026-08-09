@@ -5,13 +5,19 @@ import Metal
 import MetalSprockets
 import MetalSprocketsSupport
 
-/// Pipeline that renders video frames to a Metal texture
+/// Pipeline that renders video frames to a Metal texture.
+///
+/// The pipeline is isolated to the main actor: all of its mutable state (the player, the video
+/// output, the update task and the current texture) is only ever touched from there, so no
+/// additional synchronization is required.
+@MainActor
 @Observable
-public class VideoTexturePipeline: @unchecked Sendable {
+public class VideoTexturePipeline {
     private var player: AVPlayer?
     private var playerItem: AVPlayerItem?
     private var videoOutput: AVPlayerItemVideoOutput?
     private var updateTask: Task<Void, Never>?
+    private var endOfItemObserver: (any NSObjectProtocol)?
 
     public private(set) var currentTexture: MTLTexture?
     private var textureCache: CVMetalTextureCache?
@@ -23,7 +29,6 @@ public class VideoTexturePipeline: @unchecked Sendable {
         self.textureCache = cache
     }
 
-    @MainActor
     public func loadVideo(url: URL, loopStart: TimeInterval = 2.95, loopEnd: TimeInterval = 11.95) throws {
         // Create player item and player
         playerItem = AVPlayerItem(url: url)
@@ -41,14 +46,17 @@ public class VideoTexturePipeline: @unchecked Sendable {
         }
         playerItem?.add(videoOutput)
 
-        // Set up looping
+        // Set up looping. The notification is delivered on an unspecified queue, so hop back to
+        // the main actor before touching any state.
         player?.actionAtItemEnd = .none
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(playerItemDidReachEnd),
-            name: .AVPlayerItemDidPlayToEndTime,
-            object: playerItem
-        )
+        if let endOfItemObserver {
+            NotificationCenter.default.removeObserver(endOfItemObserver)
+        }
+        endOfItemObserver = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: playerItem, queue: nil) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                await self?.playerItemDidReachEnd()
+            }
+        }
 
         // Store loop points
         self.loopStart = CMTime(seconds: loopStart, preferredTimescale: 600)
@@ -58,10 +66,8 @@ public class VideoTexturePipeline: @unchecked Sendable {
     private var loopStart = CMTime.zero
     private var loopEnd = CMTime.zero
 
-    @objc private func playerItemDidReachEnd() {
-        Task { @MainActor in
-            await player?.seek(to: loopStart)
-        }
+    private func playerItemDidReachEnd() async {
+        await player?.seek(to: loopStart)
     }
 
     public func play() {
@@ -81,7 +87,6 @@ public class VideoTexturePipeline: @unchecked Sendable {
         updateTask = nil
     }
 
-    @MainActor
     private func updateFrame() async {
         guard let videoOutput, let player else {
             return
@@ -128,8 +133,12 @@ public class VideoTexturePipeline: @unchecked Sendable {
         currentTexture = texture
     }
 
-    deinit {
+    // Isolated so that teardown can touch the main-actor state it owns.
+    isolated deinit {
         updateTask?.cancel()
         player?.pause()
+        if let endOfItemObserver {
+            NotificationCenter.default.removeObserver(endOfItemObserver)
+        }
     }
 }

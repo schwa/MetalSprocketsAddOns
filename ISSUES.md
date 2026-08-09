@@ -928,12 +928,13 @@ Planet/space scenes commonly want a starfield from sources like the Tycho skymap
 ## 31: VideoTexturePipeline has unsynchronized mutable state across isolation boundaries
 
 +++
-status: open
+status: closed
 priority: high
 kind: bug
 labels: concurrency, effort:m
 created: 2026-08-09T00:09:03Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T00:19:56Z
+closed: 2026-08-09T00:19:56Z
 +++
 
 VideoTexturePipeline is declared @unchecked Sendable but provides no synchronization for any of its stored properties.
