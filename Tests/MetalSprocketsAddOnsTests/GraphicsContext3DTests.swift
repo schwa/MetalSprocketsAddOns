@@ -267,6 +267,68 @@ func testGraphicsContext3D_strokedEllipse() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GraphicsContext3DStrokedEllipse"))
 }
 
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Crashes on CI paravirt GPU — see issue #29"))
+@MainActor
+func testGraphicsContext3D_strokeWidthIsUniformAlongCurves() throws {
+    // Regression test for issue #26. A stroked circle must come out as a ring of
+    // constant radial thickness; anything else means the stroke width drifts
+    // along the curve.
+    let renderSize = CGSize(width: 512, height: 512)
+    let projection = perspectiveProjection()
+    let camera = float4x4(translation: SIMD3<Float>(0, 0, 3))
+    let viewProjection = projection * camera.inverse
+    let viewport = SIMD2<Float>(Float(renderSize.width), Float(renderSize.height))
+
+    let lineWidth: Float = 6
+    let context = GraphicsContext3D { ctx in
+        ctx.stroke(
+            ellipsePath(rx: 0.45, ry: 0.45),
+            with: .white,
+            style: StrokeStyle(lineWidth: CGFloat(lineWidth), lineCap: .round, lineJoin: .round)
+        )
+    }
+
+    let renderPass = try RenderPass {
+        GraphicsContext3DRenderPipeline(context: context, viewProjection: viewProjection, viewport: viewport)
+    }
+
+    let renderer = try OffscreenRenderer(size: renderSize)
+    let rendering = try renderer.render(renderPass)
+
+    let width = Int(renderSize.width)
+    let height = Int(renderSize.height)
+    var bytes = [UInt8](repeating: 0, count: width * height * 4)
+    rendering.texture.getBytes(&bytes, bytesPerRow: width * 4, from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0)
+
+    // Bucket every lit pixel by angle around the center and measure how thick
+    // the ring is in each wedge.
+    let binCount = 36
+    let center = SIMD2<Float>(Float(width) / 2, Float(height) / 2)
+    var innerRadius = [Float](repeating: .greatestFiniteMagnitude, count: binCount)
+    var outerRadius = [Float](repeating: 0, count: binCount)
+    for y in 0..<height {
+        for x in 0..<width where bytes[(y * width + x) * 4 + 1] > 60 {
+            let offset = SIMD2<Float>(Float(x) + 0.5, Float(y) + 0.5) - center
+            var angle = atan2(offset.y, offset.x)
+            if angle < 0 {
+                angle += 2 * .pi
+            }
+            let bin = min(binCount - 1, Int(angle / (2 * .pi) * Float(binCount)))
+            innerRadius[bin] = min(innerRadius[bin], length(offset))
+            outerRadius[bin] = max(outerRadius[bin], length(offset))
+        }
+    }
+
+    for bin in 0..<binCount {
+        let thickness = outerRadius[bin] - innerRadius[bin]
+        // ±0.75px covers pixel quantization of a hard-edged 6px band.
+        #expect(
+            abs(thickness - lineWidth) < 0.75,
+            "ring thickness \(thickness)px at \(bin * 360 / binCount) degrees, expected \(lineWidth)px"
+        )
+    }
+}
+
 // FIXME: This test crashes on GitHub Actions macOS runners (paravirt GPU) with
 // `-[AppleParavirtRenderCommandEncoder setMeshBuffer:offset:atIndex:]:
 // unrecognized selector`. The crash aborts the entire test process. Disabled on

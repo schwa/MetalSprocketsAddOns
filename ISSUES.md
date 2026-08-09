@@ -621,12 +621,13 @@ For a small render target (256×256 in tests) this yields very few segments
 ## 26: GraphicsContext3D stroke line width varies along curved paths
 
 +++
-status: open
+status: closed
 priority: low
 kind: bug
 labels: effort:m
 created: 2026-04-19T20:42:23Z
-updated: 2026-08-09T00:13:48Z
+updated: 2026-08-09T00:30:45Z
+closed: 2026-08-09T00:30:45Z
 +++
 
 When `GraphicsContext3D.stroke(_:with:style:)` strokes a curved path with
@@ -650,6 +651,14 @@ overlap may also contribute.
   segment count.
 
 - `2026-08-09T00:13:48Z`: Related: #25 and #28 — same curve-subdivision/render-size area.
+- `2026-08-09T00:30:45Z`: Investigated with a pixel-level measurement harness: rendered a stroked circle (lineWidth 6, round cap/join) offscreen at 512x512 and 1024x1024, bucketed every lit pixel by angle, and measured the ring's radial thickness per 10-degree wedge.
+
+- Original tree: thickness ranged 5.86px to 8.44px (44% variation) — reproduces the report.
+- After the #25 fix: 5.75px to 5.99px, i.e. uniform to within pixel quantization.
+
+Root cause was the same as #25: the four-arc ellipse test fixture used the cubic control constant in addQuadCurve, leaving an ~18 degree tangent discontinuity at each quadrant. The round joins piled up at those kinks (chunky) while the over-flat arcs between them read as thin. The screen-space extrusion in the mesh shader was measured correct throughout.
+
+Closing with a new regression test, testGraphicsContext3D_strokeWidthIsUniformAlongCurves, which pins the ring thickness to lineWidth +/- 0.75px in every wedge; it fails on the pre-#25 tree and passes now.
 
 ---
 
