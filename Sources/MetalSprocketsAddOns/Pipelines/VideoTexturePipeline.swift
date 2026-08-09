@@ -16,7 +16,8 @@ public class VideoTexturePipeline {
     private var player: AVPlayer?
     private var playerItem: AVPlayerItem?
     private var videoOutput: AVPlayerItemVideoOutput?
-    private var updateTask: Task<Void, Never>?
+    // Internal getter so tests can observe update-task lifetime.
+    private(set) var updateTask: Task<Void, Never>?
     private var endOfItemObserver: (any NSObjectProtocol)?
 
     public private(set) var currentTexture: MTLTexture?
@@ -73,10 +74,18 @@ public class VideoTexturePipeline {
     public func play() {
         player?.play()
 
-        // Set up async task for frame updates (60 fps)
-        updateTask = Task {
+        // Replace any loop left over from a previous play(); otherwise each call would add another
+        // concurrent frame-update loop.
+        updateTask?.cancel()
+
+        // Set up async task for frame updates (60 fps). self is captured weakly so a playing
+        // pipeline can still be deallocated - deinit cancels the task.
+        updateTask = Task { [weak self] in
             for await _ in AsyncTimerSequence(interval: .milliseconds(16), clock: .continuous) {
-                await updateFrame()
+                guard let self else {
+                    return
+                }
+                await self.updateFrame()
             }
         }
     }

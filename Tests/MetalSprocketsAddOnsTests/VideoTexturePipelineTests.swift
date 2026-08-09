@@ -32,6 +32,40 @@ func testVideoTexturePipeline_pauseWithoutPlay_isSafe() {
     #expect(pipeline.currentTexture == nil)
 }
 
+// MARK: - play() lifecycle
+
+@Test
+@MainActor
+func testVideoTexturePipeline_secondPlayCancelsFirstUpdateLoop() {
+    let device = _MTLCreateSystemDefaultDevice()
+    let pipeline = VideoTexturePipeline(device: device)
+
+    pipeline.play()
+    let firstTask = pipeline.updateTask
+    #expect(firstTask != nil)
+
+    pipeline.play()
+    #expect(firstTask?.isCancelled == true)
+    #expect(pipeline.updateTask != firstTask)
+
+    pipeline.pause()
+    #expect(pipeline.updateTask == nil)
+}
+
+@Test
+@MainActor
+func testVideoTexturePipeline_deallocatesWhilePlaying() {
+    weak var weakPipeline: VideoTexturePipeline?
+    do {
+        let device = _MTLCreateSystemDefaultDevice()
+        let pipeline = VideoTexturePipeline(device: device)
+        pipeline.play()
+        weakPipeline = pipeline
+    }
+    // The update task must not keep the pipeline alive.
+    #expect(weakPipeline == nil)
+}
+
 @Test
 func testVideoTexturePipeline_concurrentAccessFromOffTheMainActor() async {
     // The pipeline is main-actor isolated, so callers in nonisolated contexts have to hop to the

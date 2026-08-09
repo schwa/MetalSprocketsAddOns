@@ -960,12 +960,13 @@ Env: Swift 6.2, strict concurrency. Package currently builds without warnings be
 ## 32: VideoTexturePipeline.play() leaks its update task and never deallocates during playback
 
 +++
-status: open
+status: closed
 priority: high
 kind: bug
 labels: concurrency, effort:s
 created: 2026-08-09T00:09:12Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T00:21:11Z
+closed: 2026-08-09T00:21:11Z
 +++
 
 Two related lifecycle defects in VideoTexturePipeline.play().
