@@ -1085,12 +1085,13 @@ This is a rendering-quality and efficiency issue rather than a crash or race.
 ## 37: VideoTexturePipeline tests: unbounded busy-wait can hang the suite, and play() is uncovered
 
 +++
-status: open
+status: closed
 priority: low
 kind: bug
 labels: testing, effort:s
 created: 2026-08-09T00:09:49Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T00:25:54Z
+closed: 2026-08-09T00:25:54Z
 +++
 
 Two issues in Tests/MetalSprocketsAddOnsTests/VideoTexturePipelineTests.swift.

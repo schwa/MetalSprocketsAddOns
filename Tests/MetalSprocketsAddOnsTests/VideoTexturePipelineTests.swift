@@ -86,6 +86,28 @@ func testVideoTexturePipeline_concurrentAccessFromOffTheMainActor() async {
 
 // MARK: - Tiny test video generation
 
+private enum TestMovieError: Error {
+    case cannotAddInput
+    case cannotCreatePixelBuffer
+    case inputNeverBecameReady
+    case writerFailed(status: AVAssetWriter.Status, underlying: (any Error)?)
+}
+
+/// Wait until `input` will accept more media data. Gives up after `timeout` (or as soon as the
+/// writer fails) rather than spinning forever and hanging the test suite.
+private func waitUntilReadyForMoreMediaData(_ input: AVAssetWriterInput, writer: AVAssetWriter, timeout: Duration = .seconds(10)) async throws {
+    let deadline = ContinuousClock.now + timeout
+    while !input.isReadyForMoreMediaData {
+        if writer.status == .failed || writer.status == .cancelled {
+            throw TestMovieError.writerFailed(status: writer.status, underlying: writer.error)
+        }
+        if ContinuousClock.now >= deadline {
+            throw TestMovieError.inputNeverBecameReady
+        }
+        try await Task.sleep(for: .milliseconds(1))
+    }
+}
+
 /// Generate a test movie at the given URL using AVAssetWriter, `frameCount` frames long at
 /// `framesPerSecond`.
 private func writeTestMovie(to url: URL, size: CGSize = CGSize(width: 64, height: 64), frameCount: Int = 1, framesPerSecond: Int32 = 30) async throws {
@@ -113,7 +135,7 @@ private func writeTestMovie(to url: URL, size: CGSize = CGSize(width: 64, height
     )
 
     guard writer.canAdd(input) else {
-        throw NSError(domain: "TestMovie", code: 1, userInfo: [NSLocalizedDescriptionKey: "Cannot add input"])
+        throw TestMovieError.cannotAddInput
     }
     writer.add(input)
     writer.startWriting()
@@ -123,7 +145,7 @@ private func writeTestMovie(to url: URL, size: CGSize = CGSize(width: 64, height
     var pb: CVPixelBuffer?
     CVPixelBufferCreate(nil, Int(size.width), Int(size.height), kCVPixelFormatType_32BGRA, attrs as CFDictionary, &pb)
     guard let pb else {
-        throw NSError(domain: "TestMovie", code: 2, userInfo: [NSLocalizedDescriptionKey: "Cannot create pixel buffer"])
+        throw TestMovieError.cannotCreatePixelBuffer
     }
     CVPixelBufferLockBaseAddress(pb, [])
     let ptr = CVPixelBufferGetBaseAddress(pb)!
@@ -142,16 +164,34 @@ private func writeTestMovie(to url: URL, size: CGSize = CGSize(width: 64, height
 
     // Append the frames.
     for frame in 0..<frameCount {
-        while !input.isReadyForMoreMediaData {
-            try await Task.sleep(nanoseconds: 1_000_000)
-        }
+        try await waitUntilReadyForMoreMediaData(input, writer: writer)
         adaptor.append(pb, withPresentationTime: CMTime(value: CMTimeValue(frame), timescale: framesPerSecond))
     }
 
     input.markAsFinished()
     await writer.finishWriting()
     if writer.status != .completed {
-        throw writer.error ?? NSError(domain: "TestMovie", code: 3, userInfo: [NSLocalizedDescriptionKey: "Writer did not complete"])
+        throw TestMovieError.writerFailed(status: writer.status, underlying: writer.error)
+    }
+}
+
+@Test
+func testWaitUntilReadyForMoreMediaData_timesOutInsteadOfHanging() async throws {
+    // A writer that was never started never makes its input ready; the helper must give up.
+    let url = FileManager.default.temporaryDirectory
+        .appendingPathComponent("WaitReadyTest-\(UUID()).mp4")
+    defer { try? FileManager.default.removeItem(at: url) }
+    let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
+    let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
+        AVVideoCodecKey: AVVideoCodecType.h264,
+        AVVideoWidthKey: 64,
+        AVVideoHeightKey: 64
+    ])
+    writer.add(input)
+    #expect(input.isReadyForMoreMediaData == false)
+
+    await #expect(throws: TestMovieError.self) {
+        try await waitUntilReadyForMoreMediaData(input, writer: writer, timeout: .milliseconds(50))
     }
 }
 
@@ -173,6 +213,31 @@ func testVideoTexturePipeline_loadVideo_thenPause() async throws {
     // Pause is safe even when the player is loaded but never played.
     pipeline.pause()
     pipeline.pause()  // and idempotent
+}
+
+@Test
+@MainActor
+func testVideoTexturePipeline_playProducesATexture() async throws {
+    let device = _MTLCreateSystemDefaultDevice()
+    let pipeline = VideoTexturePipeline(device: device)
+
+    let movieURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("VideoTexturePipelineTest-\(UUID()).mp4")
+    try await writeTestMovie(to: movieURL, frameCount: 30, framesPerSecond: 30)
+    defer { try? FileManager.default.removeItem(at: movieURL) }
+
+    try pipeline.loadVideo(url: movieURL, loopStart: 0, loopEnd: 0.9)
+    pipeline.play()
+
+    // Playback is real-time, so poll for the first decoded frame with a hard deadline.
+    let deadline = ContinuousClock.now + .seconds(10)
+    while pipeline.currentTexture == nil, ContinuousClock.now < deadline {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+
+    #expect(pipeline.currentTexture != nil)
+    pipeline.pause()
+    #expect(pipeline.updateTask == nil)
 }
 
 // MARK: - Frame pacing
