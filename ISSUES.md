@@ -500,12 +500,13 @@ When fixed, restore the `testShadowPipelines_depthPassThenMaskPass_renders` test
 ## 23: Remove dead code in ColorSource (private color accessor + unused Element.useResource modifier)
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: cleanup, effort:xs
 created: 2026-04-19T20:18:18Z
-updated: 2026-08-09T00:13:41Z
+updated: 2026-08-09T00:18:40Z
+closed: 2026-08-09T00:18:40Z
 +++
 
 Two methods in `Sources/MetalSprocketsAddOns/Support/ColorSource.swift` are never

@@ -44,13 +44,6 @@ public extension ColorSource {
         }
         return nil
     }
-
-    private var color: SIMD3<Float>? {
-        if case let .color(color) = self {
-            return color
-        }
-        return nil
-    }
 }
 
 public extension ColorSource {
