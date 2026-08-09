@@ -1466,3 +1466,23 @@ Acceptance criteria
 Part of #40.
 
 ---
+
+## 50: Mesh-shader capability probe false-positives on CI, crashing the test run
+
++++
+status: closed
+priority: high
+kind: bug
+labels: testing, ci, effort:s
+created: 2026-08-09T02:28:59Z
+updated: 2026-08-09T02:29:04Z
+closed: 2026-08-09T02:29:04Z
++++
+
+The supportsMeshShaders probe in Tests/MetalSprocketsAddOnsTests/Support/GPUCapabilities.swift asks the render command encoder whether it responds to setMeshBuffer:offset:atIndex:. On GitHub Actions the probe reported true, testGraphicsContext3D_debugWireframe ran, and the process died with 'unrecognized selector sent to AppleParavirtRenderCommandEncoder' (run 31289708570).
+
+Likely cause: a validation/debug layer wraps the encoder, answers respondsToSelector for every protocol selector, and forwards to the real paravirt encoder, which has no mesh stage.
+
+Fix: exclude paravirtual devices by name before probing.
+
+---

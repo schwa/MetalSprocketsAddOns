@@ -9,9 +9,19 @@ import MetalSupport
 /// Paravirtualized GPUs (GitHub Actions runners, VMs) advertise a Metal 3 device
 /// but their render command encoder does not implement the mesh-stage selectors,
 /// so binding a mesh buffer raises `NSInvalidArgumentException` and kills the
-/// test process. Probing the encoder is the only reliable signal.
+/// test process.
+///
+/// Probing `respondsToSelector` on an encoder is not enough on its own: when a
+/// validation or debug layer wraps the encoder, the wrapper answers for every
+/// protocol selector and forwards to the real encoder, which then dies on the
+/// selector anyway. GitHub Actions hit exactly that — the probe reported mesh
+/// support and `testGraphicsContext3D_debugWireframe` crashed the test process.
+/// So paravirtual devices are excluded by name first.
 let supportsMeshShaders: Bool = {
     guard let device = MTLCreateSystemDefaultDevice(), let commandQueue = device.makeCommandQueue() else {
+        return false
+    }
+    guard !device.isParavirtual else {
         return false
     }
     let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false)
@@ -35,3 +45,10 @@ let supportsMeshShaders: Bool = {
 
 /// True when the current default device supports ray tracing.
 let supportsRaytracing: Bool = MTLCreateSystemDefaultDevice()?.supportsRaytracing ?? false
+
+extension MTLDevice {
+    /// True for the paravirtualized GPU exposed inside macOS VMs, including CI runners.
+    var isParavirtual: Bool {
+        name.localizedCaseInsensitiveContains("paravirtual")
+    }
+}
