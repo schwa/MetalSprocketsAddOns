@@ -165,6 +165,19 @@ public struct GraphicsContext3DRenderPipeline: Element {
                     .parameter("vertices", functionType: .vertex, buffer: fillVertexBuffer, offset: 0)
                 }
                 .depthCompare(function: .less, enabled: true)
+                .renderPipelineDescriptorTransformer { descriptor in
+                    // Fill colors are non-premultiplied, so composite source-over.
+                    guard let attachment = descriptor.colorAttachments[0] else {
+                        return
+                    }
+                    attachment.isBlendingEnabled = true
+                    attachment.rgbBlendOperation = .add
+                    attachment.alphaBlendOperation = .add
+                    attachment.sourceRGBBlendFactor = .sourceAlpha
+                    attachment.sourceAlphaBlendFactor = .sourceAlpha
+                    attachment.destinationRGBBlendFactor = .oneMinusSourceAlpha
+                    attachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
+                }
             }
         }
     }

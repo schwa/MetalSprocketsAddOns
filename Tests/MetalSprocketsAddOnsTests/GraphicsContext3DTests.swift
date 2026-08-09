@@ -302,3 +302,52 @@ func testGraphicsContext3D_filledQuad() throws {
     let rendering = try renderer.render(renderPass)
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GraphicsContext3DFilledQuad"))
 }
+
+// Read a single BGRA pixel out of a rendering, returned as RGBA.
+private func readPixel(_ rendering: OffscreenRenderer.Rendering, x: Int, y: Int) -> SIMD4<UInt8> {
+    var bgra = [UInt8](repeating: 0, count: 4)
+    rendering.texture.getBytes(
+        &bgra,
+        bytesPerRow: 4,
+        from: MTLRegionMake2D(x, y, 1, 1),
+        mipmapLevel: 0
+    )
+    return [bgra[2], bgra[1], bgra[0], bgra[3]]
+}
+
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Crashes on CI paravirt GPU — see issue #29"))
+@MainActor
+func testGraphicsContext3D_fillRespectsAlpha() throws {
+    // Regression test for issue #4: without blending enabled on the fill
+    // pipeline a half-transparent white fill is written straight to the
+    // framebuffer as opaque white.
+    let projection = perspectiveProjection()
+    let camera = float4x4(translation: SIMD3<Float>(0, 0, 3))
+    let viewProjection = projection * camera.inverse
+    let viewport = SIMD2<Float>(Float(defaultRenderSize.width), Float(defaultRenderSize.height))
+
+    let quad = Path3D { path in
+        path.move(to: [-0.6, -0.6, 0])
+        path.addLine(to: [0.6, -0.6, 0])
+        path.addLine(to: [0.6, 0.6, 0])
+        path.addLine(to: [-0.6, 0.6, 0])
+        path.closeSubpath()
+    }
+
+    let context = GraphicsContext3D { ctx in
+        ctx.fill(quad, with: .white.opacity(0.5))
+    }
+
+    let renderPass = try RenderPass {
+        GraphicsContext3DRenderPipeline(context: context, viewProjection: viewProjection, viewport: viewport)
+    }
+
+    let renderer = try OffscreenRenderer(size: defaultRenderSize)
+    let rendering = try renderer.render(renderPass)
+    let center = readPixel(rendering, x: Int(defaultRenderSize.width) / 2, y: Int(defaultRenderSize.height) / 2)
+
+    // Half-alpha white over the opaque black clear color. The render target is
+    // sRGB and Metal blends in linear space, so 0.5 linear encodes to ~188.
+    #expect(center.x > 150 && center.x < 210)
+    #expect(center.x == center.y && center.y == center.z)
+}

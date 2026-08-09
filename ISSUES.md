@@ -52,12 +52,13 @@ RenderView-based demos (Spinning Cube, GraphicsContext3D) render with incorrect 
 ## 4: GraphicsContext3D fill renders as white instead of specified color
 
 +++
-status: open
+status: closed
 priority: medium
 kind: bug
 labels: effort:s
 created: 2026-04-13T05:07:02Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T00:20:42Z
+closed: 2026-08-09T00:20:42Z
 +++
 
 Fill geometry in GraphicsContext3D renders as white when using fractional alpha (e.g. opacity 0.3). With full opacity the color is correct. The fill render pipeline has no blending enabled — alpha values are written to the framebuffer but don't affect compositing, resulting in near-white output for low-alpha fills. Need to enable alpha blending via renderPipelineDescriptorModifier on the fill pipeline.
