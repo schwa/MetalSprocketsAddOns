@@ -21,7 +21,7 @@ Ready-to-use MetalSprockets `Element` pipelines, mesh types, and GPU text render
 | `AxisAlignedWireframeBoxesRenderPipeline` | Instanced wireframe AABB boxes |
 | `TextureBillboardPipeline` | Full-screen texture billboard with stitched color-transform functions |
 | `TexturedQuad3DPipeline` | YCbCr-textured quad positioned in 3D world space |
-| `GraphicsContext3DRenderPipeline` | Canvas-style 3D path stroking/filling with pixel-perfect line widths, caps, and joins |
+| `GraphicsContext3DRenderPipeline` | Canvas-style 3D path stroking/filling with pixel-perfect line widths, caps, and joins, plus Slug text labels |
 | `SlugTextRenderPipeline` | GPU text rendering using the Slug algorithm with per-glyph curve/band textures |
 
 **Mesh Types:**
@@ -47,7 +47,7 @@ Supports CoreText attributed strings with per-run colors and fonts, monospace gr
 
 **Other:**
 
-- `GraphicsContext3D` / `Path3D` — SwiftUI `Canvas`-style API for recording stroke/fill commands on 3D paths (lines, quadratic/cubic curves, subpaths)
+- `GraphicsContext3D` / `Path3D` — SwiftUI `Canvas`-style API for recording stroke/fill/text commands on 3D paths (lines, quadratic/cubic curves, subpaths) and world-anchored text labels
 - `ColorSource` — enum wrapping texture2D, textureCube, depth2D, or solid color for shader parameterization
 - `SimpleStitchedFunctionGraph` — helper for building Metal stitched function pipelines
 

@@ -97,6 +97,9 @@ public struct GraphicsContext3DRenderPipeline: Element {
                     case let .fill(path, color):
                         let vertices = generator.generateFillGeometry(path: path, color: color)
                         allFillVertices.append(contentsOf: vertices)
+                    case .text:
+                        // Text is rendered by its own Slug pipeline, not as generated geometry.
+                        break
                     }
                 }
 
@@ -179,6 +182,13 @@ public struct GraphicsContext3DRenderPipeline: Element {
                         attachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
                     }
                 }
+
+                #if arch(arm64)
+                let textLabels = context.textLabels
+                if !textLabels.isEmpty {
+                    GraphicsContext3DTextPipeline(labels: textLabels, viewProjection: viewProjection, viewport: viewport)
+                }
+                #endif
             }
         }
     }

@@ -364,6 +364,41 @@ func testGraphicsContext3D_filledQuad() throws {
 }
 
 // Read a single BGRA pixel out of a rendering, returned as RGBA.
+@Test
+@MainActor
+func testGraphicsContext3D_textLabelsAtWorldPositions() throws {
+    let projection = perspectiveProjection()
+    let camera = float4x4(translation: SIMD3<Float>(0, 0, 4))
+    let viewProjection = projection * camera.inverse
+    let viewport = SIMD2<Float>(Float(defaultRenderSize.width), Float(defaultRenderSize.height))
+
+    let context = GraphicsContext3D { ctx in
+        ctx.fill(
+            Path3D { path in
+                path.move(to: [-0.9, -0.2, 0])
+                path.addLine(to: [0.9, -0.2, 0])
+                path.addLine(to: [0.9, 0.2, 0])
+                path.addLine(to: [-0.9, 0.2, 0])
+                path.closeSubpath()
+            },
+            with: .blue
+        )
+        // Labels keep a constant pixel size and draw over the filled quad.
+        ctx.text("Hi", at: [0, 0, 0], with: .white, fontSize: 48)
+        ctx.text("left", at: [-0.8, 0.8, 0], with: .yellow, fontSize: 32)
+        // Behind the camera: must not draw anything.
+        ctx.text("behind", at: [0, 0, 10], with: .red, fontSize: 32)
+    }
+
+    let renderPass = try RenderPass {
+        GraphicsContext3DRenderPipeline(context: context, viewProjection: viewProjection, viewport: viewport)
+    }
+
+    let renderer = try OffscreenRenderer(size: defaultRenderSize)
+    let rendering = try renderer.render(renderPass)
+    #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GraphicsContext3DText"))
+}
+
 private func readPixel(_ rendering: OffscreenRenderer.Rendering, x: Int, y: Int) -> SIMD4<UInt8> {
     var bgra = [UInt8](repeating: 0, count: 4)
     rendering.texture.getBytes(

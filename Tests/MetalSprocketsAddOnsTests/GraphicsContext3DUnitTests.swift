@@ -56,6 +56,35 @@ func testGraphicsContext3D_strokeWithLineWidth_recordsStrokeWithButtCap() {
 
 @Test
 @MainActor
+func testGraphicsContext3D_text_recordsLabel() {
+    var ctx = GraphicsContext3D()
+    ctx.text("origin", at: [1, 2, 3], with: .red, fontName: "Helvetica-Bold", fontSize: 32)
+
+    #expect(ctx.commands.count == 1)
+    if case let .text(label) = ctx.commands[0] {
+        #expect(label.string == "origin")
+        #expect(label.position == SIMD3<Float>(1, 2, 3))
+        #expect(label.fontName == "Helvetica-Bold")
+        #expect(label.fontSize == 32)
+        #expect(label.color.x > label.color.y)
+    } else {
+        Issue.record("expected .text command")
+    }
+}
+
+@Test
+@MainActor
+func testGraphicsContext3D_textLabels_areReturnedInDrawOrder() {
+    let ctx = GraphicsContext3D { ctx in
+        ctx.text("first", at: .zero)
+        ctx.fill(Path3D { $0.move(to: [0, 0, 0]) }, with: .blue)
+        ctx.text("second", at: [0, 1, 0])
+    }
+    #expect(ctx.textLabels.map(\.string) == ["first", "second"])
+}
+
+@Test
+@MainActor
 func testGraphicsContext3D_equality() {
     let a = GraphicsContext3D { ctx in
         ctx.fill(Path3D { $0.move(to: [0, 0, 0]) }, with: .red)
