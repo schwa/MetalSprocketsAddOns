@@ -122,3 +122,59 @@ func testGeometryGenerator_fillGeometry_worksOnEveryAxisAlignedPlane() {
         #expect(vertices.count == 6, "\(name) plane quad produced \(vertices.count) vertices")
     }
 }
+
+// MARK: - Curve subdivision (issue #25)
+
+// Orthographic-ish view projection that maps world [-1, 1] to NDC [-1, 1] so
+// screen-space measurements are easy to reason about.
+private let unitViewProjection = matrix_identity_float4x4
+private let unitViewport = SIMD2<Float>(256, 256)
+
+// Largest distance from `points` to the ellipse of radii (rx, ry), in world units.
+private func maxEllipseDeviation(_ points: [SIMD3<Float>], rx: Float, ry: Float) -> Float {
+    points.reduce(0) { worst, point in
+        // Normalize onto the unit circle; scale back by the smaller radius to
+        // turn the implicit-function error into an approximate distance.
+        let normalized = SIMD2<Float>(point.x / rx, point.y / ry)
+        return max(worst, abs(length(normalized) - 1) * min(rx, ry))
+    }
+}
+
+@Test
+func testGeometryGenerator_ellipsePathIsSmooth() {
+    // The four-arc ellipse fixture must actually trace an ellipse. The old
+    // fixture used the cubic k constant in quadratic curves, which bulged by
+    // ~6% of the radius and left a visible corner at every quadrant.
+    let rx: Float = 0.55
+    let ry: Float = 0.4
+    let generator = GeometryGenerator(viewProjection: unitViewProjection, viewport: unitViewport)
+    let points = generator.extractPoints(from: ellipsePath(rx: rx, ry: ry))
+    #expect(maxEllipseDeviation(points, rx: rx, ry: ry) < 0.002)
+}
+
+// Small radii are the worst case: the adaptive segment count bottoms out at its
+// floor, so the arc between chords is only as fine as that floor allows.
+@Test(arguments: [Float(0.05), 0.1, 0.12, 0.15, 0.25, 0.4])
+func testGeometryGenerator_subdivisionIsSubPixel(radius: Float) {
+    // A subdivided curve should never sag more than a fraction of a pixel away
+    // from the true curve, otherwise fills and strokes look faceted.
+    let generator = GeometryGenerator(viewProjection: unitViewProjection, viewport: unitViewport)
+    let points = generator.extractPoints(from: ellipsePath(rx: radius, ry: radius))
+
+    // Chord midpoints fall inside the circle by the sagitta; measure it in pixels.
+    let pixelsPerUnit = unitViewport.x / 2
+    var worstSagitta: Float = 0
+    for i in points.indices {
+        let midpoint = (points[i] + points[(i + 1) % points.count]) / 2
+        worstSagitta = max(worstSagitta, (radius - length(SIMD2(midpoint.x, midpoint.y))) * pixelsPerUnit)
+    }
+    #expect(worstSagitta < 0.25, "worst sagitta \(worstSagitta)px over \(points.count) points")
+}
+
+@Test
+func testGeometryGenerator_segmentCount_isBoundedAndAdaptive() {
+    // Tiny curves still get a usable floor, huge curves stay bounded.
+    #expect(GeometryGenerator.segmentCount(forScreenLength: 0) == 8)
+    #expect(GeometryGenerator.segmentCount(forScreenLength: 200) == 50)
+    #expect(GeometryGenerator.segmentCount(forScreenLength: 100_000) == 64)
+}

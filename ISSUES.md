@@ -582,12 +582,13 @@ coverage. Until then, consider:
 ## 25: GraphicsContext3D fill of curved paths renders angular shapes (low-resolution subdivision)
 
 +++
-status: open
+status: closed
 priority: low
 kind: bug
 labels: effort:s
 created: 2026-04-19T20:42:15Z
-updated: 2026-08-09T00:13:48Z
+updated: 2026-08-09T00:25:59Z
+closed: 2026-08-09T00:25:59Z
 +++
 
 When `GraphicsContext3D.fill(_:with:)` is given a path containing

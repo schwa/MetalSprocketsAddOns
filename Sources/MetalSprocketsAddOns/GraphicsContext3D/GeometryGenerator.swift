@@ -52,11 +52,15 @@ internal struct GeometryGenerator {
         return (chordLength + controlLength) / 2
     }
 
-    private func subdivideQuadCurve(from p0: SIMD3<Float>, to p2: SIMD3<Float>, control p1: SIMD3<Float>, segments: Int = 20) -> [SIMD3<Float>] {
+    /// Number of line segments to approximate a curve of the given on-screen length.
+    internal static func segmentCount(forScreenLength screenLength: Float) -> Int {
+        let pixelsPerSegment: Float = 4.0
+        return max(8, min(64, Int(ceil(screenLength / pixelsPerSegment))))
+    }
+
+    internal func subdivideQuadCurve(from p0: SIMD3<Float>, to p2: SIMD3<Float>, control p1: SIMD3<Float>) -> [SIMD3<Float>] {
         let screenLength = estimateQuadCurveScreenLength(from: p0, to: p2, control: p1)
-        let pixelsPerSegment: Float = 8.0
-        let adaptiveSegments = max(3, min(40, Int(ceil(screenLength / pixelsPerSegment))))
-        let segmentCount = segments == 20 ? adaptiveSegments : segments
+        let segmentCount = Self.segmentCount(forScreenLength: screenLength)
 
         var points: [SIMD3<Float>] = []
         for i in 1...segmentCount {
@@ -68,11 +72,9 @@ internal struct GeometryGenerator {
         return points
     }
 
-    private func subdivideCubicCurve(from p0: SIMD3<Float>, to p3: SIMD3<Float>, control1 p1: SIMD3<Float>, control2 p2: SIMD3<Float>, segments: Int = 20) -> [SIMD3<Float>] {
+    internal func subdivideCubicCurve(from p0: SIMD3<Float>, to p3: SIMD3<Float>, control1 p1: SIMD3<Float>, control2 p2: SIMD3<Float>) -> [SIMD3<Float>] {
         let screenLength = estimateCubicCurveScreenLength(from: p0, to: p3, control1: p1, control2: p2)
-        let pixelsPerSegment: Float = 8.0
-        let adaptiveSegments = max(3, min(40, Int(ceil(screenLength / pixelsPerSegment))))
-        let segmentCount = segments == 20 ? adaptiveSegments : segments
+        let segmentCount = Self.segmentCount(forScreenLength: screenLength)
 
         var points: [SIMD3<Float>] = []
         for i in 1...segmentCount {
@@ -149,7 +151,7 @@ internal struct GeometryGenerator {
         return points.map { SIMD2<Float>($0.x, $0.y) }
     }
 
-    private func extractPoints(from path: Path3D) -> [SIMD3<Float>] {
+    internal func extractPoints(from path: Path3D) -> [SIMD3<Float>] {
         var points: [SIMD3<Float>] = []
         var currentPoint: SIMD3<Float>?
 

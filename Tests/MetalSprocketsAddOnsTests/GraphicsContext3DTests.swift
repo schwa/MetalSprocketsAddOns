@@ -211,23 +211,25 @@ func testGraphicsContext3D_debugWireframe() throws {
 // boundary visible, exercising the .quadCurve branch in both
 // `generateFillGeometry` and `generateLineJoinGPUData`.
 //
-// Approximate a unit ellipse using four quadratic Bezier segments
-// (a common 4-arc approximation, control offset = 4(√2 - 1)/3 ≈ 0.5523).
-private func ellipsePath(centerX: Float = 0, centerY: Float = 0, rx: Float = 0.5, ry: Float = 0.5) -> Path3D {
-    let k: Float = 0.5522847498  // (4/3) * tan(pi/8)
+// Approximate an ellipse using four cubic Bezier segments (the standard 4-arc
+// approximation, control offset k = 4(√2 - 1)/3 ≈ 0.5523). k is a *cubic*
+// constant: feeding it to addQuadCurve leaves a tangent discontinuity at every
+// quadrant, which renders as a lemon-shaped blob with four corners (issue #25).
+func ellipsePath(centerX: Float = 0, centerY: Float = 0, rx: Float = 0.5, ry: Float = 0.5) -> Path3D {
+    let k: Float = 0.5522847498
     let cx = centerX
     let cy = centerY
     return Path3D { p in
         // Start at right (cx + rx, cy)
         p.move(to: [cx + rx, cy, 0])
         // Top-right arc to top.
-        p.addQuadCurve(to: [cx, cy + ry, 0], control: [cx + rx, cy + ry * k, 0])
+        p.addCurve(to: [cx, cy + ry, 0], control1: [cx + rx, cy + ry * k, 0], control2: [cx + rx * k, cy + ry, 0])
         // Top-left arc to left.
-        p.addQuadCurve(to: [cx - rx, cy, 0], control: [cx - rx * k, cy + ry, 0])
+        p.addCurve(to: [cx - rx, cy, 0], control1: [cx - rx * k, cy + ry, 0], control2: [cx - rx, cy + ry * k, 0])
         // Bottom-left arc to bottom.
-        p.addQuadCurve(to: [cx, cy - ry, 0], control: [cx - rx, cy - ry * k, 0])
+        p.addCurve(to: [cx, cy - ry, 0], control1: [cx - rx, cy - ry * k, 0], control2: [cx - rx * k, cy - ry, 0])
         // Bottom-right arc back to start.
-        p.addQuadCurve(to: [cx + rx, cy, 0], control: [cx + rx * k, cy - ry, 0])
+        p.addCurve(to: [cx + rx, cy, 0], control1: [cx + rx * k, cy - ry, 0], control2: [cx + rx, cy - ry * k, 0])
         p.closeSubpath()
     }
 }
