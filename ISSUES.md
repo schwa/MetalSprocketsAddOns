@@ -1486,3 +1486,21 @@ Likely cause: a validation/debug layer wraps the encoder, answers respondsToSele
 Fix: exclude paravirtual devices by name before probing.
 
 ---
+
+## 51: GPU capability probes are duplicated per test target instead of living in MetalSupport
+
++++
+status: new
+priority: medium
+kind: task
+labels: testing,effort:m
+created: 2026-08-09T02:32:13Z
++++
+
+Tests/MetalSprocketsAddOnsTests/Support/GPUCapabilities.swift holds runtime probes for GPU features (mesh-shader support, ray tracing, paravirtual device detection) that are not specific to this package. Any other package with golden-image or GPU tests needs the same probes and has to copy them, and each copy drifts as new CI quirks are found (see #29, #44, #50).
+
+## Proposed fix (per user)
+
+Move the probes into MetalSupport so they can be shared, and have this test target use them from there.
+
+---
