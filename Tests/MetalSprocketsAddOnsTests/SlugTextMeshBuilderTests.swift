@@ -133,36 +133,6 @@ func testSlugError_descriptions() {
     #expect(SlugError.noMeshes.description.contains("No meshes"))
 }
 
-// MARK: - Color extraction
-
-@Test
-@MainActor
-func testSlugTextMeshBuilder_colorAttributePropagatesToVertices() throws {
-    let device = _MTLCreateSystemDefaultDevice()
-    let builder = SlugTextMeshBuilder(device: device)
-
-    // Bright red foreground.
-    let red = CGColor(red: 1, green: 0, blue: 0, alpha: 1)
-    _ = builder.buildMesh(attributedString: makeAttributed("A", color: red))
-
-    let scene = try builder.finalize()
-    let mesh = scene.meshes[0]
-    #expect(mesh.indexCount > 0)
-
-    // Read back the first vertex's color.
-    let vertexBuffer = mesh.vertexBuffer
-    let ptr = vertexBuffer.contents()
-        .advanced(by: mesh.vertexBufferOffset)
-        .assumingMemoryBound(to: GlyphVertex.self)
-    let firstColor = ptr[0].color
-
-    // Red component dominant, green and blue near zero.
-    #expect(firstColor.x > 0.5)
-    #expect(firstColor.y < 0.1)
-    #expect(firstColor.z < 0.1)
-    #expect(firstColor.w > 0.5)
-}
-
 // MARK: - FontAtlasCache reuse
 
 // Overload pair used to observe a type's `Sendable` conformance at runtime: the constrained
@@ -227,71 +197,7 @@ func testSlugTextMeshBuilder_gridLayout_basic() throws {
     #expect(mesh.bounds.height == 32)
 }
 
-@Test
-@MainActor
-func testSlugTextMeshBuilder_gridLayout_perCharacterColors() throws {
-    let device = _MTLCreateSystemDefaultDevice()
-    let builder = SlugTextMeshBuilder(device: device)
-
-    let chars: [ColoredCharacter] = [
-        ColoredCharacter("R", color: SIMD4<Float>(1, 0, 0, 1)),
-        ColoredCharacter("G", color: SIMD4<Float>(0, 1, 0, 1)),
-        ColoredCharacter("B", color: SIMD4<Float>(0, 0, 1, 1))
-    ]
-    _ = builder.buildMesh(
-        characters: chars,
-        font: helveticaFont(size: 16),
-        cellSize: CGSize(width: 12, height: 20),
-        columns: 3
-    )
-    let scene = try builder.finalize()
-    let mesh = scene.meshes[0]
-
-    // First quad (4 vertices) belongs to "R".
-    let ptr = mesh.vertexBuffer.contents()
-        .advanced(by: mesh.vertexBufferOffset)
-        .assumingMemoryBound(to: GlyphVertex.self)
-    #expect(ptr[0].color.x > 0.5)
-    #expect(ptr[0].color.y < 0.1)
-    // Fifth vertex belongs to "G".
-    #expect(ptr[4].color.y > 0.5)
-    #expect(ptr[4].color.x < 0.1)
-    // Ninth vertex belongs to "B".
-    #expect(ptr[8].color.z > 0.5)
-}
-
 // MARK: - SwiftUI AttributedString overload
-
-// Grayscale CGColor path: NSAttributedString carrying a 2-component (gray + alpha)
-// CGColor exercises the `n >= 2` else branch in the foreground-color extraction.
-@Test
-@MainActor
-func testSlugTextMeshBuilder_grayscaleForegroundColor() throws {
-    let device = _MTLCreateSystemDefaultDevice()
-    let builder = SlugTextMeshBuilder(device: device)
-
-    let grayColorSpace = CGColorSpaceCreateDeviceGray()
-    let grayColor = CGColor(colorSpace: grayColorSpace, components: [0.6, 1.0])!
-
-    let font = helveticaFont()
-    let attrs: [NSAttributedString.Key: Any] = [
-        .font: font,
-        .foregroundColor: grayColor
-    ]
-    let attr = NSAttributedString(string: "G", attributes: attrs)
-    _ = builder.buildMesh(attributedString: attr)
-
-    let scene = try builder.finalize()
-    let mesh = scene.meshes[0]
-    let ptr = mesh.vertexBuffer.contents()
-        .advanced(by: mesh.vertexBufferOffset)
-        .assumingMemoryBound(to: GlyphVertex.self)
-    // Grayscale gets broadcast to RGB so all three channels should match.
-    let c = ptr[0].color
-    #expect(abs(c.x - c.y) < 0.01)
-    #expect(abs(c.y - c.z) < 0.01)
-    #expect(c.w > 0.5)
-}
 
 // SwiftUI AttributedString overload that does NOT take an explicit font.
 // Per the implementation comment fonts don't survive conversion, but it should
@@ -479,7 +385,15 @@ func testSlugFrameConstants_initFromSIMD() {
     #expect(constants.viewportSize == SIMD2<Float>(1_024, 768))
 }
 
-// MARK: - GlyphVertex descriptor
+// MARK: - Representation tests (vertex descriptor)
+//
+// The tests in this section and in "Representation tests (vertex buffer contents)" below
+// deliberately pin the GPU representation: the interleaved `GlyphVertex`
+// layout and the vertex order the builder writes. They break when that representation
+// changes, which is the point — the shaders and vertex descriptor depend on it. Everything
+// else in this file is written against observable behaviour (mesh/index counts, bounds), and
+// colours reaching the GPU are covered by the golden render in
+// `testSlugTextRenderPipeline_gridLayoutColoredCharacters`.
 
 @Test
 @MainActor
@@ -506,4 +420,86 @@ func testColoredCharacter_init() {
     let red = ColoredCharacter("R", color: SIMD4<Float>(1, 0, 0, 1))
     #expect(red.character == "R")
     #expect(red.color == SIMD4<Float>(1, 0, 0, 1))
+}
+
+// MARK: - Representation tests (vertex buffer contents)
+
+/// A vertex of `mesh`, read straight out of the shared vertex buffer.
+@MainActor
+private func vertex(of mesh: SlugTextMesh, at vertexIndex: Int = 0) -> GlyphVertex {
+    mesh.vertexBuffer.contents()
+        .advanced(by: mesh.vertexBufferOffset)
+        .assumingMemoryBound(to: GlyphVertex.self)[vertexIndex]
+}
+
+@Test
+@MainActor
+func testSlugTextMeshBuilder_colorAttributePropagatesToVertices() throws {
+    let device = _MTLCreateSystemDefaultDevice()
+    let builder = SlugTextMeshBuilder(device: device)
+
+    let red = CGColor(red: 1, green: 0, blue: 0, alpha: 1)
+    _ = builder.buildMesh(attributedString: makeAttributed("A", color: red))
+
+    let scene = try builder.finalize()
+    let mesh = scene.meshes[0]
+    #expect(mesh.indexCount > 0)
+
+    let color = vertex(of: mesh).color
+    #expect(color.x > 0.5)
+    #expect(color.y < 0.1)
+    #expect(color.z < 0.1)
+    #expect(color.w > 0.5)
+}
+
+// Grayscale CGColor path: NSAttributedString carrying a 2-component (gray + alpha)
+// CGColor exercises the `n >= 2` else branch in the foreground-color extraction.
+@Test
+@MainActor
+func testSlugTextMeshBuilder_grayscaleForegroundColor() throws {
+    let device = _MTLCreateSystemDefaultDevice()
+    let builder = SlugTextMeshBuilder(device: device)
+
+    let grayColorSpace = CGColorSpaceCreateDeviceGray()
+    let grayColor = CGColor(colorSpace: grayColorSpace, components: [0.6, 1.0])!
+    let attrs: [NSAttributedString.Key: Any] = [
+        .font: helveticaFont(),
+        .foregroundColor: grayColor
+    ]
+    _ = builder.buildMesh(attributedString: NSAttributedString(string: "G", attributes: attrs))
+
+    let scene = try builder.finalize()
+    // Grayscale gets broadcast to RGB so all three channels should match.
+    let color = vertex(of: scene.meshes[0]).color
+    #expect(abs(color.x - color.y) < 0.01)
+    #expect(abs(color.y - color.z) < 0.01)
+    #expect(color.w > 0.5)
+}
+
+// One quad (4 vertices) per character, in the order the characters were given.
+@Test
+@MainActor
+func testSlugTextMeshBuilder_gridLayout_perCharacterColors() throws {
+    let device = _MTLCreateSystemDefaultDevice()
+    let builder = SlugTextMeshBuilder(device: device)
+
+    let characters: [ColoredCharacter] = [
+        ColoredCharacter("R", color: SIMD4<Float>(1, 0, 0, 1)),
+        ColoredCharacter("G", color: SIMD4<Float>(0, 1, 0, 1)),
+        ColoredCharacter("B", color: SIMD4<Float>(0, 0, 1, 1))
+    ]
+    _ = builder.buildMesh(
+        characters: characters,
+        font: helveticaFont(size: 16),
+        cellSize: CGSize(width: 12, height: 20),
+        columns: 3
+    )
+    let scene = try builder.finalize()
+    let mesh = scene.meshes[0]
+
+    #expect(vertex(of: mesh, at: 0).color.x > 0.5)
+    #expect(vertex(of: mesh, at: 0).color.y < 0.1)
+    #expect(vertex(of: mesh, at: 4).color.y > 0.5)
+    #expect(vertex(of: mesh, at: 4).color.x < 0.1)
+    #expect(vertex(of: mesh, at: 8).color.z > 0.5)
 }

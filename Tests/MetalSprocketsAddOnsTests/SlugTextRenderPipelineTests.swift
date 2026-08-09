@@ -83,6 +83,39 @@ func testSlugTextRenderPipeline_usesSceneDevice() throws {
     #expect(pipeline.fontTextureBuffer.length == scene.fontTexturePairs.count * 16)
 }
 
+// The fixed-grid builder lays glyphs out itself instead of going through CoreText, and carries a
+// colour per character. Rendering it is the only check that both actually reach the GPU.
+@Test
+@MainActor
+func testSlugTextRenderPipeline_gridLayoutColoredCharacters() throws {
+    let device = _MTLCreateSystemDefaultDevice()
+    let builder = SlugTextMeshBuilder(device: device)
+    let characters: [ColoredCharacter] = [
+        ColoredCharacter("R", color: SIMD4<Float>(1, 0, 0, 1)),
+        ColoredCharacter("G", color: SIMD4<Float>(0, 1, 0, 1)),
+        ColoredCharacter("B", color: SIMD4<Float>(0, 0, 1, 1))
+    ]
+    _ = builder.buildMesh(
+        characters: characters,
+        font: CTFontCreateWithName("Helvetica" as CFString, 128, nil),
+        cellSize: CGSize(width: 140, height: 160),
+        columns: 3
+    )
+    let scene = try builder.finalize()
+
+    let viewport = SIMD2<Float>(Float(defaultRenderSize.width), Float(defaultRenderSize.height))
+    let vp = textViewProjection(viewportSize: viewport, textBounds: scene.meshes[0].bounds)
+    let frame = SlugFrameConstants(viewProjectionMatrix: vp, viewportSize: viewport)
+
+    let renderPass = try RenderPass {
+        try SlugTextRenderPipeline(scene: scene, frameConstants: frame)
+    }
+
+    let renderer = try OffscreenRenderer(size: defaultRenderSize)
+    let rendering = try renderer.render(renderPass)
+    #expect(try rendering.cgImage.isEqualToGoldenImage(named: "SlugTextGridColored"))
+}
+
 @Test
 @MainActor
 func testSlugTextRenderPipeline_wireframe() throws {

@@ -1290,12 +1290,13 @@ Note: some of this may belong upstream in MetalSprockets rather than in this pac
 ## 43: SlugTextMeshBuilderTests pins buffer layout instead of behaviour
 
 +++
-status: open
+status: closed
 priority: low
 kind: task
 labels: testing, effort:m
 created: 2026-08-09T00:22:50Z
-updated: 2026-08-09T02:37:00Z
+updated: 2026-08-09T02:46:04Z
+closed: 2026-08-09T02:46:04Z
 +++
 
 SlugTextMeshBuilderTests is ~500 lines and asserts largely on internal vertex/index offsets and buffer layout, so the tests must be rewritten whenever the GPU representation changes.
@@ -1507,6 +1508,8 @@ Tests/MetalSprocketsAddOnsTests/Support/GPUCapabilities.swift holds runtime prob
 ## Proposed fix (per user)
 
 Move the probes into MetalSupport so they can be shared, and have this test target use them from there.
+
+- `2026-08-09T02:43:49Z`: Punting for now: the useful probes (paravirtual detection, mesh-shader probe) can move to MetalSupport, but supportsTextureSampling renders through MetalSprockets' TextureBillboardPipeline, so it cannot live in MetalSupport as written. The move also needs a MetalSupport release plus a Package.swift bump here, i.e. commits and a tag in another repo. Unblocker: confirm you want MetalSupport changed and released, and say whether the probes belong in the main library target or a new MetalSupportTesting target.
 
 ---
 
