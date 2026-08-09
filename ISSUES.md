@@ -1311,11 +1311,12 @@ Suggested direction:
 ## 44: Texture sampling returns constant values on GitHub Actions paravirt GPU
 
 +++
-status: new
+status: blocked
 priority: medium
 kind: bug
-labels: testing, ci, effort:m
+labels: testing, ci, effort:m, blocked, upstream
 created: 2026-08-09T00:39:50Z
+updated: 2026-08-09T02:35:54Z
 +++
 
 Five golden-image tests are gated off on GitHub Actions runners because `texture.sample(...)` returns a constant instead of texel data (plain rgba8Unorm -> white, YCbCr two-plane -> green). Geometry renders correctly; only sampling is wrong. Local Apple silicon and a local VirtualBuddy paravirt VM both sample correctly, so this looks specific to the GitHub Actions runner image's paravirt driver.
@@ -1330,6 +1331,8 @@ Affected tests (currently disabled via the `CI` env var):
 Split out of #29, which covered the mesh-shader encoder crash (now fixed).
 
 Next steps: replace the env-var gate with a runtime probe (render a quad sampling a known texture, compare against expected texel), or re-enable once GitHub rolls a newer runner image.
+
+- `2026-08-09T02:35:54Z`: Blocked on the GitHub Actions runner image: only the paravirt driver can fix the sampling. Gate cleanup (runtime probe instead of the CI env var, plus skip messages that reference this issue rather than #29) split out to #52.
 
 ---
 
@@ -1493,7 +1496,7 @@ Fix: exclude paravirtual devices by name before probing.
 status: new
 priority: medium
 kind: task
-labels: testing,effort:m
+labels: testing, effort:m
 created: 2026-08-09T02:32:13Z
 +++
 
@@ -1502,5 +1505,31 @@ Tests/MetalSprocketsAddOnsTests/Support/GPUCapabilities.swift holds runtime prob
 ## Proposed fix (per user)
 
 Move the probes into MetalSupport so they can be shared, and have this test target use them from there.
+
+---
+
+## 52: Texture-sampling tests are gated by the CI env var and cite the wrong issue
+
++++
+status: new
+priority: low
+kind: task
+labels: testing,ci,effort:s
+created: 2026-08-09T02:36:03Z
++++
+
+Five texture-sampling tests are skipped with .disabled(if: ProcessInfo.processInfo.environment["CI"] != nil):
+- FlatShaderTests.testFlatShaderWithTexture
+- TextureBillboardPipelineTests.testTextureBillboardPipeline_checkerboard
+- TextureBillboardPipelineTests.testTextureBillboardPipeline_upperRightQuadrant
+- TexturedQuad3DPipelineTests.testTexturedQuad3DPipeline_mandrillFlat
+- TexturedQuad3DPipelineTests.testTexturedQuad3DPipeline_mandrillRotatedInPerspective
+
+Two problems:
+
+1. The gate keys off the CI environment rather than the GPU behaviour it is working around, so the tests are skipped on any CI machine even where sampling works, and run on a broken GPU outside CI.
+2. Their skip messages point at #29 (the mesh-shader crash, fixed) instead of #44, which is the sampling bug.
+
+Same applies to AccelerationStructureManagerTests.testAccelerationStructureManager_build_metalMeshes, which is also still on the env-var gate.
 
 ---
