@@ -44,15 +44,10 @@ public struct FlatShader <Content>: Element where Content: Element {
 
     public var body: some Element {
         get throws {
-            let textureSpecifierArgumentBuffer = textureSpecifier.toArgumentBuffer()
-
             try RenderPipeline(label: "FlatShader", vertexShader: vertexShader, fragmentShader: fragmentShader) {
-                content
+                try content
                     .parameter("modelViewProjection", value: modelViewProjection)
-                    .parameter("specifier", value: textureSpecifierArgumentBuffer)
-                    .useResource(textureSpecifier.texture2D, usage: .read, stages: .fragment)
-                    .useResource(textureSpecifier.textureCube, usage: .read, stages: .fragment)
-                    .useResource(textureSpecifier.depth2D, usage: .read, stages: .fragment)
+                    .argumentBuffer("specifier", value: textureSpecifier)
             }
         }
     }

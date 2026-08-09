@@ -46,9 +46,17 @@ public extension ColorSource {
     }
 }
 
-public extension ColorSource {
-    // TODO: We may want some kind of `argumentBufferRepresentable` protocol. Should also support `useResource` [FILE ME]
-    func toArgumentBuffer() -> MetalSprocketsAddOnsShaders.ColorSourceArgumentBuffer {
+extension ColorSource: ArgumentBufferRepresentable {
+    public var argumentBufferResources: [any MTLResource] {
+        switch self {
+        case let .texture2D(texture, _), let .textureCube(texture, _, _), let .depth2D(texture, _):
+            return [texture]
+        case .color:
+            return []
+        }
+    }
+
+    public func toArgumentBuffer() -> MetalSprocketsAddOnsShaders.ColorSourceArgumentBuffer {
         var result = ColorSourceArgumentBuffer()
         switch self {
         case let .texture2D(texture, sampler):

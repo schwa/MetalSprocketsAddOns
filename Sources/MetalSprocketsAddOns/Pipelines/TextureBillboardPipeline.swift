@@ -76,21 +76,14 @@ public struct TextureBillboardPipeline: Element {
     public var body: some Element {
         get throws {
             try RenderPipeline(label: "TextureBillboard", vertexShader: vertexShader, fragmentShader: fragmentShader) {
-                Draw { encoder in
+                try Draw { encoder in
                     encoder.setVertexBytes(positions, length: MemoryLayout<SIMD2<Float>>.stride * positions.count, index: 0)
                     encoder.setVertexBytes(textureCoordinates, length: MemoryLayout<SIMD2<Float>>.stride * textureCoordinates.count, index: 1)
                     encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: positions.count)
                 }
-                // TODO: We really need an argument buffer abstraction.
-                .parameter("specifierA", value: specifierA.toArgumentBuffer())
-                .parameter("specifierB", value: specifierB.toArgumentBuffer())
                 .parameter("transformColorParameters", value: Int32(0)) // TODO: Placeholder
-                .useResource(specifierA.texture2D, usage: .read, stages: .fragment)
-                .useResource(specifierA.textureCube, usage: .read, stages: .fragment)
-                .useResource(specifierA.depth2D, usage: .read, stages: .fragment)
-                .useResource(specifierB.texture2D, usage: .read, stages: .fragment)
-                .useResource(specifierB.textureCube, usage: .read, stages: .fragment)
-                .useResource(specifierB.depth2D, usage: .read, stages: .fragment)
+                .argumentBuffer("specifierA", value: specifierA)
+                .argumentBuffer("specifierB", value: specifierB)
             }
             .vertexDescriptor(vertexShader.inferredVertexDescriptor())
             .environment(\.linkedFunctions, colorTransformGraph.linkedFunctions)

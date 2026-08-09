@@ -28,8 +28,12 @@ public extension Lighting {
     }
 }
 
-public extension Lighting {
-    func toArgumentBuffer() throws -> LightingArgumentBuffer {
+extension Lighting: ArgumentBufferRepresentable {
+    public var argumentBufferResources: [any MTLResource] {
+        [lights, lightPositions]
+    }
+
+    public func toArgumentBuffer() throws -> LightingArgumentBuffer {
         LightingArgumentBuffer(
             ambientLightColor: ambientLightColor,
             lightCount: Int32(count),
@@ -59,9 +63,6 @@ public extension Lighting {
 
 public extension Element {
     func lighting(_ lighting: Lighting) throws -> some Element {
-        self
-            .parameter("lighting", value: try lighting.toArgumentBuffer())
-            .useResource(lighting.lights, usage: .read, stages: .fragment)
-            .useResource(lighting.lightPositions, usage: .read, stages: .fragment)
+        try argumentBuffer("lighting", value: lighting)
     }
 }

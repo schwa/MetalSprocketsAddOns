@@ -17,8 +17,12 @@ public struct BlinnPhongMaterial {
     }
 }
 
-public extension BlinnPhongMaterial {
-    func toArgumentBuffer() throws -> BlinnPhongMaterialArgumentBuffer {
+extension BlinnPhongMaterial: ArgumentBufferRepresentable {
+    public var argumentBufferResources: [any MTLResource] {
+        ambient.argumentBufferResources + diffuse.argumentBufferResources + specular.argumentBufferResources
+    }
+
+    public func toArgumentBuffer() throws -> BlinnPhongMaterialArgumentBuffer {
         var result = BlinnPhongMaterialArgumentBuffer()
         result.ambient = ambient.toArgumentBuffer()
         result.diffuse = diffuse.toArgumentBuffer()
@@ -30,11 +34,7 @@ public extension BlinnPhongMaterial {
 
 public extension Element {
     func blinnPhongMaterial(_ material: BlinnPhongMaterial) throws -> some Element {
-        self
-            .parameter("material", value: try material.toArgumentBuffer())
-            .useResource(material.ambient.texture2D, usage: .read, stages: .fragment)
-            .useResource(material.diffuse.texture2D, usage: .read, stages: .fragment)
-            .useResource(material.specular.texture2D, usage: .read, stages: .fragment)
+        try argumentBuffer("material", value: material)
     }
 
     func blinnPhongMatrices(projectionMatrix: simd_float4x4, viewMatrix: simd_float4x4, modelMatrix: simd_float4x4, cameraMatrix: simd_float4x4) -> some Element {

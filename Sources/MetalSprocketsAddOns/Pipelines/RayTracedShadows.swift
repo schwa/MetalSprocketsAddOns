@@ -283,8 +283,9 @@ public struct RayTracedShadowComputePass: Element {
                         encoder.useResource(structure, usage: .read)
                     }
                     // Make light buffers accessible via argument buffer GPU pointers
-                    encoder.useResource(lighting.lights, usage: .read)
-                    encoder.useResource(lighting.lightPositions, usage: .read)
+                    for resource in lighting.argumentBufferResources {
+                        encoder.useResource(resource, usage: .read)
+                    }
                 }
             }
         }

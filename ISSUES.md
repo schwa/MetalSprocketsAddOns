@@ -1237,12 +1237,13 @@ What's wrong:
 ## 42: Argument-buffer packing and useResource calls are hand-paired per type
 
 +++
-status: open
+status: closed
 priority: medium
 kind: enhancement
 labels: architecture, effort:l
 created: 2026-08-09T00:11:52Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T00:42:37Z
+closed: 2026-08-09T00:42:37Z
 +++
 
 `ColorSource`, `BlinnPhongMaterial`, and `Lighting` each hand-roll a `toArgumentBuffer()` plus a separate, manually written set of `useResource` calls that must list exactly the resources referenced by that argument buffer. Nothing ties the two halves together, so they can drift silently and the GPU reads unbound resources.
