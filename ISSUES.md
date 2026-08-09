@@ -1386,13 +1386,14 @@ Part of #40.
 ## 47: Test shadow mask correctness per pixel
 
 +++
-status: open
+status: closed
 priority: high
 kind: enhancement
 labels: testing, effort:m, subtask
 depends: 45
 created: 2026-08-09T02:06:08Z
-updated: 2026-08-09T02:06:49Z
+updated: 2026-08-09T02:22:14Z
+closed: 2026-08-09T02:22:14Z
 +++
 
 The end-to-end shadow test only checks that mean luminance drops by 3% when the mask pass is applied. That passes even if the shadow lands in the wrong place, so the depth reconstruction in the mask kernel is effectively untested.

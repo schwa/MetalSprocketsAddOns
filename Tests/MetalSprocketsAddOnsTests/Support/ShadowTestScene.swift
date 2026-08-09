@@ -49,6 +49,28 @@ struct ShadowTestScene {
         viewTransforms.viewProjectionMatrix
     }
 
+    /// World-space point on the ground plane at the centre of the sphere's cast shadow.
+    var groundShadowCentre: SIMD3<Float> {
+        let direction = normalize(-lightPosition)
+        let sphereCentre = sphereTransform.translation
+        let distance = (planeTransform.translation.y - sphereCentre.y) / direction.y
+        return sphereCentre + direction * distance
+    }
+
+    /// World-space point on the ground plane well clear of the cast shadow and of the sphere.
+    var groundLitPoint: SIMD3<Float> {
+        SIMD3<Float>(1.2, planeTransform.translation.y, 0.4)
+    }
+
+    /// The pixel a world-space point projects to, with the origin at the top-left of the render.
+    func pixelPosition(of worldPoint: SIMD3<Float>) -> (x: Int, y: Int) {
+        let clip = viewProjection * SIMD4<Float>(worldPoint, 1)
+        let ndc = SIMD2<Float>(clip.x, clip.y) / clip.w
+        let x = (ndc.x + 1) / 2 * Float(defaultRenderSize.width)
+        let y = (1 - ndc.y) / 2 * Float(defaultRenderSize.height)
+        return (Int(x), Int(y))
+    }
+
     var inverseViewProjection: float4x4 {
         viewTransforms.inverseViewProjectionMatrix
     }

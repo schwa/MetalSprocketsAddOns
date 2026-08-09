@@ -177,17 +177,56 @@ func testFloat4x4_orthographic_standardZ_mapsNearAndFar() {
 @Test
 @MainActor
 func testShadowPipelines_depthPassThenMaskPass_darkensScene() throws {
-    let litLuminance = try renderShadowScene(applyShadowMask: false)
-    let shadowedLuminance = try renderShadowScene(applyShadowMask: true)
+    let litLuminance = try renderShadowScene(applyShadowMask: false).meanLuminance()
+    let shadowedLuminance = try renderShadowScene(applyShadowMask: true).meanLuminance()
     // The cast shadow covers a sizeable part of the ground plane, so the drop is well
     // clear of per-GPU rasterisation noise.
     #expect(shadowedLuminance < litLuminance * 0.97)
 }
 
-/// Renders a sphere above a ground plane lit by a single shadow-casting directional light,
-/// optionally applying the shadow mask, and returns the mean luminance of the result.
+// The mean-luminance check above passes even if the shadow lands in the wrong place, so also
+// check the two points the shadow geometry says must and must not darken.
+@Test
 @MainActor
-private func renderShadowScene(applyShadowMask: Bool) throws -> Double {
+func testShadowMaskPass_darkensOnlyTheCastShadow() throws {
+    let scene = try ShadowTestScene()
+    let shadowed = scene.pixelPosition(of: scene.groundShadowCentre)
+    let lit = scene.pixelPosition(of: scene.groundLitPoint)
+
+    let litImage = try renderShadowScene(applyShadowMask: false)
+    let maskedImage = try renderShadowScene(applyShadowMask: true)
+
+    let shadowedBefore = try litImage.luminance(atX: shadowed.x, y: shadowed.y)
+    let shadowedAfter = try maskedImage.luminance(atX: shadowed.x, y: shadowed.y)
+    #expect(shadowedAfter < shadowedBefore * 0.5)
+
+    let litBefore = try litImage.luminance(atX: lit.x, y: lit.y)
+    let litAfter = try maskedImage.luminance(atX: lit.x, y: lit.y)
+    #expect(abs(litAfter - litBefore) < 0.02)
+}
+
+@Test
+@MainActor
+func testShadowMaskPass_shadowIntensityScalesDarkening() throws {
+    let scene = try ShadowTestScene()
+    let shadowed = scene.pixelPosition(of: scene.groundShadowCentre)
+
+    let litImage = try renderShadowScene(applyShadowMask: false)
+    let halfImage = try renderShadowScene(applyShadowMask: true, shadowIntensity: 0.5)
+    let fullImage = try renderShadowScene(applyShadowMask: true, shadowIntensity: 1.0)
+
+    let unshadowed = try litImage.luminance(atX: shadowed.x, y: shadowed.y)
+    let half = try halfImage.luminance(atX: shadowed.x, y: shadowed.y)
+    let full = try fullImage.luminance(atX: shadowed.x, y: shadowed.y)
+
+    #expect(full < half)
+    #expect(half < unshadowed)
+}
+
+/// Renders a sphere above a ground plane lit by a single shadow-casting directional light,
+/// optionally applying the shadow mask.
+@MainActor
+private func renderShadowScene(applyShadowMask: Bool, shadowIntensity: Float = 1.0) throws -> CGImage {
     let scene = try ShadowTestScene()
 
     var shadowMap = try ShadowMap(resolution: 512, lightCount: 1)
@@ -214,11 +253,12 @@ private func renderShadowScene(applyShadowMask: Bool) throws -> Double {
                 sceneDepthTexture: scene.renderer.depthTexture,
                 outputTexture: scene.renderer.colorTexture,
                 shadowMap: shadowMap,
-                viewTransforms: scene.viewTransforms
+                viewTransforms: scene.viewTransforms,
+                shadowIntensity: shadowIntensity
             )
         }
     }
 
     let rendering = try scene.renderer.render(content)
-    return try rendering.cgImage.meanLuminance()
+    return try rendering.cgImage
 }

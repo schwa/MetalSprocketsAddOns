@@ -74,6 +74,22 @@ extension CGImage {
         return Double(blackCount) / Double(width * height)
     }
 
+    /// Luminance of a single pixel, in the range 0...1, with the origin at the top-left of the image.
+    func luminance(atX x: Int, y: Int) throws -> Double {
+        let width = self.width
+        let height = self.height
+        precondition((0..<width).contains(x) && (0..<height).contains(y), "Pixel (\(x), \(y)) is outside the \(width)x\(height) image")
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
+        guard let context = CGContext(data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4, space: colorSpace, bitmapInfo: bitmapInfo) else {
+            throw MetalSprocketsError.resourceCreationFailure("Failed to create bitmap context")
+        }
+        context.draw(self, in: CGRect(x: 0, y: 0, width: width, height: height))
+        let index = (y * width + x) * 4
+        return (0.2126 * Double(pixels[index]) + 0.7152 * Double(pixels[index + 1]) + 0.0722 * Double(pixels[index + 2])) / 255.0
+    }
+
     /// Mean luminance of the image, in the range 0...1.
     func meanLuminance() throws -> Double {
         let width = self.width
