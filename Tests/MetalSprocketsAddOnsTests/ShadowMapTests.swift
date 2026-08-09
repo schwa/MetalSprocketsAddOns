@@ -128,76 +128,37 @@ func testShadowPipelines_depthPassThenMaskPass_darkensScene() throws {
 /// optionally applying the shadow mask, and returns the mean luminance of the result.
 @MainActor
 private func renderShadowScene(applyShadowMask: Bool) throws -> Double {
-    let sphere = MTKMesh.sphere(extent: [0.6, 0.6, 0.6])
-    let plane = MTKMesh.plane(width: 4, height: 4)
-    let sphereTransform = float4x4(translation: SIMD3<Float>(0, 0.5, 0))
-    let planeTransform = float4x4(translation: SIMD3<Float>(0, -1.0, 0))
-
-    let camera = float4x4(translation: SIMD3<Float>(0, 1.5, 4))
-        * float4x4(simd_quatf(angle: -.pi / 8, axis: SIMD3<Float>(1, 0, 0)))
-    let viewProjection = perspectiveProjection() * camera.inverse
+    let scene = try ShadowTestScene()
 
     var shadowMap = try ShadowMap(resolution: 512, lightCount: 1)
-    shadowMap.updateDirectionalLight(at: 0, position: SIMD3<Float>(3, 5, 2), orthoSize: 3, near: 0.1, far: 20)
-
-    let renderer = try OffscreenRenderer(
-        size: defaultRenderSize,
-        colorUsage: [.renderTarget, .shaderRead, .shaderWrite],
-        depthUsage: [.renderTarget, .shaderRead]
-    )
+    shadowMap.updateDirectionalLight(at: 0, position: scene.lightPosition, orthoSize: 3, near: 0.1, far: 20)
 
     let content = try MetalSprockets.Group {
-        try ShadowMapDepthPass(shadowMap: shadowMap, vertexDescriptor: sphere.vertexDescriptor) {
+        try ShadowMapDepthPass(shadowMap: shadowMap, vertexDescriptor: scene.sphere.vertexDescriptor) {
             Draw { encoder in
-                encoder.setVertexBuffers(of: sphere)
-                encoder.draw(sphere)
+                encoder.setVertexBuffers(of: scene.sphere)
+                encoder.draw(scene.sphere)
             }
-            .parameter("modelMatrix", functionType: .vertex, value: sphereTransform)
+            .parameter("modelMatrix", functionType: .vertex, value: scene.sphereTransform)
             Draw { encoder in
-                encoder.setVertexBuffers(of: plane)
-                encoder.draw(plane)
+                encoder.setVertexBuffers(of: scene.plane)
+                encoder.draw(scene.plane)
             }
-            .parameter("modelMatrix", functionType: .vertex, value: planeTransform)
+            .parameter("modelMatrix", functionType: .vertex, value: scene.planeTransform)
         }
 
-        try RenderPass {
-            try MetalSprockets.Group {
-                try FlatShader(
-                    modelViewProjection: viewProjection * sphereTransform,
-                    textureSpecifier: ColorSource.color([0.8, 0.6, 0.4])
-                ) {
-                    Draw { encoder in
-                        encoder.setVertexBuffers(of: sphere)
-                        encoder.draw(sphere)
-                    }
-                }
-                .vertexDescriptor(MTLVertexDescriptor(sphere.vertexDescriptor))
-                .depthCompare(function: .less, enabled: true)
-
-                try FlatShader(
-                    modelViewProjection: viewProjection * planeTransform,
-                    textureSpecifier: ColorSource.color([0.8, 0.8, 0.85])
-                ) {
-                    Draw { encoder in
-                        encoder.setVertexBuffers(of: plane)
-                        encoder.draw(plane)
-                    }
-                }
-                .vertexDescriptor(MTLVertexDescriptor(plane.vertexDescriptor))
-                .depthCompare(function: .less, enabled: true)
-            }
-        }
+        try scene.scenePass
 
         if applyShadowMask {
             try ShadowMaskPass(
-                sceneDepthTexture: renderer.depthTexture,
-                outputTexture: renderer.colorTexture,
+                sceneDepthTexture: scene.renderer.depthTexture,
+                outputTexture: scene.renderer.colorTexture,
                 shadowMap: shadowMap,
-                inverseViewProjection: viewProjection.inverse
+                viewTransforms: scene.viewTransforms
             )
         }
     }
 
-    let rendering = try renderer.render(content)
+    let rendering = try scene.renderer.render(content)
     return try rendering.cgImage.meanLuminance()
 }

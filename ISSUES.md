@@ -1333,12 +1333,13 @@ Next steps: replace the env-var gate with a runtime probe (render a quad samplin
 ## 45: Extract a shared shadow test scene fixture
 
 +++
-status: open
+status: closed
 priority: high
 kind: enhancement
 labels: testing, effort:s, subtask
 created: 2026-08-09T02:05:53Z
-updated: 2026-08-09T02:06:49Z
+updated: 2026-08-09T02:18:56Z
+closed: 2026-08-09T02:18:56Z
 +++
 
 The ray-traced shadow test and the shadow map end-to-end test each hand-assemble the same scene: a sphere above a ground plane, a camera at a slight downward angle, a single light, and an OffscreenRenderer with specific texture usage flags. Both are ~120 lines and drift independently.
