@@ -188,7 +188,7 @@ public struct ShadowMapDepthPass<Content>: Element where Content: Element {
                     }
                     .vertexDescriptor(vertexDescriptor)
                     .depthCompare(function: useInverseZ ? .greaterEqual : .lessEqual, enabled: true)
-                    .renderPipelineDescriptorModifier { descriptor in
+                    .renderPipelineDescriptorTransformer { descriptor in
                         descriptor.colorAttachments[0].pixelFormat = .invalid
                         descriptor.depthAttachmentPixelFormat = .depth32Float
                         descriptor.inputPrimitiveTopology = .triangle

@@ -59,7 +59,7 @@ public struct ShadowMaskPass: Element {
                     encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
                 }
             }
-            .renderPipelineDescriptorModifier { descriptor in
+            .renderPipelineDescriptorTransformer { descriptor in
                 // Alpha blending: src * srcAlpha + dst * (1 - srcAlpha)
                 // Normal mode: src is black, so dst * (1 - alpha) = darkening
                 // Debug mode: src is magenta, blended over scene
