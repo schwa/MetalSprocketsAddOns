@@ -1,6 +1,11 @@
-// Direct unit tests for `Light` (init convenience) and `Lighting` (init / mutators / argument buffer).
+// Direct unit tests for `Light` (init convenience), `Lighting` (init / mutators /
+// argument buffer) and the `Element.lighting(_:)` modifier.
 
+import CoreGraphics
+import GeometryLite3D
 import Metal
+import MetalKit
+import MetalSprockets
 @testable import MetalSprocketsAddOns
 import MetalSprocketsAddOnsShaders
 import MetalSprocketsSupport
@@ -120,4 +125,63 @@ func testLighting_toArgumentBuffer_capturesCountAndAmbient() throws {
     let argBuffer = try lighting.toArgumentBuffer()
     #expect(argBuffer.lightCount == 2)
     #expect(argBuffer.ambientLightColor == SIMD3<Float>(0.4, 0.5, 0.6))
+}
+
+// MARK: - Element.lighting(_:)
+
+/// Render a lit sphere using the `lighting(_:)` modifier and return the resulting image.
+@MainActor
+private func renderSphere(lighting: Lighting) throws -> CGImage {
+    let mesh = try makeSphereMeshWithTangents()
+    let projection = perspectiveProjection()
+    let cameraMatrix = lookAtOriginCameraMatrix()
+
+    let material = BlinnPhongMaterial(
+        ambient: .color([0, 0, 0]),
+        diffuse: .color([0.8, 0.8, 0.8]),
+        specular: .color([0, 0, 0]),
+        shininess: 16
+    )
+
+    let renderPass = try RenderPass {
+        try BlinnPhongShader {
+            try Draw { encoder in
+                encoder.setVertexBuffers(of: mesh)
+                encoder.draw(mesh)
+            }
+            .blinnPhongMaterial(material)
+            .blinnPhongMatrices(
+                projectionMatrix: projection,
+                viewMatrix: cameraMatrix.inverse,
+                modelMatrix: matrix_identity_float4x4,
+                cameraMatrix: cameraMatrix
+            )
+            .lighting(lighting)
+        }
+        .vertexDescriptor(mesh.vertexDescriptor)
+        .depthCompare(function: .less, enabled: true)
+    }
+
+    return try OffscreenRenderer(size: defaultRenderSize).render(renderPass).cgImage
+}
+
+@Test
+@MainActor
+func testElementLighting_bindsLightsToTheFragmentShader() throws {
+    let bright = try Lighting(
+        ambientLightColor: [0, 0, 0],
+        lights: [([0, 0, 3], Light(type: .point, color: [1, 1, 1], intensity: 20))]
+    )
+    let dim = try Lighting(
+        ambientLightColor: [0, 0, 0],
+        lights: [([0, 0, 3], Light(type: .point, color: [1, 1, 1], intensity: 1))]
+    )
+
+    let brightLuminance = try renderSphere(lighting: bright).meanLuminance()
+    let dimLuminance = try renderSphere(lighting: dim).meanLuminance()
+
+    // A brighter light must produce a brighter image; if the modifier failed to bind the
+    // light buffers both renders would be identically black.
+    #expect(brightLuminance > dimLuminance)
+    #expect(dimLuminance > 0)
 }

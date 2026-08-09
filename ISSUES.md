@@ -539,13 +539,14 @@ existing tests in `Tests/MetalSprocketsAddOnsTests/ColorSourceTests.swift`.
 ## 24: Element.lighting(_:) modifier has no coverage outside disabled BlinnPhong tests
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: cleanup, effort:xs
 depends: MetalSprocketsAddOns#21
 created: 2026-04-19T20:18:23Z
-updated: 2026-08-09T00:13:41Z
+updated: 2026-08-09T00:40:02Z
+closed: 2026-08-09T00:40:02Z
 +++
 
 The `Element.lighting(_:)` modifier in
