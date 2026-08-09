@@ -1056,12 +1056,13 @@ Additionally, the Sendable claim is inaccurate on its face: fontTexturePairs is 
 ## 35: Unnecessary @unchecked Sendable and @preconcurrency imports suppress future concurrency checking
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: concurrency, cleanup, effort:xs
 created: 2026-08-09T00:09:34Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T00:38:28Z
+closed: 2026-08-09T00:38:28Z
 +++
 
 Several concurrency escape hatches in the codebase appear to be unnecessary, and each one disables checking that would catch future regressions.
@@ -1071,6 +1072,13 @@ Several concurrency escape hatches in the codebase appear to be unnecessary, and
 2. @preconcurrency import Metal appears in three Slug files: SlugScene.swift:3, SlugMetalTypes.swift:1, SlugTextMesh.swift:3. The types in those files already carry @unchecked Sendable, so the @preconcurrency attribute is likely redundant. Where it is redundant it downgrades all future Sendable-related diagnostics from the Metal module in those files to warnings, including genuine MTLTexture-crossing-isolation errors.
 
 Both should be removed where the build still succeeds, and kept only where removal produces a real error.
+
+- `2026-08-09T00:38:27Z`: Investigated on Xcode 27 beta 4 / MacOSX27.0.sdk. Both escape hatches turn out to be load-bearing:
+
+- Removing `@unchecked` from AccelerationStructureManager fails: MTLAccelerationStructure (like the other MTLResource protocols) is NOT Sendable — only MTLDevice and MTLCommandQueue are. Two errors: 'stored property ... contains non-Sendable type any MTLAccelerationStructure'.
+- SlugScene.swift and SlugTextMesh.swift no longer have @preconcurrency imports. SlugMetalTypes.swift still needs it: without it, 'static property descriptor is not concurrency-safe because non-Sendable type MTLVertexDescriptor may have shared mutable state'.
+
+Kept both, added comments explaining why so nobody re-investigates. Closing.
 
 ---
 

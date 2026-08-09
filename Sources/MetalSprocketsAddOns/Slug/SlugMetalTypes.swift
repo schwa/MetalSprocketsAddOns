@@ -1,3 +1,5 @@
+// @preconcurrency is required: the static `GlyphVertex.descriptor` holds a
+// non-Sendable MTLVertexDescriptor, which is an error without it.
 @preconcurrency import Metal
 import MetalSprocketsAddOnsShaders
 import simd

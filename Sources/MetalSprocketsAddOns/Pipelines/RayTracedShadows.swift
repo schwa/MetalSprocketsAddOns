@@ -14,6 +14,8 @@ import SwiftMesh
 ///
 /// Creates primitive acceleration structures from meshes and an instance
 /// acceleration structure that combines them for scene-level ray queries.
+/// - Note: `@unchecked` is required: `MTLAccelerationStructure` (like the other
+/// `MTLResource` protocols) is not `Sendable`, only `MTLDevice` and `MTLCommandQueue` are.
 public struct AccelerationStructureManager: @unchecked Sendable {
     /// The instance acceleration structure for the entire scene.
     public private(set) var instanceAccelerationStructure: MTLAccelerationStructure?
