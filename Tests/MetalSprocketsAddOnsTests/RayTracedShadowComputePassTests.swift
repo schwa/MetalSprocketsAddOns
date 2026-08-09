@@ -28,13 +28,6 @@ func testRayTracedShadowComputePass_endToEnd() throws {
     // The sphere should cast a visible shadow onto the plane.
     let scene = try ShadowTestScene()
 
-    // Build acceleration structures: two meshes (sphere + plane), two instances.
-    var accelManager = try AccelerationStructureManager()
-    try accelManager.build(meshes: [scene.sphere, scene.plane], instances: [
-        AccelerationStructureManager.Instance(meshIndex: 0, transform: scene.sphereTransform),
-        AccelerationStructureManager.Instance(meshIndex: 1, transform: scene.planeTransform)
-    ])
-
     // Single point light above the scene, off to one side so the shadow falls
     // onto the plane visibly.
     let lighting = try Lighting(
@@ -44,21 +37,26 @@ func testRayTracedShadowComputePass_endToEnd() throws {
         ]
     )
 
-    // OffscreenRenderer.render(_:) already wraps content in a CommandBufferElement,
-    // so we just need a Group containing the scene render passes + the RT compute pass.
-    let combined = try MetalSprockets.Group {
-        // 1. Render the sphere + plane with FlatShader (populates color + depth).
-        try scene.scenePass
+    // The technique builds the acceleration structures (sphere + plane, one instance each) and
+    // owns their lifetime.
+    let technique = try RayTracedShadowTechnique(
+        meshes: [scene.sphere, scene.plane],
+        instances: [
+            AccelerationStructureManager.Instance(meshIndex: 0, transform: scene.sphereTransform),
+            AccelerationStructureManager.Instance(meshIndex: 1, transform: scene.planeTransform)
+        ],
+        lighting: lighting
+    )
 
-        // 2. RT shadow compute pass: darkens shadowed pixels in the color texture.
-        try RayTracedShadowComputePass(
-            sceneDepthTexture: scene.renderer.depthTexture,
-            outputTexture: scene.renderer.colorTexture,
-            accelerationStructureManager: accelManager,
-            lighting: lighting,
-            inverseViewProjection: scene.inverseViewProjection,
-            shadowIntensity: 1.0
-        )
+    let context = try ShadowContext(
+        viewTransforms: scene.viewTransforms,
+        colorTexture: scene.renderer.colorTexture,
+        depthTexture: scene.renderer.depthTexture
+    )
+
+    // Same wiring as the shadow-mapped technique: the technique decides which passes run and when.
+    let combined = try ShadowedScene(technique: technique, context: context) {
+        try scene.scenePass
     }
 
     let rendering = try scene.renderer.render(combined)

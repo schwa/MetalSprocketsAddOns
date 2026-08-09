@@ -1440,13 +1440,14 @@ Part of #40.
 ## 49: Implement the shadow entry point for ray-traced shadows
 
 +++
-status: open
+status: closed
 priority: high
 kind: enhancement
 labels: architecture, effort:m, subtask
 depends: 48
 created: 2026-08-09T02:06:24Z
-updated: 2026-08-09T02:06:49Z
+updated: 2026-08-09T02:24:55Z
+closed: 2026-08-09T02:24:55Z
 +++
 
 Ray-traced shadows use a completely different call protocol from shadow maps: build acceleration structures, keep the instance/primitive structures alive, issue the right `useResource` calls for the acceleration structures and light buffers, and derive the inverse view-projection.
