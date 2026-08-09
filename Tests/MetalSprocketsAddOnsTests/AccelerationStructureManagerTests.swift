@@ -9,6 +9,7 @@ import MetalKit
 import MetalSprocketsSupport
 import MetalSupport
 import simd
+import SwiftMesh
 import Testing
 
 private func ensureRayTracingSupported() throws {
@@ -68,6 +69,27 @@ func testAccelerationStructureManager_build_multipleMeshesAndInstances() throws 
         AccelerationStructureManager.Instance(meshIndex: 0, transform: float4x4(translation: SIMD3<Float>(0, 0, 0))),
         AccelerationStructureManager.Instance(meshIndex: 1, transform: float4x4(translation: SIMD3<Float>(2, 0, 0))),
         AccelerationStructureManager.Instance(meshIndex: 0, transform: float4x4(translation: SIMD3<Float>(-2, 0, 0)))
+    ]
+
+    try manager.build(meshes: meshes, instances: instances)
+
+    #expect(manager.primitiveAccelerationStructures.count == 2)
+    #expect(manager.instanceAccelerationStructure != nil)
+}
+
+@Test(.disabled(if: ProcessInfo.processInfo.environment["CI"] != nil, "Ray tracing unsupported on CI paravirt GPU — see issue #29"))
+@MainActor
+func testAccelerationStructureManager_build_metalMeshes() throws {
+    try ensureRayTracingSupported()
+    let device = _MTLCreateSystemDefaultDevice()
+    var manager = try AccelerationStructureManager()
+    let meshes = [
+        MetalMesh(mesh: .box(), device: device),
+        MetalMesh(mesh: .sphere(), device: device)
+    ]
+    let instances = [
+        AccelerationStructureManager.Instance(meshIndex: 0, transform: float4x4(translation: SIMD3<Float>(0, 0, 0))),
+        AccelerationStructureManager.Instance(meshIndex: 1, transform: float4x4(translation: SIMD3<Float>(2, 0, 0)))
     ]
 
     try manager.build(meshes: meshes, instances: instances)

@@ -6,6 +6,7 @@ import MetalSprocketsSupport
 import MetalSupport
 import ModelIO
 import simd
+import SwiftMesh
 
 // MARK: - AccelerationStructureManager
 
@@ -48,15 +49,20 @@ public struct AccelerationStructureManager: @unchecked Sendable {
     ///   - meshes: The meshes to create primitive acceleration structures from.
     ///   - instances: The instances that reference meshes by index.
     public mutating func build(meshes: [MTKMesh], instances: [Instance]) throws {
-        // Build primitive acceleration structures (one per unique mesh)
-        var primitiveStructures: [MTLAccelerationStructure] = []
-        for mesh in meshes {
-            let structure = try buildPrimitiveAccelerationStructure(mesh: mesh)
-            primitiveStructures.append(structure)
-        }
-        primitiveAccelerationStructures = primitiveStructures
+        try build(primitiveStructures: meshes.map { try buildPrimitiveAccelerationStructure(mesh: $0) }, instances: instances)
+    }
 
-        // Build instance acceleration structure
+    /// Builds acceleration structures from ``MetalMesh`` meshes and instances.
+    ///
+    /// - Parameters:
+    ///   - meshes: The meshes to create primitive acceleration structures from.
+    ///   - instances: The instances that reference meshes by index.
+    public mutating func build(meshes: [MetalMesh], instances: [Instance]) throws {
+        try build(primitiveStructures: meshes.map { try buildPrimitiveAccelerationStructure(mesh: $0) }, instances: instances)
+    }
+
+    private mutating func build(primitiveStructures: [MTLAccelerationStructure], instances: [Instance]) throws {
+        primitiveAccelerationStructures = primitiveStructures
         instanceAccelerationStructure = try buildInstanceAccelerationStructure(
             primitiveStructures: primitiveStructures,
             instances: instances
@@ -100,6 +106,34 @@ public struct AccelerationStructureManager: @unchecked Sendable {
             geometryDescriptor.indexType = submesh.indexType == .uint16 ? .uint16 : .uint32
 
             geometryDescriptors.append(geometryDescriptor)
+        }
+
+        let descriptor = MTLPrimitiveAccelerationStructureDescriptor()
+        descriptor.geometryDescriptors = geometryDescriptors
+
+        return try buildAccelerationStructure(descriptor: descriptor)
+    }
+
+    private func buildPrimitiveAccelerationStructure(mesh: MetalMesh) throws -> MTLAccelerationStructure {
+        guard let positionAttribute = mesh.vertexDescriptor.attributes.first(where: { $0.semantic == .position }) else {
+            throw MetalSprocketsError.resourceCreationFailure("Mesh has no position vertex attribute")
+        }
+        guard let vertexBuffer = mesh.vertexBuffers[positionAttribute.bufferIndex], let layout = mesh.vertexDescriptor.layouts[positionAttribute.bufferIndex] else {
+            throw MetalSprocketsError.resourceCreationFailure("Mesh has no vertex buffer for buffer index \(positionAttribute.bufferIndex)")
+        }
+
+        // MetalMesh always packs triangle indices as UInt32, one index buffer per submesh.
+        let geometryDescriptors = mesh.submeshes.map { submesh in
+            let geometryDescriptor = MTLAccelerationStructureTriangleGeometryDescriptor()
+            geometryDescriptor.vertexBuffer = vertexBuffer
+            geometryDescriptor.vertexBufferOffset = positionAttribute.offset
+            geometryDescriptor.vertexStride = layout.stride
+            geometryDescriptor.vertexFormat = .float3
+            geometryDescriptor.triangleCount = submesh.indexCount / 3
+            geometryDescriptor.indexBuffer = submesh.indexBuffer
+            geometryDescriptor.indexBufferOffset = 0
+            geometryDescriptor.indexType = .uint32
+            return geometryDescriptor
         }
 
         let descriptor = MTLPrimitiveAccelerationStructureDescriptor()

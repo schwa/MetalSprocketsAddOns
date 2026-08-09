@@ -376,12 +376,13 @@ AddOns packages should NOT contain demo code. Move any demo code currently in Me
 ## 19: AccelerationStructureManager should accept Mesh (not just MTKMesh) and expose enough API for external extension
 
 +++
-status: open
+status: closed
 priority: high
 kind: enhancement
 labels: effort:m
 created: 2026-04-14T23:50:30Z
-updated: 2026-08-09T00:13:42Z
+updated: 2026-08-09T00:37:29Z
+closed: 2026-08-09T00:37:29Z
 +++
 
 AccelerationStructureManager.build() only accepts [MTKMesh], but projects using the custom Mesh type (e.g. MetalSprocketsSceneGraph) cannot build acceleration structures without converting to MTKMesh.\n\nAdditionally, the struct's internals (device, commandQueue, primitiveAccelerationStructures setter, instanceAccelerationStructure setter, buildAccelerationStructure(descriptor:), buildInstanceAccelerationStructure(...)) are all private, making it impossible to add a Mesh overload via extension from another module.\n\nEither:\n1. Add a build(meshes: [Mesh], instances:) overload, or\n2. Make enough internals internal/public to allow external extensions.
