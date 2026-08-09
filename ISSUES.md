@@ -1290,11 +1290,12 @@ Note: some of this may belong upstream in MetalSprockets rather than in this pac
 ## 43: SlugTextMeshBuilderTests pins buffer layout instead of behaviour
 
 +++
-status: new
+status: open
 priority: low
 kind: task
 labels: testing, effort:m
 created: 2026-08-09T00:22:50Z
+updated: 2026-08-09T02:37:00Z
 +++
 
 SlugTextMeshBuilderTests is ~500 lines and asserts largely on internal vertex/index offsets and buffer layout, so the tests must be rewritten whenever the GPU representation changes.
@@ -1493,11 +1494,12 @@ Fix: exclude paravirtual devices by name before probing.
 ## 51: GPU capability probes are duplicated per test target instead of living in MetalSupport
 
 +++
-status: new
+status: open
 priority: medium
 kind: task
 labels: testing, effort:m
 created: 2026-08-09T02:32:13Z
+updated: 2026-08-09T02:37:00Z
 +++
 
 Tests/MetalSprocketsAddOnsTests/Support/GPUCapabilities.swift holds runtime probes for GPU features (mesh-shader support, ray tracing, paravirtual device detection) that are not specific to this package. Any other package with golden-image or GPU tests needs the same probes and has to copy them, and each copy drifts as new CI quirks are found (see #29, #44, #50).
@@ -1511,11 +1513,12 @@ Move the probes into MetalSupport so they can be shared, and have this test targ
 ## 52: Texture-sampling tests are gated by the CI env var and cite the wrong issue
 
 +++
-status: new
+status: open
 priority: low
 kind: task
-labels: testing,ci,effort:s
+labels: testing, ci, effort:s
 created: 2026-08-09T02:36:03Z
+updated: 2026-08-09T02:37:00Z
 +++
 
 Five texture-sampling tests are skipped with .disabled(if: ProcessInfo.processInfo.environment["CI"] != nil):
@@ -1531,5 +1534,7 @@ Two problems:
 2. Their skip messages point at #29 (the mesh-shader crash, fixed) instead of #44, which is the sampling bug.
 
 Same applies to AccelerationStructureManagerTests.testAccelerationStructureManager_build_metalMeshes, which is also still on the env-var gate.
+
+- `2026-08-09T02:37:00Z`: Related: #44 (the underlying sampling bug these tests are gated on) and #51 (moving the capability probes into MetalSupport).
 
 ---
