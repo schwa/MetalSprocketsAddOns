@@ -1200,9 +1200,10 @@ The transform math is pure and in-process, but it is currently only tested indir
 status: open
 priority: high
 kind: enhancement
-labels: architecture, testability, effort:xl
+labels: architecture, testability, effort:xl, has-subtasks
+depends: 45, 46, 47, 48, 49
 created: 2026-08-09T00:11:30Z
-updated: 2026-08-09T00:13:48Z
+updated: 2026-08-09T02:06:35Z
 +++
 
 The shadow subsystem is spread across `ShadowMap`, `ShadowMapDepthPass`, `ShadowMaskPass`, `AccelerationStructureManager`, and `RayTracedShadowComputePass`, with no shared entry point.
@@ -1221,6 +1222,15 @@ What's wrong:
 - `2026-08-09T00:11:30Z`: As a result the only shadow-map coverage is struct getters (`resolution`, `lightCount`, texture descriptors) and the two matrix helpers. The actual rendering — bias sign flips for inverse Z, slice-per-light render pass descriptors, blend setup in the mask pass, depth reconstruction — has no tests.
 - `2026-08-09T00:11:30Z`: Ray-traced shadows do have a golden test, but only because its test hand-assembles the whole scene graph (~120 lines) including the exact texture usage flags the pass requires.
 - `2026-08-09T00:13:48Z`: Related: #22 — the OffscreenRenderer nested render pass limitation is tracked there and blocks end-to-end shadow tests.
+- `2026-08-09T02:06:35Z`: Split into subtasks (#22 is fixed, so the end-to-end test now exists and that part of this issue is stale):
+
+- #45 — extract a shared shadow test scene fixture (effort:s)
+- #46 — unit-test the inverse-Z contract: bias signs, sampler, clear depth, per-light slices (effort:s)
+- #47 — test shadow mask correctness per pixel, depends on #45 (effort:m)
+- #48 — shared shadow entry point for shadow-mapped shadows (effort:m)
+- #49 — same entry point for ray-traced shadows, depends on #48 (effort:m)
+
+Keeping this open as a tracking issue.
 
 ---
 
@@ -1317,5 +1327,134 @@ Affected tests (currently disabled via the `CI` env var):
 Split out of #29, which covered the mesh-shader encoder crash (now fixed).
 
 Next steps: replace the env-var gate with a runtime probe (render a quad sampling a known texture, compare against expected texel), or re-enable once GitHub rolls a newer runner image.
+
+---
+
+## 45: Extract a shared shadow test scene fixture
+
++++
+status: open
+priority: high
+kind: enhancement
+labels: testing, effort:s, subtask
+created: 2026-08-09T02:05:53Z
+updated: 2026-08-09T02:06:49Z
++++
+
+The ray-traced shadow test and the shadow map end-to-end test each hand-assemble the same scene: a sphere above a ground plane, a camera at a slight downward angle, a single light, and an OffscreenRenderer with specific texture usage flags. Both are ~120 lines and drift independently.
+
+Extract that scene into `Tests/MetalSprocketsAddOnsTests/Support/` as a reusable fixture: meshes and transforms, camera/view transforms, light, and a renderer configured with the usage flags the shadow passes require.
+
+Acceptance criteria
+
+- A single helper builds the sphere/plane scene and the correctly-configured `OffscreenRenderer`.
+- `RayTracedShadowComputePassTests` and `ShadowMapTests` both use it, and their golden/luminance expectations still pass unchanged.
+- Neither test file repeats the texture usage flags or the camera setup.
+
+Part of #40.
+
+---
+
+## 46: Unit-test the shadow map inverse-Z contract
+
++++
+status: open
+priority: high
+kind: enhancement
+labels: testing, effort:s, subtask
+created: 2026-08-09T02:06:01Z
+updated: 2026-08-09T02:06:49Z
++++
+
+Only the `ShadowMap` struct getters and the two matrix helpers are covered. The inverse-Z details that actually break renders have no tests: depth bias and slope scale sign flips, the sampler compare function and border colour, the clear depth value, and the per-light depth attachment slice descriptors.
+
+These are all pure decisions made from `useInverseZ`, so they can be tested without rendering — exposing them as small internal computed properties on `ShadowMap` (or a descriptor-producing helper) is in scope.
+
+Acceptance criteria
+
+- Tests assert bias and slope scale are negated when `useInverseZ` is true and not otherwise.
+- Tests assert the sampler compare function and border colour flip with `useInverseZ`.
+- Tests assert clear depth is 0.0 for inverse Z and 1.0 for standard Z.
+- Tests assert the depth attachment for light `i` targets slice `i` with `renderTargetArrayLength` 1.
+
+Part of #40.
+
+---
+
+## 47: Test shadow mask correctness per pixel
+
++++
+status: open
+priority: high
+kind: enhancement
+labels: testing, effort:m, subtask
+depends: 45
+created: 2026-08-09T02:06:08Z
+updated: 2026-08-09T02:06:49Z
++++
+
+The end-to-end shadow test only checks that mean luminance drops by 3% when the mask pass is applied. That passes even if the shadow lands in the wrong place, so the depth reconstruction in the mask kernel is effectively untested.
+
+Assert on specific pixels instead: a point on the ground plane inside the sphere-cast shadow must darken, and a point well outside it must not. Reuse the fixture from #45 for the scene.
+
+Acceptance criteria
+
+- Test samples at least one known shadowed pixel and one known lit pixel and asserts the expected darkening/no-change.
+- Test covers `shadowIntensity` scaling the darkening.
+- Test still runs under `OffscreenRenderer` without nested render passes.
+
+Part of #40.
+
+---
+
+## 48: Add a shared shadow entry point for shadow-mapped shadows
+
++++
+status: open
+priority: high
+kind: enhancement
+labels: architecture, effort:m, subtask
+created: 2026-08-09T02:06:15Z
+updated: 2026-08-09T02:06:49Z
++++
+
+There is no shared entry point for shadows: a caller wiring up shadow maps must know the pass ordering (depth pass as a sibling of the scene pass, mask pass after it), which textures to allocate with which usage flags, how to derive the inverse view-projection, and how per-light matrices are updated.
+
+Introduce a technique abstraction (e.g. a `ShadowTechnique` protocol plus a `ShadowMapTechnique` conformance) that owns those decisions: it takes the scene `ViewTransforms`, the lights, and the target colour/depth textures, and emits the passes in the right order.
+
+Acceptance criteria
+
+- One type produces the full shadow-mapped chain from view transforms + lights + target textures.
+- Matrices are derived from `ViewTransforms` rather than hand-computed by callers.
+- Required texture usage flags are documented (and validated) in one place.
+- The existing shadow map test renders through the new entry point with unchanged results.
+
+Part of #40.
+
+---
+
+## 49: Implement the shadow entry point for ray-traced shadows
+
++++
+status: open
+priority: high
+kind: enhancement
+labels: architecture, effort:m, subtask
+depends: 48
+created: 2026-08-09T02:06:24Z
+updated: 2026-08-09T02:06:49Z
++++
+
+Ray-traced shadows use a completely different call protocol from shadow maps: build acceleration structures, keep the instance/primitive structures alive, issue the right `useResource` calls for the acceleration structures and light buffers, and derive the inverse view-projection.
+
+Implement the technique abstraction from #48 for ray-traced shadows so both techniques are interchangeable behind one entry point.
+
+Acceptance criteria
+
+- A ray-traced conformance produces the compute pass, owning acceleration structure lifetime and `useResource` calls.
+- Callers can swap between shadow-mapped and ray-traced shadows without changing pass wiring.
+- `RayTracedShadowComputePassTests` renders through the entry point with its golden image unchanged.
+
+Part of #40.
 
 ---
