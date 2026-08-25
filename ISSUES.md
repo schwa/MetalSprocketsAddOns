@@ -657,8 +657,8 @@ overlap may also contribute.
 - Check whether the `.round` join interpolation is using arc length or
   segment count.
 
-- `2026-08-09T00:13:48Z`: Related: #25 and #28 — same curve-subdivision/render-size area.
-- `2026-08-09T00:30:45Z`: Investigated with a pixel-level measurement harness: rendered a stroked circle (lineWidth 6, round cap/join) offscreen at 512x512 and 1024x1024, bucketed every lit pixel by angle, and measured the ring's radial thickness per 10-degree wedge.
+\- `2026-08-09T00:13:48Z`: Related: #25 and #28 — same curve-subdivision/render-size area.
+\- `2026-08-09T00:30:45Z`: Investigated with a pixel-level measurement harness: rendered a stroked circle (lineWidth 6, round cap/join) offscreen at 512x512 and 1024x1024, bucketed every lit pixel by angle, and measured the ring's radial thickness per 10-degree wedge.
 
 - Original tree: thickness ranged 5.86px to 8.44px (44% variation) — reproduces the report.
 - After the #25 fix: 5.75px to 5.99px, i.e. uniform to within pixel quantization.
@@ -838,7 +838,7 @@ Test is currently disabled on CI via:
 2. Verify whether the mesh-shader and RT tests also fail on CI (run them
    individually now that the suite can complete).
 
-- `2026-04-19T21:55:57Z`: More CI paravirt GPU breakage observed (after disabling the originally
+\- `2026-04-19T21:55:57Z`: More CI paravirt GPU breakage observed (after disabling the originally
 crashing tests):
 
 ## Texture sampling returns broken values on CI
@@ -898,7 +898,7 @@ runner image. Worth keeping eye on whether GitHub upgrades the runner
 host's macOS / paravirt driver in future image rolls — these tests can be
 re-enabled if/when that happens.
 
-- `2026-08-09T00:39:59Z`: Fixed. Root cause: GraphicsContext3DRenderPipeline always emitted its stroke MeshRenderPipeline, even for fill-only contexts. The Draw closure guarded on joinCount, but the .parameter(..., functionType: .mesh, ...) bindings were applied unconditionally, so setMeshBuffer:offset:atIndex: was still sent to the encoder — fatal on a paravirt GPU with no mesh-stage selectors.
+\- `2026-08-09T00:39:59Z`: Fixed. Root cause: GraphicsContext3DRenderPipeline always emitted its stroke MeshRenderPipeline, even for fill-only contexts. The Draw closure guarded on joinCount, but the .parameter(..., functionType: .mesh, ...) bindings were applied unconditionally, so setMeshBuffer:offset:atIndex: was still sent to the encoder — fatal on a paravirt GPU with no mesh-stage selectors.
 
 Both pipelines are now only built when they have geometry (joinCount > 0 / fillVertexCount > 0), so fill-only contexts never touch the mesh path. testGraphicsContext3D_filledQuad and testGraphicsContext3D_fillRespectsAlpha are re-enabled everywhere.
 
@@ -1077,7 +1077,7 @@ Several concurrency escape hatches in the codebase appear to be unnecessary, and
 
 Both should be removed where the build still succeeds, and kept only where removal produces a real error.
 
-- `2026-08-09T00:38:27Z`: Investigated on Xcode 27 beta 4 / MacOSX27.0.sdk. Both escape hatches turn out to be load-bearing:
+\- `2026-08-09T00:38:27Z`: Investigated on Xcode 27 beta 4 / MacOSX27.0.sdk. Both escape hatches turn out to be load-bearing:
 
 - Removing `@unchecked` from AccelerationStructureManager fails: MTLAccelerationStructure (like the other MTLResource protocols) is NOT Sendable — only MTLDevice and MTLCommandQueue are. Two errors: 'stored property ... contains non-Sendable type any MTLAccelerationStructure'.
 - SlugScene.swift and SlugTextMesh.swift no longer have @preconcurrency imports. SlugMetalTypes.swift still needs it: without it, 'static property descriptor is not concurrency-safe because non-Sendable type MTLVertexDescriptor may have shared mutable state'.
@@ -1220,10 +1220,10 @@ What's wrong:
       // RenderPass per light. Until OffscreenRenderer can host nested render passes, the
       // shadow render-pipeline code paths remain uncovered. Tracked separately.
 
-- `2026-08-09T00:11:30Z`: As a result the only shadow-map coverage is struct getters (`resolution`, `lightCount`, texture descriptors) and the two matrix helpers. The actual rendering — bias sign flips for inverse Z, slice-per-light render pass descriptors, blend setup in the mask pass, depth reconstruction — has no tests.
-- `2026-08-09T00:11:30Z`: Ray-traced shadows do have a golden test, but only because its test hand-assembles the whole scene graph (~120 lines) including the exact texture usage flags the pass requires.
-- `2026-08-09T00:13:48Z`: Related: #22 — the OffscreenRenderer nested render pass limitation is tracked there and blocks end-to-end shadow tests.
-- `2026-08-09T02:06:35Z`: Split into subtasks (#22 is fixed, so the end-to-end test now exists and that part of this issue is stale):
+\- `2026-08-09T00:11:30Z`: As a result the only shadow-map coverage is struct getters (`resolution`, `lightCount`, texture descriptors) and the two matrix helpers. The actual rendering — bias sign flips for inverse Z, slice-per-light render pass descriptors, blend setup in the mask pass, depth reconstruction — has no tests.
+\- `2026-08-09T00:11:30Z`: Ray-traced shadows do have a golden test, but only because its test hand-assembles the whole scene graph (~120 lines) including the exact texture usage flags the pass requires.
+\- `2026-08-09T00:13:48Z`: Related: #22 — the OffscreenRenderer nested render pass limitation is tracked there and blocks end-to-end shadow tests.
+\- `2026-08-09T02:06:35Z`: Split into subtasks (#22 is fixed, so the end-to-end test now exists and that part of this issue is stale):
 
 - #45 — extract a shared shadow test scene fixture (effort:s)
 - #46 — unit-test the inverse-Z contract: bias signs, sampler, clear depth, per-light slices (effort:s)
@@ -1540,5 +1540,23 @@ Two problems:
 Same applies to AccelerationStructureManagerTests.testAccelerationStructureManager_build_metalMeshes, which is also still on the env-var gate.
 
 - `2026-08-09T02:37:00Z`: Related: #44 (the underlying sampling bug these tests are gated on) and #51 (moving the capability probes into MetalSupport).
+
+---
+
+## 53: Release builds can embed development-only Metal shader source
+
++++
+status: new
+priority: high
+kind: bug
+labels: metal,release-builds
+created: 2026-08-25T22:10:26Z
++++
+
+The MetalCompilerPlugin is attached to the MetalSprocketsAddOnsShaders target, but the manifest does not provide a configuration-dependent compilation condition to the plugin. MetalCompilerPlugin cannot read SwiftPM's active debug or release configuration directly. As a result, its debug metallib behavior cannot differ safely between configurations, and release products can contain development-only embedded Metal shader source. App Store validation reports ITMS-91306 for affected archives.
+
+Expected: Debug builds retain shader debugging support. Release builds produce metallibs without embedded development-only shader source.
+
+Actual: The plugin invocation has no target build-setting signal that distinguishes debug from release.
 
 ---
