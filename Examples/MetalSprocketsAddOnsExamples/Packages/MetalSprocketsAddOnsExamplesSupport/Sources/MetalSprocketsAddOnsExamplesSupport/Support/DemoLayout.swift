@@ -11,6 +11,17 @@ struct DemoLayout<Content: View, Controls: View>: View {
     var body: some View {
         content
             .ignoresSafeArea()
+            #if os(visionOS)
+            // visionOS has no inspector; show the controls in an ornament beside the window.
+            .ornament(visibility: showsInspector ? .visible : .hidden, attachmentAnchor: .scene(.trailing), contentAlignment: .leading) {
+                Form {
+                    controls
+                }
+                .formStyle(.grouped)
+                .frame(width: 300, height: 480)
+                .glassBackgroundEffect()
+            }
+            #else
             .inspector(isPresented: $showsInspector) {
                 Form {
                     controls
@@ -18,6 +29,7 @@ struct DemoLayout<Content: View, Controls: View>: View {
                 .formStyle(.grouped)
                 .inspectorColumnWidth(min: 220, ideal: 280, max: 400)
             }
+            #endif
             .toolbar {
                 Toggle(isOn: $showsInspector) {
                     Label("Controls", systemImage: "sidebar.right")
