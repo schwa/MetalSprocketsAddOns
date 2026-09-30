@@ -1571,3 +1571,27 @@ cSettings: [
 ```
 
 ---
+
+## 54: Port to MetalSprockets Metal 4 on a metal4 branch
+
++++
+status: new
+priority: high
+kind: task
+labels: metal4
+created: 2026-09-30T05:16:56Z
+updated: 2026-09-30T05:16:56Z
++++
+
+MetalSprockets is being ported to Metal 4 on its metal4 branch (https://github.com/schwa/MetalSprockets/tree/metal4). It is a breaking change and will merge into MetalSprockets main later. AddOns depends on MetalSprockets (from: "0.1.11"), and MetalSprocketsExamples and MetalSprocketsSceneGraph follow AddOns main, so AddOns needs a matching branch before MetalSprockets merges.
+
+Work:
+- Create a metal4 bookmark/branch from main.
+- On it, change the MetalSprockets dependency to .package(url: "https://github.com/schwa/MetalSprockets", branch: "metal4").
+- Fix the compile errors and test failures. A rough scan found about 32 uses of APIs that changed (setVertexBytes/setFragmentTexture and other encoder calls inside Draw, drawPrimitives(type:), MTLRenderCommandEncoder/MTLComputeCommandEncoder types, BlitPass, command-buffer modifiers). Some hits may be raw Metal that does not go through MetalSprockets.
+
+Reference: Documentation/Porting-to-Metal4.md on the MetalSprockets metal4 branch. Main changes: Draw gets an MTL4RenderCommandEncoder with pipeline and parameters already bound; pass vertex data with .vertexValues/.vertexBuffer and everything else with .parameter; BlitPass is gone (ComputeCommand in a ComputePass); commands in a pass are unordered (EncoderBarrier/QueueBarrier/.barrierAfterPass); raw encoder closures must declare every resource they touch with .useResource/.useComputeResources or the GPU may write into freed memory; removed APIs are gone, not deprecated.
+
+Done when: the package builds for macOS, iOS and visionOS against MetalSprockets metal4; tests pass on a Metal 4 Mac with MTL_DEBUG_LAYER=1; GPU tests are skipped with a reason on devices without Metal 4 (GitHub runners have a paravirtual GPU without Metal 4, related to #44); metal4 is pushed so dependents can track it. Keep main unchanged until MetalSprockets merges metal4.
+
+---
