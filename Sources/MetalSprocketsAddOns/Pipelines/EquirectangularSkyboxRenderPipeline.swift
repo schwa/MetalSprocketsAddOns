@@ -49,9 +49,9 @@ public struct EquirectangularSkyboxRenderPipeline: Element {
 
             try RenderPipeline(label: "EquirectangularSkybox", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 Draw { encoder in
-                    encoder.setFragmentTexture(texture, index: 0)
-                    encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+                    encoder.drawPrimitives(primitiveType: .triangle, vertexStart: 0, vertexCount: 3)
                 }
+                .parameter("texture", functionType: .fragment, texture: texture)
                 .parameter("inverseViewProjectionMatrix", functionType: .vertex, value: inverseVP)
                 .parameter("inverseViewProjectionMatrix", functionType: .fragment, value: inverseVP)
                 .parameter("brightness", functionType: .fragment, value: brightness)

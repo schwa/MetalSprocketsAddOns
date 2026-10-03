@@ -118,21 +118,21 @@ public struct GridShader: Element {
             try RenderPipeline(label: "Grid", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 let modelMatrix = float4x4(xRotation: .degrees(90))
                 let modelViewProjectionMatrix = viewTransforms.transforms(modelMatrix: modelMatrix).modelViewProjectionMatrix
+                let positions: [Packed3<Float>] = [
+                    [-1, 1, 0], [-1, -1, 0], [1, 1, 0], [1, -1, 0]
+                ]
+                .map { $0 * 2_000 }
+                let textureCoordinates: [SIMD2<Float>] = [
+                    [-1, 1], [-1, -1], [1, 1], [1, -1]
+                ]
+                .map { $0 * 2_000 }
                 Draw { encoder in
-                    // Push grid slightly back in depth to avoid z-fighting with coplanar geometry
-                    encoder.setDepthBias(1, slopeScale: 1, clamp: 0)
-                    let positions: [Packed3<Float>] = [
-                        [-1, 1, 0], [-1, -1, 0], [1, 1, 0], [1, -1, 0]
-                    ]
-                    .map { $0 * 2_000 }
-                    let textureCoordinates: [SIMD2<Float>] = [
-                        [-1, 1], [-1, -1], [1, 1], [1, -1]
-                    ]
-                    .map { $0 * 2_000 }
-                    encoder.setVertexUnsafeBytes(of: positions, index: 0)
-                    encoder.setVertexUnsafeBytes(of: textureCoordinates, index: 1)
-                    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: positions.count)
+                    encoder.drawPrimitives(primitiveType: .triangleStrip, vertexStart: 0, vertexCount: positions.count)
                 }
+                .vertexValues(positions, index: 0)
+                .vertexValues(textureCoordinates, index: 1)
+                // Push grid slightly back in depth to avoid z-fighting with coplanar geometry
+                .depthBias(1, slopeScale: 1)
                 .parameter("modelViewProjectionMatrix", value: modelViewProjectionMatrix)
                 .parameter("gridColor", value: gridColor)
                 .parameter("backgroundColor", value: backgroundColor)

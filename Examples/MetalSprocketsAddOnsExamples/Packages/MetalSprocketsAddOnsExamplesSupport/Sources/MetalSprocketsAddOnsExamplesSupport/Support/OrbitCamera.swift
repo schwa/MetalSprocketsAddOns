@@ -29,9 +29,9 @@ public struct OrbitCamera: Equatable {
         return [column.x, column.y, column.z]
     }
 
-    public func projectionMatrix(drawableSize: CGSize) -> simd_float4x4 {
+    public func projectionMatrix(drawableSize: CGSize, zClip: ClosedRange<Float> = 0.1...200) -> simd_float4x4 {
         let aspect = drawableSize.height > 0 ? Float(drawableSize.width / drawableSize.height) : 1
-        return PerspectiveProjection(verticalAngleOfView: .degrees(60), depthMode: .standard(zClip: 0.1...200))
+        return PerspectiveProjection(verticalAngleOfView: .degrees(60), depthMode: .standard(zClip: zClip))
             .projectionMatrix(aspectRatio: aspect)
     }
 }

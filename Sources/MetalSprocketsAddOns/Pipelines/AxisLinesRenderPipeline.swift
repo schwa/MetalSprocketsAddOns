@@ -45,22 +45,22 @@ public struct AxisLinesRenderPipeline: Element {
     public var body: some Element {
         get throws {
             try RenderPipeline(label: "AxisLines", vertexShader: vertexShader, fragmentShader: fragmentShader) {
+                let uniforms = AxisLinesUniforms(
+                    mvpMatrix: mvpMatrix,
+                    viewMatrix: viewMatrix,
+                    projectionMatrix: projectionMatrix,
+                    viewportSize: viewportSize,
+                    lineWidth: lineWidth,
+                    nudge: nudge,
+                    xAxisColor: xAxisColor,
+                    yAxisColor: yAxisColor,
+                    zAxisColor: zAxisColor
+                )
                 Draw { encoder in
-                    let uniforms = AxisLinesUniforms(
-                        mvpMatrix: mvpMatrix,
-                        viewMatrix: viewMatrix,
-                        projectionMatrix: projectionMatrix,
-                        viewportSize: viewportSize,
-                        lineWidth: lineWidth,
-                        nudge: nudge,
-                        xAxisColor: xAxisColor,
-                        yAxisColor: yAxisColor,
-                        zAxisColor: zAxisColor
-                    )
-                    encoder.setVertexBytes([uniforms], length: MemoryLayout<AxisLinesUniforms>.size, index: 0)
                     // Draw 3 axes, each with 6 vertices (2 triangles per quad)
-                    encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 18)
+                    encoder.drawPrimitives(primitiveType: .triangle, vertexStart: 0, vertexCount: 18)
                 }
+                .parameter("uniforms", functionType: .vertex, value: uniforms)
             }
             .vertexDescriptor(vertexShader.inferredVertexDescriptor())
         }

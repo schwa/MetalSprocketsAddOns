@@ -25,7 +25,6 @@ public struct SlugTextRenderPipeline: Element {
     let viewports: [MTLViewport]?
     let wireframe: Bool
     let colorPixelFormat: MTLPixelFormat?
-    let depthPixelFormat: MTLPixelFormat?
     let reverseZ: Bool
     let fontTextureBuffer: MTLBuffer
     let shaderLibrary: ShaderLibrary
@@ -46,7 +45,6 @@ public struct SlugTextRenderPipeline: Element {
         wireframe: Bool = false,
         viewports: [MTLViewport]? = nil,
         colorPixelFormat: MTLPixelFormat? = nil,
-        depthPixelFormat: MTLPixelFormat? = nil,
         reverseZ: Bool = false
     ) throws {
         precondition(!viewConstants.isEmpty, "viewConstants must have at least one entry")
@@ -56,7 +54,6 @@ public struct SlugTextRenderPipeline: Element {
         self.viewports = viewports
         self.wireframe = wireframe
         self.colorPixelFormat = colorPixelFormat
-        self.depthPixelFormat = depthPixelFormat
         self.reverseZ = reverseZ
         self.shaderLibrary = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders())
 
@@ -88,19 +85,18 @@ public struct SlugTextRenderPipeline: Element {
                 vertexShader: shaderLibrary.slug_vertex,
                 fragmentShader: wireframe ? shaderLibrary.slug_wireframe_fragment : shaderLibrary.slug_fragment
             ) {
-                Draw { encoder in
-                    encoder.setVertexBuffer(scene.bufferStorage.vertexBuffer, offset: 0, index: 0)
+                let draw = Draw { encoder in
                     encoder.setCullMode(.none)
 
                     // Vertex amplification for stereo rendering
                     if amplificationCount > 1 {
-                        var viewMappings = (0..<amplificationCount).map { index in
+                        let viewMappings = (0..<amplificationCount).map { index in
                             MTLVertexAmplificationViewMapping(
                                 viewportArrayIndexOffset: UInt32(index),
                                 renderTargetArrayIndexOffset: UInt32(index)
                             )
                         }
-                        encoder.setVertexAmplificationCount(amplificationCount, viewMappings: &viewMappings)
+                        encoder.setVertexAmplificationCount(viewMappings)
                         if let viewports {
                             encoder.setViewports(viewports)
                         }
@@ -110,31 +106,28 @@ public struct SlugTextRenderPipeline: Element {
                         encoder.setTriangleFillMode(.lines)
                     }
 
-                    // Tell Metal about the textures referenced in argument buffer
-                    let allTextures: [MTLResource] = scene.fontTexturePairs.flatMap { pair in
-                        [pair.curveTexture as MTLResource, pair.bandTexture as MTLResource]
-                    }
-                    encoder.useResources(allTextures, usage: .read, stages: .fragment)
-
-                    // Pass view constants array
-                    viewConstants.withUnsafeBufferPointer { ptr in
-                        guard let baseAddress = ptr.baseAddress else {
-                            return
-                        }
-                        encoder.setVertexBytes(baseAddress, length: ptr.count * MemoryLayout<SlugFrameConstants>.stride, index: 1)
-                    }
-
                     // ONE draw call for everything
+                    let indexBuffer = scene.bufferStorage.indexBuffer
                     encoder.drawIndexedPrimitives(
-                        type: .triangle,
+                        primitiveType: .triangle,
                         indexCount: scene.totalIndexCount,
                         indexType: .uint32,
-                        indexBuffer: scene.bufferStorage.indexBuffer,
-                        indexBufferOffset: 0
+                        indexBuffer: indexBuffer.gpuAddress,
+                        indexBufferLength: scene.totalIndexCount * MemoryLayout<UInt32>.stride
                     )
                 }
+                .vertexBuffer(scene.bufferStorage.vertexBuffer, index: 0)
+                .parameter("views", functionType: .vertex, values: viewConstants)
+                .useResource(scene.bufferStorage.indexBuffer, usage: .read, stages: .vertex)
+                // The font argument buffer refers to these textures by resource ID.
+                .useResources(scene.fontTexturePairs.flatMap { [$0.curveTexture, $0.bandTexture] }, usage: .read, stages: .fragment)
                 .parameter("modelMatrices", functionType: .vertex, buffer: scene.modelMatricesBuffer)
-                .parameter("fonts", functionType: .fragment, buffer: fontTextureBuffer)
+                // The wireframe fragment shader has no `fonts` argument.
+                if wireframe {
+                    draw
+                } else {
+                    draw.parameter("fonts", functionType: .fragment, buffer: fontTextureBuffer)
+                }
             }
             .vertexDescriptor(GlyphVertex.descriptor)
             .depthCompare(function: reverseZ ? .greater : .always, enabled: reverseZ)
@@ -143,10 +136,7 @@ public struct SlugTextRenderPipeline: Element {
                 if let colorPixelFormat {
                     desc.colorAttachments[0].pixelFormat = colorPixelFormat
                 }
-                if let depthPixelFormat {
-                    desc.depthAttachmentPixelFormat = depthPixelFormat
-                }
-                desc.colorAttachments[0].isBlendingEnabled = true
+                desc.colorAttachments[0].blendingState = .enabled
                 desc.colorAttachments[0].sourceRGBBlendFactor = .one
                 desc.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
                 desc.colorAttachments[0].sourceAlphaBlendFactor = .one

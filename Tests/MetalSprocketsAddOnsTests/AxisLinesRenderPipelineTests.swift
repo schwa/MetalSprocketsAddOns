@@ -9,7 +9,7 @@ import MetalSprocketsSupport
 import simd
 import Testing
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testAxisLinesRenderPipeline_default() throws {
     let projection = perspectiveProjection()
@@ -33,7 +33,7 @@ func testAxisLinesRenderPipeline_default() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "AxisLinesDefault"))
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testAxisLinesRenderPipeline_customColors() throws {
     let projection = perspectiveProjection()

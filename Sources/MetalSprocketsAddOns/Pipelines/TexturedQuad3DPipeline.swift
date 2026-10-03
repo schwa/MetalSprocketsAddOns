@@ -30,12 +30,11 @@ public struct TexturedQuad3DPipeline: Element {
         get throws {
             try RenderPipeline(label: "TexturedQuad3D", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 try Draw { encoder in
-                    encoder.setVertexBytes(vertices, length: MemoryLayout<SIMD3<Float>>.stride * vertices.count, index: 0)
-                    encoder.setVertexBytes(textureCoords, length: MemoryLayout<SIMD2<Float>>.stride * textureCoords.count, index: 1)
-                    var mvp = mvpMatrix
-                    encoder.setVertexBytes(&mvp, length: MemoryLayout<float4x4>.stride, index: 2)
-                    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+                    encoder.drawPrimitives(primitiveType: .triangleStrip, vertexStart: 0, vertexCount: 4)
                 }
+                .parameter("positions", functionType: .vertex, values: vertices)
+                .parameter("texCoords", functionType: .vertex, values: textureCoords)
+                .parameter("mvpMatrix", functionType: .vertex, value: mvpMatrix)
                 .argumentBuffer("specifierA", value: ColorSource.texture2D(textureY))
                 .argumentBuffer("specifierB", value: ColorSource.texture2D(textureCbCr))
             }

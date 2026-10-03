@@ -49,7 +49,7 @@ private func makeCubeMeshWithEdges() -> MeshWithEdges {
     return MeshWithEdges(metalMesh: metalMesh)
 }
 
-@Test(.disabled(if: !supportsMeshShaders, "Mesh shaders unsupported on this GPU — see issue #29"))
+@Test(.requiresMetal4, .disabled(if: !supportsMeshShaders, "Mesh shaders unsupported on this GPU — see issue #29"))
 @MainActor
 func testEdgeLinesRenderPipeline_cube() throws {
     let meshWithEdges = makeCubeMeshWithEdges()
@@ -74,7 +74,7 @@ func testEdgeLinesRenderPipeline_cube() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "EdgeLinesCube"))
 }
 
-@Test(.disabled(if: !supportsMeshShaders, "Mesh shaders unsupported on this GPU — see issue #29"))
+@Test(.requiresMetal4, .disabled(if: !supportsMeshShaders, "Mesh shaders unsupported on this GPU — see issue #29"))
 @MainActor
 func testEdgeLinesRenderPipeline_debugMode_renderTriangleLines() throws {
     // debugMode = true causes the pipeline to set triangle fill mode to .lines,
@@ -101,7 +101,7 @@ func testEdgeLinesRenderPipeline_debugMode_renderTriangleLines() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "EdgeLinesCubeDebug"))
 }
 
-@Test(.disabled(if: !supportsMeshShaders, "Mesh shaders unsupported on this GPU — see issue #29"))
+@Test(.requiresMetal4, .disabled(if: !supportsMeshShaders, "Mesh shaders unsupported on this GPU — see issue #29"))
 @MainActor
 func testEdgeLinesRenderPipeline_cubeColorizedByTriangle() throws {
     let meshWithEdges = makeCubeMeshWithEdges()

@@ -103,7 +103,7 @@ private func makeRG8Texture(from cgImage: CGImage, device: MTLDevice) throws -> 
 
 // MARK: - Tests
 
-@Test(.disabled(if: !supportsTextureSampling, "Texture sampling broken on this GPU — see issue #44"))
+@Test(.requiresMetal4, .disabled(if: !supportsTextureSampling, "Texture sampling broken on this GPU — see issue #44"))
 @MainActor
 func testTexturedQuad3DPipeline_mandrillFlat() throws {
     let device = _MTLCreateSystemDefaultDevice()
@@ -140,7 +140,7 @@ func testTexturedQuad3DPipeline_mandrillFlat() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "TexturedQuad3DMandrill"))
 }
 
-@Test(.disabled(if: !supportsTextureSampling, "Texture sampling broken on this GPU — see issue #44"))
+@Test(.requiresMetal4, .disabled(if: !supportsTextureSampling, "Texture sampling broken on this GPU — see issue #44"))
 @MainActor
 func testTexturedQuad3DPipeline_mandrillRotatedInPerspective() throws {
     let device = _MTLCreateSystemDefaultDevice()

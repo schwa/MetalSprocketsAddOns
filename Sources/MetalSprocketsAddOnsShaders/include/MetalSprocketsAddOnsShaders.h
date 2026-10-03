@@ -27,6 +27,7 @@ NS_ASSUME_NONNULL_END
 #import "TexturedQuad3D.h"
 #import "WireframeShader.h"
 #import "GridShader.h"
+#import "GaussianBlur.h"
 #import "LambertianShader.h"
 #import "SlugShaderTypes.h"
 #import "Lighting.h"

@@ -74,6 +74,7 @@ public struct ShadowMap {
         samplerDescriptor.sAddressMode = .clampToBorderColor
         samplerDescriptor.tAddressMode = .clampToBorderColor
         samplerDescriptor.borderColor = Self.samplerBorderColor(useInverseZ: useInverseZ)
+        samplerDescriptor.supportArgumentBuffers = true
         sampler = try device.makeSamplerState(descriptor: samplerDescriptor)
             .orThrow(.resourceCreationFailure("Failed to create shadow map sampler"))
     }
@@ -153,7 +154,7 @@ public struct ShadowMap {
     ///
     /// The depth pass renders one light per pass into a single array slice, so there is no colour
     /// attachment and the render target array length is 1.
-    func configureRenderPassDescriptor(_ descriptor: MTLRenderPassDescriptor, lightIndex: Int) {
+    func configureRenderPassDescriptor(_ descriptor: MTL4RenderPassDescriptor, lightIndex: Int) {
         descriptor.colorAttachments[0].texture = nil
         descriptor.colorAttachments[0].loadAction = .dontCare
         descriptor.colorAttachments[0].storeAction = .dontCare
@@ -195,10 +196,8 @@ public struct ShadowMap {
 /// Group {
 ///     ShadowMapDepthPass(shadowMap: shadowMap, vertexDescriptor: mesh.vertexDescriptor) {
 ///         // Draw calls for shadow casters — same geometry, just needs positions
-///         Draw { encoder in
-///             encoder.setVertexBuffers(of: mesh)
-///             encoder.draw(mesh)
-///         }
+///         Draw(mesh: mesh)
+///             .vertexBuffers(of: mesh)
 ///         .parameter("modelMatrix", functionType: .vertex, value: modelMatrix)
 ///     }
 ///     RenderPass {
@@ -245,22 +244,19 @@ public struct ShadowMapDepthPass<Content>: Element where Content: Element {
                         content
                             .parameter("lightViewProjectionMatrix", functionType: .vertex, value: lightVP)
                     }
-                    .onWorkloadEnter { environmentValues in
-                        guard let encoder = environmentValues.renderCommandEncoder
-                        else { return }
-                        encoder.setDepthBias(depthBias, slopeScale: slopeScale, clamp: 0)
-                    }
+                    .depthBias(depthBias, slopeScale: slopeScale)
                     .vertexDescriptor(vertexDescriptor)
                     .depthCompare(function: shadowMap.depthCompareFunction, enabled: true)
                     .renderPipelineDescriptorTransformer { descriptor in
                         descriptor.colorAttachments[0].pixelFormat = .invalid
-                        descriptor.depthAttachmentPixelFormat = .depth32Float
                         descriptor.inputPrimitiveTopology = .triangle
                     }
                 }
                 .renderPassDescriptorModifier { descriptor in
                     shadowMap.configureRenderPassDescriptor(descriptor, lightIndex: lightIndex)
                 }
+                // Later passes sample the shadow map.
+                .barrierAfterPass(after: .fragment, beforeQueueStages: [.vertex, .fragment, .dispatch])
             }
         }
     }

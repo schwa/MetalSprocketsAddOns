@@ -50,20 +50,20 @@ public extension MTLDevice {
         guard let cubeMap = makeTexture(descriptor: cubeMapDescriptor) else {
             throw MetalSprocketsError.resourceCreationFailure("Failed to create texture cube")
         }
-        let blit = try BlitPass {
-            Blit { encoder in
+        let copy = try ComputePass(label: "TextureCubeFromCross") {
+            ComputeCommand { encoder in
                 let origins: [SIMD2<Int>] = [
                     [2, 1], [0, 1], [1, 0], [1, 2], [1, 1], [3, 1]
                 ]
                 for (slice, origin) in origins.enumerated() {
                     let origin = SIMD2<Int>(origin.x * cellWidth, origin.y * cellHeight)
                     encoder.copy(
-                        from: texture,
+                        sourceTexture: texture,
                         sourceSlice: 0,
                         sourceLevel: 0,
                         sourceOrigin: .init(x: origin.x, y: origin.y, z: 0),
                         sourceSize: .init(width: size.x, height: size.y, depth: 1),
-                        to: cubeMap,
+                        destinationTexture: cubeMap,
                         destinationSlice: slice,
                         destinationLevel: 0,
                         destinationOrigin: .init(x: 0, y: 0, z: 0)
@@ -71,7 +71,8 @@ public extension MTLDevice {
                 }
             }
         }
-        try blit.run()
+        .useComputeResources([texture, cubeMap], usage: [.read, .write])
+        try copy.run()
         return cubeMap
     }
 }

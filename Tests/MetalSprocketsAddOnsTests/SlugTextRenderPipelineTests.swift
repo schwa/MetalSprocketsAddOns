@@ -43,7 +43,7 @@ private func textViewProjection(viewportSize: SIMD2<Float>, textBounds: CGRect) 
     return scale * translate
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testSlugTextRenderPipeline_helloHelvetica() throws {
     let device = _MTLCreateSystemDefaultDevice()
@@ -85,7 +85,7 @@ func testSlugTextRenderPipeline_usesSceneDevice() throws {
 
 // The fixed-grid builder lays glyphs out itself instead of going through CoreText, and carries a
 // colour per character. Rendering it is the only check that both actually reach the GPU.
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testSlugTextRenderPipeline_gridLayoutColoredCharacters() throws {
     let device = _MTLCreateSystemDefaultDevice()
@@ -116,7 +116,7 @@ func testSlugTextRenderPipeline_gridLayoutColoredCharacters() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "SlugTextGridColored"))
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testSlugTextRenderPipeline_wireframe() throws {
     let device = _MTLCreateSystemDefaultDevice()

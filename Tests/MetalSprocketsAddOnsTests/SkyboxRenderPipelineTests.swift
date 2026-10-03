@@ -10,7 +10,7 @@ import MetalSupport
 import simd
 import Testing
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testSkyboxRenderPipeline_solidFaces() throws {
     let device = _MTLCreateSystemDefaultDevice()
@@ -33,7 +33,7 @@ func testSkyboxRenderPipeline_solidFaces() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "SkyboxSolidFaces"))
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testSkyboxRenderPipeline_rotated() throws {
     let device = _MTLCreateSystemDefaultDevice()

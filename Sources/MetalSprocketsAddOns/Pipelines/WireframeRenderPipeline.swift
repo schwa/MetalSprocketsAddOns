@@ -26,9 +26,10 @@ public struct WireframeRenderPipeline: Element {
                 let uniforms = WireframeUniforms(modelViewProjectionMatrix: mvpMatrix, wireframeColor: wireframeColor)
                 Draw { encoder in
                     encoder.setTriangleFillMode(.lines)
-                    encoder.setVertexBuffers(of: mesh)
                     encoder.draw(mesh)
                 }
+                .vertexBuffers(of: mesh)
+                .useResources(mesh.submeshes.map(\.indexBuffer.buffer), usage: .read, stages: .vertex)
                 .parameter("uniforms", functionType: .vertex, value: uniforms)
                 .parameter("uniforms", functionType: .fragment, value: uniforms)
             }

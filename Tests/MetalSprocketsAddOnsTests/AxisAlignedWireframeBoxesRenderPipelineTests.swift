@@ -10,7 +10,7 @@ import MetalSprocketsSupport
 import simd
 import Testing
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testAxisAlignedWireframeBoxes_singleBox() throws {
     let projection = perspectiveProjection()
@@ -30,7 +30,7 @@ func testAxisAlignedWireframeBoxes_singleBox() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "AxisAlignedWireframeBoxesSingle"))
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testAxisAlignedWireframeBoxes_multipleColored() throws {
     let projection = perspectiveProjection()

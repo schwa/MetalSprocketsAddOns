@@ -89,10 +89,8 @@ struct ShadowTestScene {
                         modelViewProjection: viewProjection * sphereTransform,
                         textureSpecifier: ColorSource.color([0.8, 0.6, 0.4])
                     ) {
-                        Draw { encoder in
-                            encoder.setVertexBuffers(of: sphere)
-                            encoder.draw(sphere)
-                        }
+                        Draw(mesh: sphere)
+                        .vertexBuffers(of: sphere)
                     }
                     .vertexDescriptor(MTLVertexDescriptor(sphere.vertexDescriptor))
                     .depthCompare(function: .less, enabled: true)
@@ -101,10 +99,8 @@ struct ShadowTestScene {
                         modelViewProjection: viewProjection * planeTransform,
                         textureSpecifier: ColorSource.color([0.8, 0.8, 0.85])
                     ) {
-                        Draw { encoder in
-                            encoder.setVertexBuffers(of: plane)
-                            encoder.draw(plane)
-                        }
+                        Draw(mesh: plane)
+                        .vertexBuffers(of: plane)
                     }
                     .vertexDescriptor(MTLVertexDescriptor(plane.vertexDescriptor))
                     .depthCompare(function: .less, enabled: true)

@@ -20,7 +20,7 @@ import MetalSupport
 import simd
 import Testing
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testFlatShaderWithColor() throws {
     // Define a simple quad vertex structure matching FlatShader's expectations
@@ -70,9 +70,9 @@ func testFlatShaderWithColor() throws {
     let renderPass = try RenderPass {
         try FlatShader(modelViewProjection: modelViewProjection, textureSpecifier: colorSource) {
             Draw { encoder in
-                encoder.setVertexBytes(vertices, length: MemoryLayout<Vertex>.stride * vertices.count, index: 0)
-                encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: vertices.count)
+                encoder.drawPrimitives(primitiveType: .triangle, vertexStart: 0, vertexCount: vertices.count)
             }
+            .vertexValues(vertices, index: 0)
         }
         .vertexDescriptor(vertexDescriptor)
     }
@@ -86,7 +86,7 @@ func testFlatShaderWithColor() throws {
     #expect(try image.isEqualToGoldenImage(named: "FlatShaderRed"))
 }
 
-@Test(.disabled(if: !supportsTextureSampling, "Texture sampling broken on this GPU — see issue #44"))
+@Test(.requiresMetal4, .disabled(if: !supportsTextureSampling, "Texture sampling broken on this GPU — see issue #44"))
 @MainActor
 func testFlatShaderWithTexture() throws {
     // Define vertex structure
@@ -159,9 +159,9 @@ func testFlatShaderWithTexture() throws {
     let renderPass = try RenderPass {
         try FlatShader(modelViewProjection: modelViewProjection, textureSpecifier: colorSource) {
             Draw { encoder in
-                encoder.setVertexBytes(vertices, length: MemoryLayout<Vertex>.stride * vertices.count, index: 0)
-                encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: vertices.count)
+                encoder.drawPrimitives(primitiveType: .triangle, vertexStart: 0, vertexCount: vertices.count)
             }
+            .vertexValues(vertices, index: 0)
         }
         .vertexDescriptor(vertexDescriptor)
     }
@@ -175,7 +175,7 @@ func testFlatShaderWithTexture() throws {
     #expect(try image.isEqualToGoldenImage(named: "FlatShaderTextured"))
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testFlatShaderWithTransform() throws {
     // Define vertex structure
@@ -222,9 +222,9 @@ func testFlatShaderWithTransform() throws {
     let renderPass = try RenderPass {
         try FlatShader(modelViewProjection: modelViewProjection, textureSpecifier: colorSource) {
             Draw { encoder in
-                encoder.setVertexBytes(vertices, length: MemoryLayout<Vertex>.stride * vertices.count, index: 0)
-                encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: vertices.count)
+                encoder.drawPrimitives(primitiveType: .triangle, vertexStart: 0, vertexCount: vertices.count)
             }
+            .vertexValues(vertices, index: 0)
         }
         .vertexDescriptor(vertexDescriptor)
     }
@@ -238,7 +238,7 @@ func testFlatShaderWithTransform() throws {
     #expect(try image.isEqualToGoldenImage(named: "FlatShaderRotated"))
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testFlatShaderWithVertexColors() throws {
     // Define vertex structure with colors
@@ -327,9 +327,9 @@ func testFlatShaderWithVertexColors() throws {
             useVertexColors: true  // Enable vertex colors!
         ) {
             Draw { encoder in
-                encoder.setVertexBytes(vertices, length: MemoryLayout<VertexWithColor>.stride * vertices.count, index: 0)
-                encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: vertices.count)
+                encoder.drawPrimitives(primitiveType: .triangle, vertexStart: 0, vertexCount: vertices.count)
             }
+            .vertexValues(vertices, index: 0)
         }
         .vertexDescriptor(vertexDescriptor)
     }

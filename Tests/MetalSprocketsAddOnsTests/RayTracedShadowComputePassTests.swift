@@ -18,7 +18,7 @@ import MetalSupport
 import simd
 import Testing
 
-@Test(.disabled(if: !supportsRaytracing, "Ray tracing unsupported on this GPU — see issue #29"))
+@Test(.requiresMetal4, .disabled(if: !supportsRaytracing, "Ray tracing unsupported on this GPU — see issue #29"))
 @MainActor
 func testRayTracedShadowComputePass_endToEnd() throws {
     let device = _MTLCreateSystemDefaultDevice()

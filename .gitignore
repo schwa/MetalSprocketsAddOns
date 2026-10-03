@@ -99,3 +99,10 @@ playground.xcworkspace
 # End of https://www.toptal.com/developers/gitignore/api/macos,swift,xcode
 
 .swiftpm
+
+# Buildkite example builds
+.derivedData/
+
+# Not committed: we track a moving MetalSprockets branch, so pins just drift.
+Package.resolved
+**/xcshareddata/swiftpm/Package.resolved

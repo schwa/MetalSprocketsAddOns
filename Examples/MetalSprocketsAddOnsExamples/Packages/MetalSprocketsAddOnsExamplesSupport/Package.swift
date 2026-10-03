@@ -17,9 +17,10 @@ let package = Package(
     ],
     dependencies: [
         .package(path: "../../../.."),
-        .package(url: "https://github.com/schwa/GeometryLite3D", from: "0.1.0"),
-        .package(url: "https://github.com/schwa/MetalSupport", from: "1.0.3"),
-        .package(url: "https://github.com/schwa/MetalSprockets", from: "0.1.11")
+        .package(url: "https://github.com/schwa/GeometryLite3D", from: "0.1.1"),
+        .package(url: "https://github.com/schwa/MetalSupport", from: "1.0.6"),
+        .package(url: "https://github.com/schwa/MetalSprockets", from: "0.2.0"),
+        .package(url: "https://github.com/schwa/GoldenImage", from: "0.1.5")
     ],
     targets: [
         .target(
@@ -35,7 +36,14 @@ let package = Package(
         ),
         .testTarget(
             name: "MetalSprocketsAddOnsExamplesSupportTests",
-            dependencies: ["MetalSprocketsAddOnsExamplesSupport"]
+            dependencies: [
+                "MetalSprocketsAddOnsExamplesSupport",
+                .product(name: "GoldenImage", package: "GoldenImage"),
+                .product(name: "MetalSupport", package: "MetalSupport")
+            ],
+            resources: [
+                .copy("Golden Images")
+            ]
         )
     ],
     swiftLanguageModes: [.v6]

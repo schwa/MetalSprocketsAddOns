@@ -85,30 +85,28 @@ public struct ShadowMaskPass: Element {
 
     public var body: some Element {
         get throws {
-            var maskParams = ShadowMaskParameters(
+            let maskParams = ShadowMaskParameters(
                 inverseViewProjection: inverseViewProjection,
                 shadowIntensity: shadowIntensity
             )
-            var shadowParams = shadowMap.toParameters()
+            let shadowParams = shadowMap.toParameters()
             let width = outputTexture.width
             let height = outputTexture.height
 
             try ComputePass(label: "ShadowMask") {
+                // Wait for the scene pass to finish writing depth and colour.
+                QueueBarrier(after: [.fragment, .dispatch], before: .dispatch)
                 try ComputePipeline(label: "ShadowMask", computeKernel: computeKernel) {
                     try ComputeDispatch(
                         threadsPerGrid: MTLSize(width: width, height: height, depth: 1),
                         threadsPerThreadgroup: MTLSize(width: 8, height: 8, depth: 1)
                     )
-                }
-                .onWorkloadEnter { environmentValues in
-                    guard let encoder = environmentValues.computeCommandEncoder
-                    else { return }
-                    encoder.setTexture(sceneDepthTexture, index: 0)
-                    encoder.setTexture(shadowMap.depthTexture, index: 1)
-                    encoder.setTexture(outputTexture, index: 2)
-                    encoder.setSamplerState(shadowMap.sampler, index: 0)
-                    encoder.setBytes(&maskParams, length: MemoryLayout<ShadowMaskParameters>.stride, index: 0)
-                    encoder.setBytes(&shadowParams, length: MemoryLayout<ShadowMapParameters>.stride, index: 1)
+                    .parameter("sceneDepth", texture: sceneDepthTexture)
+                    .parameter("shadowMapTexture", texture: shadowMap.depthTexture)
+                    .parameter("outputTexture", texture: outputTexture)
+                    .parameter("shadowMapSampler", samplerState: shadowMap.sampler)
+                    .parameter("params", value: maskParams)
+                    .parameter("shadowMapParams", value: shadowParams)
                 }
             }
         }

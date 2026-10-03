@@ -11,7 +11,7 @@ import MetalSupport
 import simd
 import Testing
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testWireframeRenderPipeline_box() throws {
     let mesh = MTKMesh.box(extent: [1, 1, 1])
@@ -34,7 +34,7 @@ func testWireframeRenderPipeline_box() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "WireframeBox"))
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testWireframeRenderPipeline_sphere() throws {
     let mesh = MTKMesh.sphere(extent: [1, 1, 1])

@@ -13,7 +13,7 @@ import simd
 import SwiftUI
 import Testing
 
-@Test(.disabled(if: !supportsMeshShaders, "Stroking needs mesh shaders — see issue #29"))
+@Test(.requiresMetal4, .disabled(if: !supportsMeshShaders, "Stroking needs mesh shaders — see issue #29"))
 @MainActor
 func testGraphicsContext3D_axisCross() throws {
     let projection = perspectiveProjection()
@@ -61,7 +61,7 @@ func testGraphicsContext3D_axisCross() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GraphicsContext3DAxisCross"))
 }
 
-@Test(.disabled(if: !supportsMeshShaders, "Stroking needs mesh shaders — see issue #29"))
+@Test(.requiresMetal4, .disabled(if: !supportsMeshShaders, "Stroking needs mesh shaders — see issue #29"))
 @MainActor
 func testGraphicsContext3D_strokedTriangleWithRoundCaps() throws {
     let projection = perspectiveProjection()
@@ -96,7 +96,7 @@ func testGraphicsContext3D_strokedTriangleWithRoundCaps() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GraphicsContext3DTriangle"))
 }
 
-@Test(.disabled(if: !supportsMeshShaders, "Stroking needs mesh shaders — see issue #29"))
+@Test(.requiresMetal4, .disabled(if: !supportsMeshShaders, "Stroking needs mesh shaders — see issue #29"))
 @MainActor
 func testGraphicsContext3D_strokeStyles_capsAndJoins() throws {
     // Exercise every cap (.butt, .round, .square) and join (.miter, .round, .bevel)
@@ -171,7 +171,7 @@ func testGraphicsContext3D_strokeStyles_capsAndJoins() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GraphicsContext3DCapsJoins"))
 }
 
-@Test(.disabled(if: !supportsMeshShaders, "Stroking needs mesh shaders — see issue #29"))
+@Test(.requiresMetal4, .disabled(if: !supportsMeshShaders, "Stroking needs mesh shaders — see issue #29"))
 @MainActor
 func testGraphicsContext3D_debugWireframe() throws {
     let projection = perspectiveProjection()
@@ -234,7 +234,7 @@ func ellipsePath(centerX: Float = 0, centerY: Float = 0, rx: Float = 0.5, ry: Fl
     }
 }
 
-@Test(.disabled(if: !supportsMeshShaders, "Stroking needs mesh shaders — see issue #29"))
+@Test(.requiresMetal4, .disabled(if: !supportsMeshShaders, "Stroking needs mesh shaders — see issue #29"))
 @MainActor
 func testGraphicsContext3D_strokedEllipse() throws {
     // Stroke an ellipse path so the bezier curve approximation is clearly
@@ -267,7 +267,7 @@ func testGraphicsContext3D_strokedEllipse() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GraphicsContext3DStrokedEllipse"))
 }
 
-@Test(.disabled(if: !supportsMeshShaders, "Stroking needs mesh shaders — see issue #29"))
+@Test(.requiresMetal4, .disabled(if: !supportsMeshShaders, "Stroking needs mesh shaders — see issue #29"))
 @MainActor
 func testGraphicsContext3D_strokeWidthIsUniformAlongCurves() throws {
     // Regression test for issue #26. A stroked circle must come out as a ring of
@@ -329,7 +329,7 @@ func testGraphicsContext3D_strokeWidthIsUniformAlongCurves() throws {
     }
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testGraphicsContext3D_filledQuad() throws {
     let projection = perspectiveProjection()
@@ -364,7 +364,7 @@ func testGraphicsContext3D_filledQuad() throws {
 }
 
 // Read a single BGRA pixel out of a rendering, returned as RGBA.
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testGraphicsContext3D_textLabelsAtWorldPositions() throws {
     let projection = perspectiveProjection()
@@ -410,7 +410,7 @@ private func readPixel(_ rendering: OffscreenRenderer.Rendering, x: Int, y: Int)
     return [bgra[2], bgra[1], bgra[0], bgra[3]]
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testGraphicsContext3D_fillRespectsAlpha() throws {
     // Regression test for issue #4: without blending enabled on the fill

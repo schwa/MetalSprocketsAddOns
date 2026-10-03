@@ -93,13 +93,12 @@ public struct EdgeLinesRenderPipeline: Element {
                 if let edgeDataBuffer, !meshWithEdges.uniqueEdges.isEmpty {
                     try MeshRenderPipeline(label: "EdgeLines", meshShader: meshShader, fragmentShader: fragmentShader) {
                         Draw { encoder in
-                            encoder.label = "Edge Rendering"
                             encoder.setCullMode(.none)
                             if debugMode {
                                 encoder.setTriangleFillMode(.lines)
                             }
                             encoder.drawMeshThreadgroups(
-                                MTLSize(width: meshWithEdges.uniqueEdges.count, height: 1, depth: 1),
+                                threadgroupsPerGrid: MTLSize(width: meshWithEdges.uniqueEdges.count, height: 1, depth: 1),
                                 threadsPerObjectThreadgroup: MTLSize(width: 1, height: 1, depth: 1),
                                 threadsPerMeshThreadgroup: MTLSize(width: 1, height: 1, depth: 1)
                             )

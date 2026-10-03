@@ -16,7 +16,7 @@ import MetalSupport
 import simd
 import Testing
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testLambertianShader_litSphere() throws {
     let mesh = MTKMesh.sphere(extent: [1, 1, 1])
@@ -33,10 +33,8 @@ func testLambertianShader_litSphere() throws {
             color: [0.7, 0.3, 0.2],
             lightDirection: simd_normalize(SIMD3<Float>(0.5, 0.7, 0.5))
         ) {
-            Draw { encoder in
-                encoder.setVertexBuffers(of: mesh)
-                encoder.draw(mesh)
-            }
+            Draw(mesh: mesh)
+            .vertexBuffers(of: mesh)
         }
         .vertexDescriptor(MTLVertexDescriptor(mesh.vertexDescriptor))
         .depthCompare(function: .less, enabled: true)
@@ -47,7 +45,7 @@ func testLambertianShader_litSphere() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "LambertianSphere"))
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testLambertianShader_litBox() throws {
     let mesh = MTKMesh.box(extent: [1, 1, 1])
@@ -64,10 +62,8 @@ func testLambertianShader_litBox() throws {
             color: [0.2, 0.5, 0.8],
             lightDirection: simd_normalize(SIMD3<Float>(0.3, 0.6, 0.7))
         ) {
-            Draw { encoder in
-                encoder.setVertexBuffers(of: mesh)
-                encoder.draw(mesh)
-            }
+            Draw(mesh: mesh)
+            .vertexBuffers(of: mesh)
         }
         .vertexDescriptor(MTLVertexDescriptor(mesh.vertexDescriptor))
         .depthCompare(function: .less, enabled: true)
@@ -78,7 +74,7 @@ func testLambertianShader_litBox() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "LambertianBox"))
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testLambertianShaderInstanced_grid() throws {
     let mesh = MTKMesh.sphere(extent: [0.4, 0.4, 0.4])
@@ -103,10 +99,8 @@ func testLambertianShaderInstanced_grid() throws {
             modelMatrices: modelMatrices,
             lightDirection: simd_normalize(SIMD3<Float>(0.5, 0.5, 1))
         ) {
-            Draw { encoder in
-                encoder.setVertexBuffers(of: mesh)
-                encoder.draw(mesh, instanceCount: modelMatrices.count)
-            }
+            Draw(mesh: mesh, instanceCount: modelMatrices.count)
+            .vertexBuffers(of: mesh)
         }
         .vertexDescriptor(MTLVertexDescriptor(mesh.vertexDescriptor))
         .depthCompare(function: .less, enabled: true)

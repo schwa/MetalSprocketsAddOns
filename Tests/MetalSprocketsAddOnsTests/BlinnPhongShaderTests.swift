@@ -13,7 +13,7 @@ import MetalSupport
 import simd
 import Testing
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testBlinnPhongShader_litBox() throws {
     let mesh = try makeBoxMeshWithTangents()
@@ -39,10 +39,8 @@ func testBlinnPhongShader_litBox() throws {
 
     let renderPass = try RenderPass {
         try BlinnPhongShader {
-            try Draw { encoder in
-                encoder.setVertexBuffers(of: mesh)
-                encoder.draw(mesh)
-            }
+            try Draw(mesh: mesh)
+            .vertexBuffers(of: mesh)
             .blinnPhongMaterial(material)
             .blinnPhongMatrices(
                 projectionMatrix: projection,
@@ -62,7 +60,7 @@ func testBlinnPhongShader_litBox() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "BlinnPhongBox"))
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testBlinnPhongShader_litSphereTwoLights() throws {
     let mesh = try makeSphereMeshWithTangents()
@@ -89,10 +87,8 @@ func testBlinnPhongShader_litSphereTwoLights() throws {
 
     let renderPass = try RenderPass {
         try BlinnPhongShader {
-            try Draw { encoder in
-                encoder.setVertexBuffers(of: mesh)
-                encoder.draw(mesh)
-            }
+            try Draw(mesh: mesh)
+            .vertexBuffers(of: mesh)
             .blinnPhongMaterial(material)
             .blinnPhongMatrices(
                 projectionMatrix: projection,

@@ -165,13 +165,14 @@ public struct AccelerationStructureManager: @unchecked Sendable {
             desc.mask = 0xFF
             desc.options = .opaque
 
-            // Convert simd_float4x4 to MTLPackedFloat4x3 (row-major 4×3)
+            // MTLPackedFloat4x3 is four columns of three rows: the upper 3×4 of the affine transform,
+            // with the translation in the last column.
             let m = instance.transform
             desc.transformationMatrix = MTLPackedFloat4x3(columns: (
-                MTLPackedFloat3Make(m.columns.0.x, m.columns.1.x, m.columns.2.x),
-                MTLPackedFloat3Make(m.columns.0.y, m.columns.1.y, m.columns.2.y),
-                MTLPackedFloat3Make(m.columns.0.z, m.columns.1.z, m.columns.2.z),
-                MTLPackedFloat3Make(m.columns.0.w, m.columns.1.w, m.columns.2.w)
+                MTLPackedFloat3Make(m.columns.0.x, m.columns.0.y, m.columns.0.z),
+                MTLPackedFloat3Make(m.columns.1.x, m.columns.1.y, m.columns.1.z),
+                MTLPackedFloat3Make(m.columns.2.x, m.columns.2.y, m.columns.2.z),
+                MTLPackedFloat3Make(m.columns.3.x, m.columns.3.y, m.columns.3.z)
             ))
 
             descriptorPointer[i] = desc
@@ -309,41 +310,31 @@ public struct RayTracedShadowComputePass: Element {
 
     public var body: some Element {
         get throws {
-            let instanceAS = accelerationStructureManager.instanceAccelerationStructure
             let primitiveStructures = accelerationStructureManager.primitiveAccelerationStructures
-            var params = RayTracedShadowParameters(
-                inverseViewProjection: inverseViewProjection,
-                lighting: try lighting.toArgumentBuffer(),
-                maxRayDistance: maxRayDistance,
-                shadowIntensity: shadowIntensity
-            )
             let width = outputTexture.width
             let height = outputTexture.height
 
-            try ComputePass(label: "RT Shadow") {
-                try ComputePipeline(label: "RT Shadow", computeKernel: computeKernel) {
-                    try ComputeDispatch(
-                        threadsPerGrid: MTLSize(width: width, height: height, depth: 1),
-                        threadsPerThreadgroup: MTLSize(width: 8, height: 8, depth: 1)
-                    )
-                }
-                .onWorkloadEnter { environmentValues in
-                    guard let encoder = environmentValues.computeCommandEncoder,
-                        let instanceAS
-                    else {
-                        return
-                    }
-                    encoder.setTexture(sceneDepthTexture, index: 0)
-                    encoder.setTexture(outputTexture, index: 1)
-                    encoder.setAccelerationStructure(instanceAS, bufferIndex: 0)
-                    encoder.setBytes(&params, length: MemoryLayout<RayTracedShadowParameters>.stride, index: 1)
-                    encoder.useResource(instanceAS, usage: .read)
-                    for structure in primitiveStructures {
-                        encoder.useResource(structure, usage: .read)
-                    }
-                    // Make light buffers accessible via argument buffer GPU pointers
-                    for resource in lighting.argumentBufferResources {
-                        encoder.useResource(resource, usage: .read)
+            if let instanceAS = accelerationStructureManager.instanceAccelerationStructure {
+                let params = RayTracedShadowParameters(
+                    inverseViewProjection: inverseViewProjection,
+                    lighting: try lighting.toArgumentBuffer(),
+                    maxRayDistance: maxRayDistance,
+                    shadowIntensity: shadowIntensity,
+                    accelerationStructure: instanceAS.gpuResourceID
+                )
+                try ComputePass(label: "RT Shadow") {
+                    // Wait for the scene pass to finish writing depth and colour.
+                    QueueBarrier(after: [.fragment, .dispatch], before: .dispatch)
+                    try ComputePipeline(label: "RT Shadow", computeKernel: computeKernel) {
+                        try ComputeDispatch(
+                            threadsPerGrid: MTLSize(width: width, height: height, depth: 1),
+                            threadsPerThreadgroup: MTLSize(width: 8, height: 8, depth: 1)
+                        )
+                        .parameter("sceneDepth", texture: sceneDepthTexture)
+                        .parameter("outputTexture", texture: outputTexture)
+                        .parameter("params", value: params)
+                        // The params struct and lighting argument buffer refer to these by resource ID or GPU address.
+                        .useComputeResources([instanceAS] + primitiveStructures + lighting.argumentBufferResources, usage: .read)
                     }
                 }
             }

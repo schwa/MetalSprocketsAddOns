@@ -109,7 +109,7 @@ func testShadowMap_inverseZ_clearsToFarPlane() throws {
 func testShadowMap_renderPassDescriptor_targetsOneSlicePerLight() throws {
     let shadowMap = try ShadowMap(resolution: 64, lightCount: 3, useInverseZ: true)
     for lightIndex in 0..<3 {
-        let descriptor = MTLRenderPassDescriptor()
+        let descriptor = MTL4RenderPassDescriptor()
         shadowMap.configureRenderPassDescriptor(descriptor, lightIndex: lightIndex)
         #expect(descriptor.depthAttachment.texture === shadowMap.depthTexture)
         #expect(descriptor.depthAttachment.slice == lightIndex)
@@ -126,7 +126,7 @@ func testShadowMap_renderPassDescriptor_targetsOneSlicePerLight() throws {
 @MainActor
 func testShadowMap_renderPassDescriptor_standardZClearsToOne() throws {
     let shadowMap = try ShadowMap(resolution: 64, useInverseZ: false)
-    let descriptor = MTLRenderPassDescriptor()
+    let descriptor = MTL4RenderPassDescriptor()
     shadowMap.configureRenderPassDescriptor(descriptor, lightIndex: 0)
     #expect(descriptor.depthAttachment.clearDepth == 1.0)
 }
@@ -174,7 +174,7 @@ func testFloat4x4_orthographic_standardZ_mapsNearAndFar() {
 // `ShadowMapDepthPass` emits its own `RenderPass` per light, so it must be a sibling of
 // the scene's render pass, not nested inside it. Nesting opens a second command encoder
 // on the same command buffer and trips a Metal assertion.
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testShadowPipelines_depthPassThenMaskPass_darkensScene() throws {
     let litLuminance = try renderShadowScene(applyShadowMask: false).meanLuminance()
@@ -186,7 +186,7 @@ func testShadowPipelines_depthPassThenMaskPass_darkensScene() throws {
 
 // The mean-luminance check above passes even if the shadow lands in the wrong place, so also
 // check the two points the shadow geometry says must and must not darken.
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testShadowMaskPass_darkensOnlyTheCastShadow() throws {
     let scene = try ShadowTestScene()
@@ -205,7 +205,7 @@ func testShadowMaskPass_darkensOnlyTheCastShadow() throws {
     #expect(abs(litAfter - litBefore) < 0.02)
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testShadowMaskPass_shadowIntensityScalesDarkening() throws {
     let scene = try ShadowTestScene()
@@ -225,7 +225,7 @@ func testShadowMaskPass_shadowIntensityScalesDarkening() throws {
 
 // MARK: - Shadow technique entry point
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testShadowContext_rejectsTexturesMissingRequiredUsage() throws {
     // Default offscreen usage is too narrow: no shaderWrite on colour, no shaderRead on depth.
@@ -256,15 +256,11 @@ private func renderShadowScene(applyShadowMask: Bool, shadowIntensity: Float = 1
         far: 20,
         vertexDescriptor: scene.sphere.vertexDescriptor
     ) {
-        Draw { encoder in
-            encoder.setVertexBuffers(of: scene.sphere)
-            encoder.draw(scene.sphere)
-        }
+        Draw(mesh: scene.sphere)
+        .vertexBuffers(of: scene.sphere)
         .parameter("modelMatrix", functionType: .vertex, value: scene.sphereTransform)
-        Draw { encoder in
-            encoder.setVertexBuffers(of: scene.plane)
-            encoder.draw(scene.plane)
-        }
+        Draw(mesh: scene.plane)
+        .vertexBuffers(of: scene.plane)
         .parameter("modelMatrix", functionType: .vertex, value: scene.planeTransform)
     }
 

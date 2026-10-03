@@ -108,10 +108,8 @@ public struct ShadowedScene<Technique, Content>: Element where Technique: Shadow
 ///
 /// ```swift
 /// let technique = try ShadowMapTechnique(lightPositions: [lightPosition], vertexDescriptor: mesh.vertexDescriptor) {
-///     Draw { encoder in
-///         encoder.setVertexBuffers(of: mesh)
-///         encoder.draw(mesh)
-///     }
+///     Draw(mesh: mesh)
+///         .vertexBuffers(of: mesh)
 ///     .parameter("modelMatrix", functionType: .vertex, value: modelMatrix)
 /// }
 /// ```

@@ -4,7 +4,7 @@ import MetalSprocketsSupport
 import MetalSupport
 
 public struct SimpleStitchedFunctionGraph {
-    public var stitchedFunctions: [MTLFunction]
+    public var stitchedFunctions: [VisibleFunction]
 
     public init(name: String, function: VisibleFunction, inputs: Int) throws {
         let function = function.function
@@ -15,12 +15,12 @@ public struct SimpleStitchedFunctionGraph {
         let stitchedLibraryDescriptor = MTLStitchedLibraryDescriptor(functions: [function], functionGraphs: [graph])
         let stitchedLibrary = try device.makeLibrary(stitchedDescriptor: stitchedLibraryDescriptor)
         stitchedFunctions = [
-            try stitchedLibrary.makeFunction(name: name).orThrow(.resourceCreationFailure("Failed to create stitched function"))
+            try VisibleFunction(ShaderFunction(library: stitchedLibrary, name: name, type: .visible))
         ]
     }
 
-    public var linkedFunctions: MTLLinkedFunctions {
-        MTLLinkedFunctions(functions: stitchedFunctions)
+    public var linkedFunctions: [VisibleFunction] {
+        stitchedFunctions
     }
 }
 
@@ -29,12 +29,5 @@ private extension MTLStitchedLibraryDescriptor {
         self.init()
         self.functions = functions
         self.functionGraphs = functionGraphs
-    }
-}
-
-private extension MTLLinkedFunctions {
-    convenience init(functions: [MTLFunction]) {
-        self.init()
-        self.functions = functions
     }
 }

@@ -10,7 +10,7 @@ import MetalSupport
 import simd
 import Testing
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testEquirectangularSkyboxRenderPipeline_default() throws {
     let device = _MTLCreateSystemDefaultDevice()
@@ -33,7 +33,7 @@ func testEquirectangularSkyboxRenderPipeline_default() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "EquirectangularSkyboxDefault"))
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testEquirectangularSkyboxRenderPipeline_rotated() throws {
     let device = _MTLCreateSystemDefaultDevice()

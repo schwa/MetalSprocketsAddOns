@@ -30,21 +30,14 @@ struct ShadowMapDemoView: View {
     @State private var showShadows = true
     @State private var animate = true
 
-    private let sphere = MTKMesh.sphere(extent: [1.2, 1.2, 1.2])
-    private let box = MTKMesh.box(extent: [1, 2, 1])
-    private let ground = MTKMesh.plane(width: 12, height: 12)
-
-    private let sphereTransform = simd_float4x4(translation: [-1.4, 0.6, 0])
-    private let boxTransform = simd_float4x4(translation: [1.4, 1, 0])
-    private let groundTransform = simd_float4x4(translation: [0, 0, 0])
+    private let scene = ShadowMapDemoScene()
 
     var body: some View {
         DemoLayout {
             TimelineView(.animation(paused: !animate)) { timeline in
                 renderView
                     .onChange(of: timeline.date, initial: true) {
-                        let t = Float(timeline.date.timeIntervalSinceReferenceDate) * 0.5
-                        lightPosition = [cos(t) * 5, 6, sin(t) * 5]
+                        lightPosition = ShadowMapDemoScene.lightPosition(at: timeline.date.animationTime(wrappingEvery: .pi * 4))
                     }
             }
             .orbitCamera($camera)
@@ -71,38 +64,73 @@ struct ShadowMapDemoView: View {
         }
     }
 
-    /// Applies the current bias settings and light position. Kept out of the element builder,
-    /// which only accepts expressions that evaluate to elements.
-    private func configured(_ shadowMap: ShadowMap) -> ShadowMap {
-        var shadowMap = shadowMap
-        shadowMap.depthBias = depthBias
-        shadowMap.slopeScale = slopeScale
-        shadowMap.updateDirectionalLight(at: 0, position: lightPosition, orthoSize: 8, near: 0.1, far: 30)
-        return shadowMap
-    }
-
     @ViewBuilder
     private var renderView: some View {
         if let shadowMap {
             RenderView { _, drawableSize in
                 let projection = camera.projectionMatrix(drawableSize: drawableSize)
-                ShadowScene(
-                    shadowMap: configured(shadowMap),
+                scene.element(
+                    shadowMap: shadowMap,
+                    lightPosition: lightPosition,
                     viewProjection: projection * camera.viewMatrix,
                     shadowIntensity: shadowIntensity,
-                    showShadows: showShadows,
-                    casters: [
-                        (sphere, sphereTransform, [0.85, 0.4, 0.3]),
-                        (box, boxTransform, [0.3, 0.5, 0.9])
-                    ],
-                    ground: (ground, groundTransform, [0.8, 0.8, 0.82])
+                    depthBias: depthBias,
+                    slopeScale: slopeScale,
+                    showShadows: showShadows
                 )
             }
             .metalDepthStencilPixelFormat(.depth32Float)
             .metalDepthStencilAttachmentTextureUsage([.renderTarget, .shaderRead])
             .metalFramebufferOnly(false)
-            .metalClearColor(MTLClearColor(red: 0.05, green: 0.06, blue: 0.09, alpha: 1))
+            .metalClearColor(ShadowMapDemoScene.clearColor)
         }
+    }
+}
+
+/// The demo's models and per-frame scene, separate from the view so tests can render it offscreen.
+struct ShadowMapDemoScene {
+    // MDLMesh sphere extents are radii.
+    let sphere = MTKMesh.sphere(extent: [0.6, 0.6, 0.6])
+    let box = MTKMesh.box(extent: [1, 2, 1])
+    let ground = MTKMesh.plane(width: 12, height: 12)
+
+    let sphereTransform = simd_float4x4(translation: [-1.4, 0.6, 0])
+    let boxTransform = simd_float4x4(translation: [1.4, 1, 0])
+    // MTKMesh.plane is in the XY plane; lay it flat on y = 0.
+    let groundTransform = simd_float4x4(simd_quatf(angle: -.pi / 2, axis: [1, 0, 0]))
+
+    static let clearColor = MTLClearColor(red: 0.05, green: 0.06, blue: 0.09, alpha: 1)
+
+    /// The light orbits the scene; `time` is in seconds.
+    static func lightPosition(at time: Float) -> SIMD3<Float> {
+        let angle = time * 0.5
+        return [cos(angle) * 5, 6, sin(angle) * 5]
+    }
+
+    func element(
+        shadowMap: ShadowMap,
+        lightPosition: SIMD3<Float>,
+        viewProjection: simd_float4x4,
+        shadowIntensity: Float,
+        depthBias: Float,
+        slopeScale: Float,
+        showShadows: Bool
+    ) -> some Element {
+        var shadowMap = shadowMap
+        shadowMap.depthBias = depthBias
+        shadowMap.slopeScale = slopeScale
+        shadowMap.updateDirectionalLight(at: 0, position: lightPosition, orthoSize: 8, near: 0.1, far: 30)
+        return ShadowScene(
+            shadowMap: shadowMap,
+            viewProjection: viewProjection,
+            shadowIntensity: shadowIntensity,
+            showShadows: showShadows,
+            casters: [
+                (sphere, sphereTransform, [0.85, 0.4, 0.3]),
+                (box, boxTransform, [0.3, 0.5, 0.9])
+            ],
+            ground: (ground, groundTransform, [0.8, 0.8, 0.82])
+        )
     }
 }
 
@@ -129,10 +157,8 @@ private struct ShadowScene: Element {
             if showShadows, let first = casters.first {
                 try ShadowMapDepthPass(shadowMap: shadowMap, vertexDescriptor: first.mesh.vertexDescriptor) {
                     ForEach(Array(models.enumerated()), id: \.offset) { _, model in
-                        Draw { encoder in
-                            encoder.setVertexBuffers(of: model.mesh)
-                            encoder.draw(model.mesh)
-                        }
+                        Draw(mesh: model.mesh)
+                        .vertexBuffers(of: model.mesh)
                         .parameter("modelMatrix", functionType: .vertex, value: model.transform)
                     }
                 }
@@ -144,10 +170,8 @@ private struct ShadowScene: Element {
                         modelViewProjection: viewProjection * model.transform,
                         textureSpecifier: ColorSource.color(model.color)
                     ) {
-                        Draw { encoder in
-                            encoder.setVertexBuffers(of: model.mesh)
-                            encoder.draw(model.mesh)
-                        }
+                        Draw(mesh: model.mesh)
+                        .vertexBuffers(of: model.mesh)
                     }
                     .vertexDescriptor(MTLVertexDescriptor(model.mesh.vertexDescriptor))
                     .depthCompare(function: .less, enabled: true)

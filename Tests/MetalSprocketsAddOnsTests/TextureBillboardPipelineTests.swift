@@ -11,7 +11,7 @@ import MetalSupport
 import simd
 import Testing
 
-@Test(.disabled(if: !supportsTextureSampling, "Texture sampling broken on this GPU — see issue #44"))
+@Test(.requiresMetal4, .disabled(if: !supportsTextureSampling, "Texture sampling broken on this GPU — see issue #44"))
 @MainActor
 func testTextureBillboardPipeline_checkerboard() throws {
     let device = _MTLCreateSystemDefaultDevice()
@@ -26,7 +26,7 @@ func testTextureBillboardPipeline_checkerboard() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "TextureBillboardCheckerboard"))
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testTextureBillboardPipeline_solidColorSpecifier() throws {
     // Use a solid colored ColorSource as specifierA — exercises the .color path through ColorSource.
@@ -39,7 +39,7 @@ func testTextureBillboardPipeline_solidColorSpecifier() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "TextureBillboardSolid"))
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testTextureBillboardPipeline_initWithColorTransformFunctionName() throws {
     let device = _MTLCreateSystemDefaultDevice()
@@ -58,7 +58,7 @@ func testTextureBillboardPipeline_initWithColorTransformFunctionName() throws {
     _ = try renderer.render(renderPass)
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testTextureBillboardPipeline_initWithCustomTextureCoordinatesArray() throws {
     let device = _MTLCreateSystemDefaultDevice()
@@ -86,7 +86,7 @@ func testTextureBillboardPipeline_initWithCustomTextureCoordinatesArray() throws
 // Render the checkerboard into only the upper-right quadrant of clip space
 // (positions [0,0] to [1,1]) instead of the default fullscreen quad.
 // Verifies that custom `positions` parameters are respected.
-@Test(.disabled(if: !supportsTextureSampling, "Texture sampling broken on this GPU — see issue #44"))
+@Test(.requiresMetal4, .disabled(if: !supportsTextureSampling, "Texture sampling broken on this GPU — see issue #44"))
 @MainActor
 func testTextureBillboardPipeline_upperRightQuadrant() throws {
     let device = _MTLCreateSystemDefaultDevice()

@@ -85,7 +85,7 @@ func makeSolidColorTexture(device: MTLDevice, size: Int = 4, color: SIMD4<UInt8>
 /// bitangent, all interleaved into a single vertex buffer.
 ///
 /// Everything must live in buffer 0. `MTKMesh.addTangentBasis` otherwise spreads attributes
-/// across several `MTLBuffer`s, and `setVertexBuffers(of:)` binds those at vertex buffer
+/// across several `MTLBuffer`s, and `vertexBuffers(of:)` binds those at vertex buffer
 /// indices 1, 2, ... — clobbering the uniform buffers the shaders declare at those indices.
 private func tangentBasisVertexDescriptor() -> MDLVertexDescriptor {
     let descriptor = MDLVertexDescriptor()

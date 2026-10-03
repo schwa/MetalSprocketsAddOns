@@ -145,10 +145,8 @@ private func renderSphere(lighting: Lighting) throws -> CGImage {
 
     let renderPass = try RenderPass {
         try BlinnPhongShader {
-            try Draw { encoder in
-                encoder.setVertexBuffers(of: mesh)
-                encoder.draw(mesh)
-            }
+            try Draw(mesh: mesh)
+            .vertexBuffers(of: mesh)
             .blinnPhongMaterial(material)
             .blinnPhongMatrices(
                 projectionMatrix: projection,
@@ -165,7 +163,7 @@ private func renderSphere(lighting: Lighting) throws -> CGImage {
     return try OffscreenRenderer(size: defaultRenderSize).render(renderPass).cgImage
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testElementLighting_bindsLightsToTheFragmentShader() throws {
     let bright = try Lighting(

@@ -35,7 +35,7 @@ struct GraphicsContext3DDemoView: View {
                 }
             }
             .metalDepthStencilPixelFormat(.depth32Float)
-            .metalClearColor(MTLClearColor(red: 0.04, green: 0.04, blue: 0.06, alpha: 1))
+            .metalClearColor(GraphicsContext3DDemoScene.clearColor)
             .orbitCamera($camera)
         } controls: {
             LabeledContent("Line Width") {
@@ -57,6 +57,15 @@ struct GraphicsContext3DDemoView: View {
     }
 
     private var context: GraphicsContext3D {
+        GraphicsContext3DDemoScene.context(lineWidth: lineWidth, lineCap: lineCap, lineJoin: lineJoin, showFill: showFill)
+    }
+}
+
+/// The demo's drawing, separate from the view so tests can render it offscreen.
+enum GraphicsContext3DDemoScene {
+    static let clearColor = MTLClearColor(red: 0.04, green: 0.04, blue: 0.06, alpha: 1)
+
+    static func context(lineWidth: Float, lineCap: CGLineCap, lineJoin: CGLineJoin, showFill: Bool) -> GraphicsContext3D {
         let style = StrokeStyle(lineWidth: CGFloat(lineWidth), lineCap: lineCap, lineJoin: lineJoin)
         return GraphicsContext3D { ctx in
             // Axis cross — the classic sanity check that world space maps where you expect.

@@ -5,17 +5,15 @@
 //
 //   just test-one GaussianBlur
 
-#if canImport(MetalPerformanceShaders)
 import CoreGraphics
 import Metal
-import MetalPerformanceShaders
 import MetalSprockets
 @testable import MetalSprocketsAddOns
 import MetalSprocketsSupport
 import MetalSupport
 import Testing
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testGaussianBlurPipeline_softensStarkPattern() throws {
     let device = _MTLCreateSystemDefaultDevice()
@@ -25,10 +23,7 @@ func testGaussianBlurPipeline_softensStarkPattern() throws {
     let destination = try makeEmptyBGRA8Texture(device: device, size: size, usage: [.shaderWrite, .shaderRead])
 
     let pipeline = GaussianBlurPipeline(source: source, destination: destination, sigma: 6.0)
-    let element = CommandBufferElement(completion: .commitAndWaitUntilCompleted) {
-        pipeline
-    }
-    try element.run()
+    try pipeline.run()
 
     let image = try destination.toCGImage()
     #expect(try image.isEqualToGoldenImage(named: "GaussianBlurSquare"))
@@ -82,4 +77,3 @@ private func makeWhiteSquareTexture(device: MTLDevice, size: Int) throws -> MTLT
     texture.replace(region: region, mipmapLevel: 0, withBytes: pixels, bytesPerRow: size * 4)
     return texture
 }
-#endif

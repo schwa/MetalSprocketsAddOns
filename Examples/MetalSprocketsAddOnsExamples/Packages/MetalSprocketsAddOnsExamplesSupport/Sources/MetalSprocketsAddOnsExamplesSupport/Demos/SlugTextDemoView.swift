@@ -29,8 +29,11 @@ struct SlugTextDemoView: View {
             TimelineView(.animation(paused: !spin)) { timeline in
                 renderView
                     .onChange(of: timeline.date, initial: true) {
-                        angle = Float(timeline.date.timeIntervalSinceReferenceDate).truncatingRemainder(dividingBy: .pi * 2)
-                        updateModelMatrix()
+                        // The spin uses angle * 0.4, so 5π is one full turn.
+                        angle = timeline.date.animationTime(wrappingEvery: .pi * 5)
+                        if let scene {
+                            SlugTextDemoScene.setSpin(angle, in: scene)
+                        }
                     }
             }
             .orbitCamera($camera)
@@ -44,7 +47,7 @@ struct SlugTextDemoView: View {
             Toggle("Wireframe", isOn: $wireframe)
         }
         .task(id: TextKey(text: text, fontSize: fontSize)) {
-            scene = try? makeScene()
+            scene = try? SlugTextDemoScene.makeScene(text: text, fontSize: fontSize)
         }
     }
 
@@ -52,27 +55,22 @@ struct SlugTextDemoView: View {
     private var renderView: some View {
         if let scene, let mesh = scene.meshes.first {
             RenderView { _, drawableSize in
-                let projection = camera.projectionMatrix(drawableSize: drawableSize)
-                let viewport = SIMD2<Float>(Float(drawableSize.width), Float(drawableSize.height))
-                let constants = SlugFrameConstants(
-                    viewProjectionMatrix: projection * camera.viewMatrix,
-                    viewportSize: viewport
-                )
-                try RenderPass {
-                    try SlugTextRenderPipeline(scene: scene, frameConstants: constants, wireframe: wireframe)
-                }
+                try SlugTextDemoScene.element(scene: scene, camera: camera, drawableSize: drawableSize, wireframe: wireframe)
             }
             .id(ObjectIdentifier(scene))
-            .metalClearColor(MTLClearColor(red: 0.04, green: 0.04, blue: 0.06, alpha: 1))
+            .metalClearColor(SlugTextDemoScene.clearColor)
             .onAppear {
-                // Frame the text: the mesh is laid out in CoreText points with an arbitrary origin.
-                camera.target = [Float(mesh.bounds.midX), Float(mesh.bounds.midY), 0]
-                camera.distance = Float(max(mesh.bounds.width, mesh.bounds.height)) * 2
+                camera = SlugTextDemoScene.framingCamera(for: mesh, pitch: camera.pitch)
             }
         }
     }
+}
 
-    private func makeScene() throws -> SlugScene {
+/// The demo's text scene, separate from the view so tests can render it offscreen.
+enum SlugTextDemoScene {
+    static let clearColor = MTLClearColor(red: 0.04, green: 0.04, blue: 0.06, alpha: 1)
+
+    static func makeScene(text: String, fontSize: CGFloat) throws -> SlugScene {
         let device = _MTLCreateSystemDefaultDevice()
         let builder = SlugTextMeshBuilder(device: device)
         let font = CTFontCreateWithName("Helvetica-Bold" as CFString, fontSize, nil)
@@ -87,8 +85,30 @@ struct SlugTextDemoView: View {
         return try builder.finalize()
     }
 
-    private func updateModelMatrix() {
-        guard let scene, let mesh = scene.meshes.first else {
+    /// Frames the text: the mesh is laid out in CoreText points with an arbitrary origin.
+    static func framingCamera(for mesh: SlugTextMesh, pitch: Float) -> OrbitCamera {
+        OrbitCamera(
+            pitch: pitch,
+            distance: Float(max(mesh.bounds.width, mesh.bounds.height)) * 2,
+            target: [Float(mesh.bounds.midX), Float(mesh.bounds.midY), 0]
+        )
+    }
+
+    static func element(scene: SlugScene, camera: OrbitCamera, drawableSize: CGSize, wireframe: Bool) throws -> some Element {
+        // Text is laid out in points, so the camera sits hundreds of units away.
+        let projection = camera.projectionMatrix(drawableSize: drawableSize, zClip: 1...(camera.distance * 4))
+        let constants = SlugFrameConstants(
+            viewProjectionMatrix: projection * camera.viewMatrix,
+            viewportSize: SIMD2<Float>(Float(drawableSize.width), Float(drawableSize.height))
+        )
+        return try RenderPass {
+            try SlugTextRenderPipeline(scene: scene, frameConstants: constants, wireframe: wireframe)
+        }
+    }
+
+    /// Spins the first mesh about its own vertical axis. The rotation is `angle * 0.4`.
+    static func setSpin(_ angle: Float, in scene: SlugScene) {
+        guard let mesh = scene.meshes.first else {
             return
         }
         // Spin around the text's own centre rather than the layout origin.

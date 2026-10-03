@@ -9,7 +9,7 @@ import MetalSprocketsSupport
 import simd
 import Testing
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testGridShader_default() throws {
     let projection = perspectiveProjection()
@@ -28,7 +28,7 @@ func testGridShader_default() throws {
     #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GridShaderDefault"))
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testGridShader_withMajorDivisionAndHighlight() throws {
     let projection = perspectiveProjection()

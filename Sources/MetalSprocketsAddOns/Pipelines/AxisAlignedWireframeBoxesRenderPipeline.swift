@@ -24,11 +24,10 @@ public struct AxisAlignedWireframeBoxesRenderPipeline: Element {
         get throws {
             try RenderPipeline(label: "AxisAlignedWireframeBoxes", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 Draw { encoder in
-                    let uniforms = BoxesUniforms(mvpMatrix: mvpMatrix, nudge: nudge)
-                    encoder.setVertexBytes([uniforms], length: MemoryLayout<BoxesUniforms>.size, index: 0)
-                    encoder.setVertexBytes(boxes, length: MemoryLayout<BoxInstance>.stride * boxes.count, index: 1)
-                    encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: 24, instanceCount: boxes.count)
+                    encoder.drawPrimitives(primitiveType: .line, vertexStart: 0, vertexCount: 24, instanceCount: boxes.count)
                 }
+                .parameter("uniforms", functionType: .vertex, value: BoxesUniforms(mvpMatrix: mvpMatrix, nudge: nudge))
+                .parameter("instances", functionType: .vertex, values: boxes)
             }
             .vertexDescriptor(vertexShader.inferredVertexDescriptor())
         }

@@ -33,10 +33,8 @@ private func renderDebugMode(_ mode: DebugShadersMode, mesh: MTKMesh) throws -> 
             cameraPosition: cameraMatrix.translation,
             viewProjectionMatrix: viewProjection
         ) {
-            Draw { encoder in
-                encoder.setVertexBuffers(of: mesh)
-                encoder.draw(mesh)
-            }
+            Draw(mesh: mesh)
+            .vertexBuffers(of: mesh)
         }
         .vertexDescriptor(mesh.vertexDescriptor)
         .depthCompare(function: .less, enabled: true)
@@ -46,7 +44,7 @@ private func renderDebugMode(_ mode: DebugShadersMode, mesh: MTKMesh) throws -> 
     return try renderer.render(renderPass).cgImage
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testDebugRenderPipeline_normalMode() throws {
     let mesh = try makeSphereMeshWithTangents()
@@ -55,7 +53,7 @@ func testDebugRenderPipeline_normalMode() throws {
     #expect(try image.isEqualToGoldenImage(named: "DebugNormal"))
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testDebugRenderPipeline_localPositionMode() throws {
     let mesh = try makeBoxMeshWithTangents()
@@ -64,7 +62,7 @@ func testDebugRenderPipeline_localPositionMode() throws {
     #expect(try image.isEqualToGoldenImage(named: "DebugLocalPosition"))
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testDebugRenderPipeline_faceNormalMode() throws {
     let mesh = try makeBoxMeshWithTangents()

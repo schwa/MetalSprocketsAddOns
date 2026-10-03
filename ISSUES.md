@@ -1495,12 +1495,13 @@ Fix: exclude paravirtual devices by name before probing.
 ## 51: GPU capability probes are duplicated per test target instead of living in MetalSupport
 
 +++
-status: open
+status: closed
 priority: medium
 kind: task
-labels: testing, effort:m
+labels: effort:m, area:testing
 created: 2026-08-09T02:32:13Z
-updated: 2026-08-09T02:37:00Z
+updated: 2026-09-30T18:42:37Z
+closed: 2026-09-30T18:42:37Z
 +++
 
 Tests/MetalSprocketsAddOnsTests/Support/GPUCapabilities.swift holds runtime probes for GPU features (mesh-shader support, ray tracing, paravirtual device detection) that are not specific to this package. Any other package with golden-image or GPU tests needs the same probes and has to copy them, and each copy drifts as new CI quirks are found (see #29, #44, #50).
@@ -1510,6 +1511,7 @@ Tests/MetalSprocketsAddOnsTests/Support/GPUCapabilities.swift holds runtime prob
 Move the probes into MetalSupport so they can be shared, and have this test target use them from there.
 
 - `2026-08-09T02:43:49Z`: Punting for now: the useful probes (paravirtual detection, mesh-shader probe) can move to MetalSupport, but supportsTextureSampling renders through MetalSprockets' TextureBillboardPipeline, so it cannot live in MetalSupport as written. The move also needs a MetalSupport release plus a Package.swift bump here, i.e. commits and a tag in another repo. Unblocker: confirm you want MetalSupport changed and released, and say whether the probes belong in the main library target or a new MetalSupportTesting target.
+- `2026-09-30T18:42:37Z`: Device checks (isParavirtual, supportsMetal4, supportsMeshShaders) now live in MetalSupport 1.0.6 without a Testing dependency. AddOns and Examples tests use them and keep only thin Swift Testing wrappers (.requiresMetal4). supportsTextureSampling stays local (it renders through MetalSprockets) and is tracked by #44; it can be deleted once metal4 lands.
 
 ---
 
@@ -1546,12 +1548,12 @@ Same applies to AccelerationStructureManagerTests.testAccelerationStructureManag
 ## 53: Release builds can embed development-only Metal shader source
 
 +++
-status: new
+status: blocked
 priority: high
 kind: bug
-labels: metal, release-builds
+labels: area:build, effort:s, blocked
 created: 2026-08-25T22:10:26Z
-updated: 2026-08-25T22:23:38Z
+updated: 2026-09-30T18:44:18Z
 +++
 
 The MetalCompilerPlugin is attached to the MetalSprocketsAddOnsShaders target, but the manifest does not provide a configuration-dependent compilation condition to the plugin. MetalCompilerPlugin cannot read SwiftPM's active debug or release configuration directly. As a result, its debug metallib behavior cannot differ safely between configurations, and release products can contain development-only embedded Metal shader source. App Store validation reports ITMS-91306 for affected archives.
@@ -1570,17 +1572,21 @@ cSettings: [
 ],
 ```
 
+- `2026-09-30T18:44:18Z`: Tried the MetalCompilerPlugin 0.3.0 fix (METAL_COMPILER_PLUGIN_DEBUG with .when(configuration: .debug)). Correct under command-line SwiftPM, but Xcode applies the debug flags in Release too, so archives would still embed shader source. Reverted. Filed upstream as MetalCompilerPlugin #. Current state: no define, so no build embeds source (safe for archives), but Debug has no shader debug info.
+- `2026-09-30T18:44:25Z`: Upstream issue: MetalCompilerPlugin #1.
+
 ---
 
 ## 54: Port to MetalSprockets Metal 4 on a metal4 branch
 
 +++
-status: new
+status: closed
 priority: high
 kind: task
-labels: metal4
+labels: area:metal4, effort:l
 created: 2026-09-30T05:16:56Z
-updated: 2026-09-30T05:16:56Z
+updated: 2026-09-30T18:34:16Z
+closed: 2026-09-30T18:34:16Z
 +++
 
 MetalSprockets is being ported to Metal 4 on its metal4 branch (https://github.com/schwa/MetalSprockets/tree/metal4). It is a breaking change and will merge into MetalSprockets main later. AddOns depends on MetalSprockets (from: "0.1.11"), and MetalSprocketsExamples and MetalSprocketsSceneGraph follow AddOns main, so AddOns needs a matching branch before MetalSprockets merges.
@@ -1593,5 +1599,228 @@ Work:
 Reference: Documentation/Porting-to-Metal4.md on the MetalSprockets metal4 branch. Main changes: Draw gets an MTL4RenderCommandEncoder with pipeline and parameters already bound; pass vertex data with .vertexValues/.vertexBuffer and everything else with .parameter; BlitPass is gone (ComputeCommand in a ComputePass); commands in a pass are unordered (EncoderBarrier/QueueBarrier/.barrierAfterPass); raw encoder closures must declare every resource they touch with .useResource/.useComputeResources or the GPU may write into freed memory; removed APIs are gone, not deprecated.
 
 Done when: the package builds for macOS, iOS and visionOS against MetalSprockets metal4; tests pass on a Metal 4 Mac with MTL_DEBUG_LAYER=1; GPU tests are skipped with a reason on devices without Metal 4 (GitHub runners have a paravirtual GPU without Metal 4, related to #44); metal4 is pushed so dependents can track it. Keep main unchanged until MetalSprockets merges metal4.
+
+- `2026-09-30T18:34:16Z`: Done on metal4 (f0779782): builds for macOS, iOS and visionOS against MetalSprockets metal4; tests pass on a Metal 4 Mac with MTL_DEBUG_LAYER=1 (Buildkite build 6); GPU tests skip with a reason via .requiresMetal4 on GitHub Actions (run on f0779782 passed); metal4 is pushed.
+
+---
+
+## 55: Example demos: geometry is cut off at the ground plane
+
++++
+status: closed
+priority: high
+kind: bug
+labels: area:metal4, area:examples, effort:m
+created: 2026-09-30T16:10:52Z
+updated: 2026-09-30T16:25:49Z
+closed: 2026-09-30T16:25:49Z
++++
+
+In the MetalSprocketsAddOnsExamples app on the metal4 branch, the sphere and box in several demos are cut off where they meet the ground. Only the part above the ground plane (or grid) is drawn; the lower half is missing.
+
+Seen in:
+- Blinn-Phong: sphere and box are cut off at the grid.
+- Shadow Map: sphere and box are cut off at the plane.
+- Ray-Traced Shadows: sphere and box are cut off at the plane, and the cast shadow also looks wrong (a large dark ellipse under the box).
+
+Repro:
+1. Build and run MetalSprocketsAddOnsExamples (macOS) on the metal4 branch.
+2. Open any of the demos above.
+
+Expected: whole objects resting on or above the plane. Actual: objects look sunk halfway into the plane.
+
+Not yet checked whether this also happens on main (pre-Metal 4).
+
+Screenshots:
+- ~/Library/Application Support/CleanShot/media/media_tPSVpFEW5N/Screenshot 2026-09-30 at 09.10.09@2x.png (Shadow Map)
+- ~/Library/Application Support/CleanShot/media/media_8TJSJR1c49/Screenshot 2026-09-30 at 09.10.15@2x.png (Ray-Traced Shadows)
+- ~/Library/Application Support/CleanShot/media/media_v5WbTIx3Zn/Screenshot 2026-09-30 at 09.10.20@2x.png (Blinn-Phong)
+
+- `2026-09-30T16:11:50Z`: Possibly related to #57 (Debug Shading sphere missing faces): both draw MTKMesh geometry through the new MTL4 draw(_ mesh:) helper.
+
+---
+
+## 56: Example demos: Slug Text demo renders nothing
+
++++
+status: closed
+priority: high
+kind: bug
+labels: area:metal4, area:examples, effort:m
+created: 2026-09-30T16:10:52Z
+updated: 2026-09-30T16:25:49Z
+closed: 2026-09-30T16:25:49Z
++++
+
+In the MetalSprocketsAddOnsExamples app on the metal4 branch, the Slug Text demo shows no text.
+
+Repro:
+1. Build and run MetalSprocketsAddOnsExamples (macOS) on the metal4 branch.
+2. Select "Slug Text".
+
+Expected: rendered glyphs. Actual: nothing is drawn.
+
+The SlugTextRenderPipeline golden-image tests pass under MTL_DEBUG_LAYER=1, so the demo setup (view, amplification, depth, blending or formats) may differ from the tests. Not yet checked whether this also happens on main.
+
+---
+
+## 57: Example demos: Debug Shading sphere is missing faces near the top pole
+
++++
+status: closed
+priority: medium
+kind: bug
+labels: area:metal4, area:examples, effort:s
+created: 2026-09-30T16:11:22Z
+updated: 2026-09-30T16:25:49Z
+closed: 2026-09-30T16:25:49Z
++++
+
+In the MetalSprocketsAddOnsExamples app on the metal4 branch, the Debug Shading demo sphere has a hole near the top pole: a few triangles are not drawn and the background shows through.
+
+Repro:
+1. Build and run MetalSprocketsAddOnsExamples (macOS) on the metal4 branch.
+2. Select "Debug Shading", mode "Normal", Sphere on, Wireframe off.
+
+Expected: a closed sphere. Actual: a small group of faces near the top is missing.
+
+May be related to #55 (geometry cut off at the ground plane). Not yet checked whether this also happens on main.
+
+Screenshot: ~/Library/Application Support/CleanShot/media/media_gHZg8nSrZ1/Screenshot 2026-09-30 at 09.10.59@2x.png
+
+- `2026-09-30T16:11:50Z`: Possibly related to #55 (geometry cut off at the ground plane).
+
+---
+
+## 58: Ray-traced self-shadow edge on curved meshes is stair-stepped
+
++++
+status: new
+priority: low
+kind: bug
+labels: area:rendering
+created: 2026-09-30T16:34:13Z
+updated: 2026-09-30T17:14:45Z
++++
+
+With RayTracedShadowComputePass, the shadow a sphere casts on itself has a blocky, stair-stepped edge instead of following the curve. The shadow cast onto the ground looks correct.
+
+Seen in:
+- The RayTracedShadowSphere golden image (Tests/MetalSprocketsAddOnsTests/Golden Images).
+- The Ray-Traced Shadows demo in MetalSprocketsAddOnsExamples.
+
+This was hidden until the instance-transform fix: before it, every instance sat at the origin, so the sphere did not shadow itself where it was drawn.
+
+Cause not investigated. My guess is self-intersection of shadow rays with the flat triangles of the tessellated sphere, since the origin is reconstructed from the depth buffer and offset by a distance-scaled bias.
+
+- `2026-09-30T17:11:35Z`: Diagnosed: the steps are the sphere's triangles (the shadow-terminator problem). A 192-segment sphere gives proportionally smaller steps than 48. The kernel only has depth, so a pixel on a triangle facing away from the light casts a ray that hits the far side of its own mesh. FlatShader has no N·L falloff, so the ray-traced pass alone defines the edge and the steps show. Mitigated in the Ray-Traced Shadows demo by using a 192-segment sphere. A real fix needs smooth normals in the shadow pass (skip pixels facing away from the light, offset ray origins along the normal), which means a normal texture in ShadowContext.
+
+---
+
+## 59: Examples demos have no rendering tests
+
++++
+status: closed
+priority: medium
+kind: task
+labels: area:examples, area:testing
+created: 2026-09-30T16:34:13Z
+updated: 2026-09-30T17:24:08Z
+closed: 2026-09-30T17:24:08Z
++++
+
+Only the package unit tests run. Nothing checks that the MetalSprocketsAddOnsExamples demos render correctly, and CI may not build the Examples app at all.
+
+Four demo bugs were only found by looking at the running app: geometry cut by a vertical ground plane (#55), a hole in the Debug Shading sphere (#57), Slug text clipped by the far plane (#56), and animations frozen by Float time precision. A ray-traced shadow transform bug in the library was also only visible in the demo, because its golden image had been recorded with the bug.
+
+---
+
+## 60: RayTracedShadowComputePass still packs the acceleration structure into its parameter struct
+
++++
+status: new
+priority: low
+kind: task
+labels: area:rendering, area:metal4, effort:s
+created: 2026-09-30T18:49:31Z
++++
+
+During the Metal 4 port, MetalSprockets could not bind acceleration structures as shader parameters, so the instance acceleration structure was moved into `RayTracedShadowParameters` as an `MTLResourceID` (RayTracedShadows.h, RayTracedShadows.metal, RayTracedShadows.swift) instead of a `[[buffer(0)]]` kernel argument.
+
+MetalSprockets metal4 now supports `.parameter(_:accelerationStructure:)` (MetalSprockets #452), so the struct field and the kernel change are no longer needed.
+
+---
+
+## 61: GaussianBlurPipeline uses a custom kernel; MPS may work again on Metal 4
+
++++
+status: new
+priority: low
+kind: task
+labels: area:metal4, effort:s
+created: 2026-09-30T18:49:31Z
++++
+
+During the Metal 4 port, MetalSprockets had no way to encode MPS work, so GaussianBlurPipeline was rewritten from MPSImageGaussianBlur to a custom two-pass separable compute kernel (GaussianBlur.metal), and its edgeMode changed from MPSImageEdgeMode to its own enum.
+
+MetalSprockets metal4 now documents which MPS kernels work on Metal 4 (MetalSprockets #451). It is not known yet whether MPSImageGaussianBlur is one of them.
+
+---
+
+## 62: ShadowTestScene ground plane is vertical
+
++++
+status: new
+priority: low
+kind: bug
+labels: area:testing, effort:s
+created: 2026-09-30T18:49:31Z
++++
+
+Tests/MetalSprocketsAddOnsTests/Support/ShadowTestScene.swift builds the ground with `MTKMesh.plane(width:height:)` and only translates it to y = -1. MTKMesh.plane lies in the XY plane, so the "ground" is a vertical wall at z = 0, not a floor. This is the same mistake fixed in the Examples demos in #55.
+
+The shadow-map and ray-traced shadow tests and their golden images (for example RayTracedShadowSphere) render this scene, so they do not test shadows cast onto a floor.
+
+---
+
+## 63: Lighting writes GPU-visible buffers in place while frames are in flight
+
++++
+status: new
+priority: high
+kind: bug
+labels: area:metal4
+created: 2026-10-02T22:34:29Z
++++
+
+Lighting.setLightPosition(_:at:) and setLight(_:at:) write through lights.contents() and lightPositions.contents() into shared MTLBuffers. Callers animate lights every frame. Examples: RayTracedShadow, ShadowMap, BlinnPhong, and PBR via LightingAnimator. Up to maximumInFlightSubmissions (default 3) earlier frames may still read those buffers, so this is a CPU/GPU race: lights can jitter or tear. Fix options: a ring of buffers sized to frames in flight, copy-on-write per frame, or pass the light data as parameter values. Reported from MetalSprocketsExamples #439.
+
+---
+
+## 64: VideoTexturePipeline releases the CVMetalTexture before the GPU is done
+
++++
+status: new
+priority: high
+kind: bug
+labels: area:metal4
+created: 2026-10-02T22:34:29Z
++++
+
+VideoTexturePipeline.updateFrame keeps only CVMetalTextureGetTexture(cvTexture) in currentTexture. The CVMetalTexture is a local and is released right away. The CVMetalTextureCache can then recycle the backing IOSurface while in-flight frames still sample the MTLTexture. Keep the CVMetalTexture (or CVPixelBuffer) alive with the frame, and expose it as an owner so callers can retain it until completion, like YCbCrBillboardRenderPass(owners:). Affects VideoPlayback and AppleEventLogo in MetalSprocketsExamples (#439).
+
+---
+
+## 65: ShadowMapDepthPass needs a WAR barrier before rewriting the shadow map
+
++++
+status: new
+priority: medium
+kind: bug
+labels: area:metal4
+created: 2026-10-02T22:34:29Z
++++
+
+Each depth RenderPass in ShadowMapDepthPass ends with barrierAfterPass(after: .fragment, beforeQueueStages: [.vertex, .fragment, .dispatch]), but nothing orders it after earlier readers. The next frame can clear and rewrite the shadow map while the previous frame's main pass (fragment) and ShadowMaskPass (dispatch) still sample it. Add QueueBarrier(after: [.dispatch, .fragment], before: .fragment) at the start of each depth RenderPass. Callers cannot add it from outside, because a QueueBarrier only gates its own encoder. Reported from MetalSprocketsExamples #439.
 
 ---

@@ -138,17 +138,15 @@ public struct GraphicsContext3DRenderPipeline: Element {
                 if joinCount > 0 {
                     try MeshRenderPipeline(label: "GraphicsContext3D Stroke", objectShader: objectShader, meshShader: meshShader, fragmentShader: meshFragmentShader) {
                         Draw { encoder in
-                            encoder.withDebugGroup("GraphicsContext3D Stroke Mesh Shader (joinCount: \(joinCount))") {
-                                encoder.label = "GraphicsContext3D Stroke Mesh Encoder"
-                                encoder.setCullMode(.none)
-                                encoder.setTriangleFillMode(debugWireframe ? .lines : .fill)
-                                encoder.drawMeshThreadgroups(
-                                    MTLSize(width: joinCount, height: 1, depth: 1),
-                                    threadsPerObjectThreadgroup: MTLSize(width: 1, height: 1, depth: 1),
-                                    threadsPerMeshThreadgroup: MTLSize(width: 1, height: 1, depth: 1)
-                                )
-                            }
+                            encoder.setCullMode(.none)
+                            encoder.setTriangleFillMode(debugWireframe ? .lines : .fill)
+                            encoder.drawMeshThreadgroups(
+                                threadgroupsPerGrid: MTLSize(width: joinCount, height: 1, depth: 1),
+                                threadsPerObjectThreadgroup: MTLSize(width: 1, height: 1, depth: 1),
+                                threadsPerMeshThreadgroup: MTLSize(width: 1, height: 1, depth: 1)
+                            )
                         }
+                        .debugGroup("GraphicsContext3D Stroke Mesh Shader (joinCount: \(joinCount))")
                         .parameter("joinData", functionType: .mesh, buffer: joinDataBuffer, offset: 0)
                         .parameter("uniforms", functionType: .mesh, buffer: uniformsBuffer, offset: 0)
                     }
@@ -158,13 +156,11 @@ public struct GraphicsContext3DRenderPipeline: Element {
                 if fillVertexCount > 0 {
                     try RenderPipeline(label: "GraphicsContext3D Fill", vertexShader: fillVertexShader, fragmentShader: fillFragmentShader) {
                         Draw { encoder in
-                            encoder.withDebugGroup("GraphicsContext3D Fill Geometry (fillVertexCount: \(fillVertexCount))") {
-                                encoder.label = "GraphicsContext3D Fill Encoder"
-                                encoder.setCullMode(.none)
-                                encoder.setTriangleFillMode(debugWireframe ? .lines : .fill)
-                                encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: fillVertexCount)
-                            }
+                            encoder.setCullMode(.none)
+                            encoder.setTriangleFillMode(debugWireframe ? .lines : .fill)
+                            encoder.drawPrimitives(primitiveType: .triangle, vertexStart: 0, vertexCount: fillVertexCount)
                         }
+                        .debugGroup("GraphicsContext3D Fill Geometry (fillVertexCount: \(fillVertexCount))")
                         .parameter("vertices", functionType: .vertex, buffer: fillVertexBuffer, offset: 0)
                     }
                     .depthCompare(function: .less, enabled: true)
@@ -173,7 +169,7 @@ public struct GraphicsContext3DRenderPipeline: Element {
                         guard let attachment = descriptor.colorAttachments[0] else {
                             return
                         }
-                        attachment.isBlendingEnabled = true
+                        attachment.blendingState = .enabled
                         attachment.rgbBlendOperation = .add
                         attachment.alphaBlendOperation = .add
                         attachment.sourceRGBBlendFactor = .sourceAlpha

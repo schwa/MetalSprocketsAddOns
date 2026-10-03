@@ -17,7 +17,7 @@ import SwiftUI
 /// each light, so shadows are decoupled from any shadow-map resolution.
 struct RayTracedShadowsDemoView: View {
     @State private var camera = OrbitCamera(pitch: -.pi / 7, distance: 9, target: [0, 0.5, 0])
-    @State private var scene: RayTracedScene?
+    @State private var scene: RayTracedShadowsDemoScene?
     @State private var shadowIntensity: Float = 0.85
     @State private var showShadows = true
     @State private var debugOverlay = false
@@ -33,8 +33,8 @@ struct RayTracedShadowsDemoView: View {
                 TimelineView(.animation(paused: !animate)) { timeline in
                     renderView
                         .onChange(of: timeline.date, initial: true) {
-                            let t = Float(timeline.date.timeIntervalSinceReferenceDate) * 0.5
-                            scene?.lighting.setLightPosition([cos(t) * 5, 6, sin(t) * 5], at: 0)
+                            let position = RayTracedShadowsDemoScene.lightPosition(at: timeline.date.animationTime(wrappingEvery: .pi * 4))
+                            scene?.lighting.setLightPosition(position, at: 0)
                         }
                 }
                 .orbitCamera($camera)
@@ -57,7 +57,7 @@ struct RayTracedShadowsDemoView: View {
             guard supportsRayTracing else {
                 return
             }
-            scene = try? RayTracedScene()
+            scene = try? RayTracedShadowsDemoScene()
         }
     }
 
@@ -80,7 +80,7 @@ struct RayTracedShadowsDemoView: View {
             .metalDepthStencilPixelFormat(.depth32Float)
             .metalDepthStencilAttachmentTextureUsage([.renderTarget, .shaderRead])
             .metalFramebufferOnly(false)
-            .metalClearColor(MTLClearColor(red: 0.05, green: 0.06, blue: 0.09, alpha: 1))
+            .metalClearColor(RayTracedShadowsDemoScene.clearColor)
         }
     }
 }
@@ -89,8 +89,16 @@ struct RayTracedShadowsDemoView: View {
 ///
 /// `@unchecked Sendable` mirrors the rest of MetalSprockets: the element tree is walked on a
 /// single thread, and this object is only ever touched from there.
-private final class RayTracedScene: @unchecked Sendable {
+final class RayTracedShadowsDemoScene: @unchecked Sendable {
     typealias Model = (mesh: MTKMesh, transform: simd_float4x4, color: SIMD3<Float>)
+
+    static let clearColor = MTLClearColor(red: 0.05, green: 0.06, blue: 0.09, alpha: 1)
+
+    /// The light orbits the scene; `time` is in seconds.
+    static func lightPosition(at time: Float) -> SIMD3<Float> {
+        let angle = time * 0.5
+        return [cos(angle) * 5, 6, sin(angle) * 5]
+    }
 
     let models: [Model]
     let accelerationStructureManager: AccelerationStructureManager
@@ -98,9 +106,11 @@ private final class RayTracedScene: @unchecked Sendable {
 
     init() throws {
         models = [
-            (.sphere(extent: [1.2, 1.2, 1.2]), .init(translation: [-1.4, 0.6, 0]), [0.85, 0.4, 0.3]),
+            // Finely tessellated so the ray-traced self-shadow edge stays smooth (#58).
+            (.sphere(radius: 0.6, segments: 192), .init(translation: [-1.4, 0.6, 0]), [0.85, 0.4, 0.3]),
             (.box(extent: [1, 2, 1]), .init(translation: [1.4, 1, 0]), [0.3, 0.5, 0.9]),
-            (.plane(width: 12, height: 12), .init(translation: [0, 0, 0]), [0.8, 0.8, 0.82])
+            // MTKMesh.plane is in the XY plane; lay it flat on y = 0.
+            (.plane(width: 12, height: 12), .init(simd_quatf(angle: -.pi / 2, axis: [1, 0, 0])), [0.8, 0.8, 0.82])
         ]
         var manager = try AccelerationStructureManager()
         try manager.build(
@@ -117,8 +127,8 @@ private final class RayTracedScene: @unchecked Sendable {
     }
 }
 
-private struct RayTracedShadowsElement: Element {
-    var scene: RayTracedScene
+struct RayTracedShadowsElement: Element {
+    var scene: RayTracedShadowsDemoScene
     var viewProjection: simd_float4x4
     var shadowIntensity: Float
     var showShadows: Bool
@@ -135,10 +145,8 @@ private struct RayTracedShadowsElement: Element {
                         modelViewProjection: viewProjection * model.transform,
                         textureSpecifier: ColorSource.color(model.color)
                     ) {
-                        Draw { encoder in
-                            encoder.setVertexBuffers(of: model.mesh)
-                            encoder.draw(model.mesh)
-                        }
+                        Draw(mesh: model.mesh)
+                        .vertexBuffers(of: model.mesh)
                     }
                     .vertexDescriptor(MTLVertexDescriptor(model.mesh.vertexDescriptor))
                     .depthCompare(function: .less, enabled: true)

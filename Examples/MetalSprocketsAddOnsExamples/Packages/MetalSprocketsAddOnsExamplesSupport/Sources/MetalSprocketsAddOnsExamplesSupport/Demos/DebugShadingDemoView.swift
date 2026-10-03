@@ -22,39 +22,21 @@ struct DebugShadingDemoView: View {
     @State private var wireframe = false
     @State private var useSphere = true
 
-    private let sphere = makeTangentBasisMesh(.sphere)
-    private let box = makeTangentBasisMesh(.box)
-
-    private var mesh: MTKMesh { useSphere ? sphere : box }
+    private let scene = DebugShadingDemoScene()
 
     var body: some View {
         DemoLayout {
             RenderView { _, drawableSize in
-                let projection = camera.projectionMatrix(drawableSize: drawableSize)
-                let mesh = mesh
-                try RenderPass {
-                    try DebugRenderPipeline(
-                        modelMatrix: matrix_identity_float4x4,
-                        normalMatrix: matrix_identity_float3x3,
-                        debugMode: debugMode,
-                        lightPosition: [3, 4, 3],
-                        cameraPosition: camera.position,
-                        viewProjectionMatrix: projection * camera.viewMatrix
-                    ) {
-                        Draw { encoder in
-                            if wireframe {
-                                encoder.setTriangleFillMode(.lines)
-                            }
-                            encoder.setVertexBuffers(of: mesh)
-                            encoder.draw(mesh)
-                        }
-                    }
-                    .vertexDescriptor(mesh.vertexDescriptor)
-                    .depthCompare(function: .less, enabled: true)
-                }
+                try scene.element(
+                    useSphere: useSphere,
+                    debugMode: debugMode,
+                    wireframe: wireframe,
+                    camera: camera,
+                    projection: camera.projectionMatrix(drawableSize: drawableSize)
+                )
             }
             .metalDepthStencilPixelFormat(.depth32Float)
-            .metalClearColor(MTLClearColor(red: 0.04, green: 0.04, blue: 0.06, alpha: 1))
+            .metalClearColor(DebugShadingDemoScene.clearColor)
             .orbitCamera($camera)
         } controls: {
             Picker("Mode", selection: $debugMode) {
@@ -65,6 +47,45 @@ struct DebugShadingDemoView: View {
             .pickerStyle(.inline)
             Toggle("Sphere", isOn: $useSphere)
             Toggle("Wireframe", isOn: $wireframe)
+        }
+    }
+}
+
+/// The demo's meshes and per-frame scene, separate from the view so tests can render it offscreen.
+struct DebugShadingDemoScene {
+    static let clearColor = MTLClearColor(red: 0.04, green: 0.04, blue: 0.06, alpha: 1)
+
+    let sphere = makeTangentBasisMesh(.sphere)
+    let box = makeTangentBasisMesh(.box)
+
+    func element(
+        useSphere: Bool,
+        debugMode: DebugShadersMode,
+        wireframe: Bool,
+        camera: OrbitCamera,
+        projection: simd_float4x4
+    ) throws -> some Element {
+        let mesh = useSphere ? sphere : box
+        return try RenderPass {
+            try DebugRenderPipeline(
+                modelMatrix: matrix_identity_float4x4,
+                normalMatrix: matrix_identity_float3x3,
+                debugMode: debugMode,
+                lightPosition: [3, 4, 3],
+                cameraPosition: camera.position,
+                viewProjectionMatrix: projection * camera.viewMatrix
+            ) {
+                Draw { encoder in
+                    if wireframe {
+                        encoder.setTriangleFillMode(.lines)
+                    }
+                    encoder.draw(mesh)
+                }
+                .vertexBuffers(of: mesh)
+                .useResources(mesh.submeshes.map(\.indexBuffer.buffer), usage: .read, stages: .vertex)
+            }
+            .vertexDescriptor(mesh.vertexDescriptor)
+            .depthCompare(function: .less, enabled: true)
         }
     }
 }
@@ -80,7 +101,7 @@ private enum DemoShape {
 /// interleaved into vertex buffer 0.
 ///
 /// Model I/O's `addTangentBasis` otherwise spreads attributes across several buffers, and
-/// `setVertexBuffers(of:)` then binds those at vertex buffer indices 1, 2, … — clobbering the
+/// `vertexBuffers(of:)` then binds those at vertex buffer indices 1, 2, … — clobbering the
 /// uniform buffers the debug shaders declare at exactly those indices.
 private func makeTangentBasisMesh(_ shape: DemoShape) -> MTKMesh {
     let device = _MTLCreateSystemDefaultDevice()
@@ -104,7 +125,8 @@ private func makeTangentBasisMesh(_ shape: DemoShape) -> MTKMesh {
             allocator: allocator
         )
     }
-    mdlMesh.addNormals(withAttributeNamed: MDLVertexAttributeNormal, creaseThreshold: 0)
+    // The primitives already have normals. Regenerating them with a crease threshold of 0 gives
+    // zero-length normals on the degenerate triangles at the sphere poles, which leaves holes.
     mdlMesh.addTangentBasis(
         forTextureCoordinateAttributeNamed: MDLVertexAttributeTextureCoordinate,
         tangentAttributeNamed: MDLVertexAttributeTangent,

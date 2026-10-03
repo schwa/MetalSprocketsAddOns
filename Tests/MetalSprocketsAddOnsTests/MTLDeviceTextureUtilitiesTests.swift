@@ -12,7 +12,7 @@ import Testing
 
 // MARK: - Cross → Cube
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testMakeTextureCubeFromCrossTexture_facesCopied() throws {
     let device = _MTLCreateSystemDefaultDevice()
@@ -101,7 +101,7 @@ func testMakeTextureCubeFromCrossTexture_facesCopied() throws {
     }
 }
 
-@Test
+@Test(.requiresMetal4)
 // The `async` is the point of the test: it runs off the main actor, so there is nothing to await.
 // swiftlint:disable:next async_without_await
 func testMakeTextureCubeFromCrossTexture_offMainActor() async throws {

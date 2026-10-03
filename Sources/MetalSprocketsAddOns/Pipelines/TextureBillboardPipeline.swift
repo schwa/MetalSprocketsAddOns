@@ -77,16 +77,16 @@ public struct TextureBillboardPipeline: Element {
         get throws {
             try RenderPipeline(label: "TextureBillboard", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 try Draw { encoder in
-                    encoder.setVertexBytes(positions, length: MemoryLayout<SIMD2<Float>>.stride * positions.count, index: 0)
-                    encoder.setVertexBytes(textureCoordinates, length: MemoryLayout<SIMD2<Float>>.stride * textureCoordinates.count, index: 1)
-                    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: positions.count)
+                    encoder.drawPrimitives(primitiveType: .triangleStrip, vertexStart: 0, vertexCount: positions.count)
                 }
+                .vertexValues(positions, index: 0)
+                .vertexValues(textureCoordinates, index: 1)
                 .parameter("transformColorParameters", value: Int32(0)) // TODO: Placeholder
                 .argumentBuffer("specifierA", value: specifierA)
                 .argumentBuffer("specifierB", value: specifierB)
             }
             .vertexDescriptor(vertexShader.inferredVertexDescriptor())
-            .environment(\.linkedFunctions, colorTransformGraph.linkedFunctions)
+            .linkedFunctions(colorTransformGraph.linkedFunctions)
         }
     }
 }
