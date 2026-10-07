@@ -1700,7 +1700,7 @@ priority: low
 kind: bug
 labels: area:rendering, effort:m
 created: 2026-09-30T16:34:13Z
-updated: 2026-10-07T18:59:49Z
+updated: 2026-10-07T19:07:58Z
 +++
 
 With RayTracedShadowComputePass, the shadow a sphere casts on itself has a blocky, stair-stepped edge instead of following the curve. The shadow cast onto the ground looks correct.
@@ -1714,6 +1714,7 @@ This was hidden until the instance-transform fix: before it, every instance sat 
 Cause not investigated. My guess is self-intersection of shadow rays with the flat triangles of the tessellated sphere, since the origin is reconstructed from the depth buffer and offset by a distance-scaled bias.
 
 - `2026-09-30T17:11:35Z`: Diagnosed: the steps are the sphere's triangles (the shadow-terminator problem). A 192-segment sphere gives proportionally smaller steps than 48. The kernel only has depth, so a pixel on a triangle facing away from the light casts a ray that hits the far side of its own mesh. FlatShader has no N·L falloff, so the ray-traced pass alone defines the edge and the steps show. Mitigated in the Ray-Traced Shadows demo by using a 192-segment sphere. A real fix needs smooth normals in the shadow pass (skip pixels facing away from the light, offset ray origins along the normal), which means a normal texture in ShadowContext.
+- `2026-10-07T19:07:58Z`: Auto-fixer punt. Tried: reviewed the kernel and ShadowContext. Normals rebuilt from the depth buffer are per-triangle, so they would still give a stair-stepped edge. Punting: a real fix needs smooth shading normals in the shadow pass, which is a public API change (an optional normal texture in ShadowContext, every scene pass writing it, ShadowMaskPass/RayTracedShadowComputePass reading it). Unblocker: decide if ShadowContext should get an optional normal texture (and in what format/space), or if callers should hide the terminator with N·L lighting.
 
 ---
 
