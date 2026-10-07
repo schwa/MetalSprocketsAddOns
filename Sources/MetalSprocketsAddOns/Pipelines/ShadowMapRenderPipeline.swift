@@ -240,6 +240,9 @@ public struct ShadowMapDepthPass<Content>: Element where Content: Element {
             ForEach(Array(0..<shadowMap.lightCount), id: \.self) { lightIndex in
                 let lightVP = shadowMap.lightViewProjectionMatrices[lightIndex]
                 try RenderPass(label: "Shadow Map Depth [\(lightIndex)]") {
+                    // Earlier frames may still sample the shadow map (main pass fragment, ShadowMaskPass
+                    // dispatch); wait for them before overwriting it.
+                    QueueBarrier(after: [.dispatch, .fragment], before: .fragment)
                     try RenderPipeline(label: "Shadow Map Depth [\(lightIndex)]", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                         content
                             .parameter("lightViewProjectionMatrix", functionType: .vertex, value: lightVP)

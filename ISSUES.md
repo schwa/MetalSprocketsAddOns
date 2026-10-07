@@ -1823,15 +1823,18 @@ VideoTexturePipeline.updateFrame keeps only CVMetalTextureGetTexture(cvTexture) 
 ## 65: ShadowMapDepthPass needs a WAR barrier before rewriting the shadow map
 
 +++
-status: open
+status: closed
 priority: medium
 kind: bug
 labels: area:metal4, effort:s
 created: 2026-10-02T22:34:29Z
-updated: 2026-10-07T18:59:49Z
+updated: 2026-10-07T19:06:38Z
+closed: 2026-10-07T19:06:38Z
 +++
 
 Each depth RenderPass in ShadowMapDepthPass ends with barrierAfterPass(after: .fragment, beforeQueueStages: [.vertex, .fragment, .dispatch]), but nothing orders it after earlier readers. The next frame can clear and rewrite the shadow map while the previous frame's main pass (fragment) and ShadowMaskPass (dispatch) still sample it. Add QueueBarrier(after: [.dispatch, .fragment], before: .fragment) at the start of each depth RenderPass. Callers cannot add it from outside, because a QueueBarrier only gates its own encoder. Reported from MetalSprocketsExamples #439.
+
+- `2026-10-07T19:06:38Z`: No regression test: the hazard is a cross-frame GPU timing race that a deterministic unit test cannot reproduce. Existing shadow-map golden tests still pass. Unverified: whether a queue barrier inside the encoder also orders the depth attachment clear (load action); if tearing persists, that needs an encoder-level option in MetalSprockets.
 
 ---
 
