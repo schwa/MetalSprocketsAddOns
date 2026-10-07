@@ -1824,3 +1824,48 @@ created: 2026-10-02T22:34:29Z
 Each depth RenderPass in ShadowMapDepthPass ends with barrierAfterPass(after: .fragment, beforeQueueStages: [.vertex, .fragment, .dispatch]), but nothing orders it after earlier readers. The next frame can clear and rewrite the shadow map while the previous frame's main pass (fragment) and ShadowMaskPass (dispatch) still sample it. Add QueueBarrier(after: [.dispatch, .fragment], before: .fragment) at the start of each depth RenderPass. Callers cannot add it from outside, because a QueueBarrier only gates its own encoder. Reported from MetalSprocketsExamples #439.
 
 ---
+
+## 66: GraphicsContext3DRenderPipeline regenerates all geometry whenever the camera moves
+
++++
+status: new
+priority: medium
+kind: enhancement
+labels: performance
+created: 2026-10-07T18:40:28Z
++++
+
+`GraphicsContext3DRenderPipeline` regenerates all geometry when `previousContext != context`, `previousViewProjection != viewProjection`, or `previousViewport != viewport`. In apps where the camera moves every frame (AR, orbit cameras), this rebuilds all stroke join data on the CPU every frame, even when the context did not change.
+
+Only part of that work depends on the view-projection matrix or viewport:
+- Curve tessellation (`estimateQuadCurveScreenLength` / `estimateCubicCurveScreenLength` pick the segment count from screen length).
+- Fill geometry.
+- The `LineJoinUniforms` buffer, which holds `viewProjection` and `viewport` for the mesh shader.
+
+Stroke join data (`LineJoinGPUData`) is in world space and `generateJoinDataForSubpath` does not read `viewProjection`; the mesh shader does the projection. For straight-line strokes, only the uniforms change per frame.
+
+Related: the join data, fill vertex and uniforms buffers are single shared `@MSState` buffers that are rewritten in place during `body`, so a rewrite can happen while a previous frame's GPU work still reads them.
+
+Seen in ARSprockets (~/Projects/Scratch/ARSprockets), which strokes ARKit plane outlines with a camera that moves every frame.
+
+---
+
+## 67: GraphicsContext3D strokes fly off screen when a segment crosses behind the camera
+
++++
+status: new
+priority: high
+kind: bug
+labels: rendering
+created: 2026-10-07T18:46:20Z
++++
+
+Stroked paths drawn with `GraphicsContext3DRenderPipeline` produce long lines shooting across the screen when part of the path is behind the camera.
+
+In `GraphicsContext3DShaders.metal`, `toScreen` divides clip-space xy by `clipPos.w` with no near-plane clipping. For a point behind the camera, `w` is negative, so the projected point is mirrored to the other side of the screen; points close to the camera plane project to very large coordinates. The mesh shader then emits every vertex with `w = 1` (`float4(toClip(...), 1.0)`), so the rasterizer cannot clip the triangles against the near plane.
+
+`toScreen` only guards `abs(clipPos.w) < 1e-6`, which returns (0, 0) and also produces wrong geometry.
+
+Seen in ARSprockets (~/Projects/Scratch/ARSprockets) stroking ARKit plane outlines. The user stands inside the room, so floor and wall outlines often pass behind the camera.
+
+---
