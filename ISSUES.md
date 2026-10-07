@@ -1828,11 +1828,13 @@ Each depth RenderPass in ShadowMapDepthPass ends with barrierAfterPass(after: .f
 ## 66: GraphicsContext3DRenderPipeline regenerates all geometry whenever the camera moves
 
 +++
-status: new
+status: closed
 priority: medium
 kind: enhancement
 labels: performance
 created: 2026-10-07T18:40:28Z
+updated: 2026-10-07T18:53:24Z
+closed: 2026-10-07T18:53:24Z
 +++
 
 `GraphicsContext3DRenderPipeline` regenerates all geometry when `previousContext != context`, `previousViewProjection != viewProjection`, or `previousViewport != viewport`. In apps where the camera moves every frame (AR, orbit cameras), this rebuilds all stroke join data on the CPU every frame, even when the context did not change.
@@ -1853,11 +1855,13 @@ Seen in ARSprockets (~/Projects/Scratch/ARSprockets), which strokes ARKit plane 
 ## 67: GraphicsContext3D strokes fly off screen when a segment crosses behind the camera
 
 +++
-status: new
+status: closed
 priority: high
 kind: bug
 labels: rendering
 created: 2026-10-07T18:46:20Z
+updated: 2026-10-07T18:53:25Z
+closed: 2026-10-07T18:53:25Z
 +++
 
 Stroked paths drawn with `GraphicsContext3DRenderPipeline` produce long lines shooting across the screen when part of the path is behind the camera.

@@ -28,11 +28,29 @@ namespace GraphicsContext3D {
         return 16;
     }
 
-    float2 toScreen(float3 point3D, float4x4 viewProjection, float2 viewport) {
-        float4 clipPos = viewProjection * float4(point3D, 1.0);
-        if (abs(clipPos.w) < 1e-6) return float2(0, 0);
+    // Points with w below this are behind (or on) the camera plane. Segments are clipped to it
+    // before the perspective divide; the rasterizer's depth clip then trims at the real near plane.
+    constant float minimumW = 1e-4;
+
+    // Callers must clip first so clipPos.w >= minimumW.
+    float2 toScreen(float4 clipPos, float2 viewport) {
         float2 ndc = clipPos.xy / clipPos.w;
         return (ndc * 0.5 + 0.5) * viewport;
+    }
+
+    // Clips the clip-space segment a-b to w >= minimumW. Returns false if the whole segment is behind the camera.
+    bool clipSegment(thread float4& a, thread float4& b) {
+        bool aVisible = a.w >= minimumW;
+        bool bVisible = b.w >= minimumW;
+        if (!aVisible && !bVisible) return false;
+        if (aVisible && bVisible) return true;
+        float4 crossing = mix(a, b, (minimumW - a.w) / (b.w - a.w));
+        if (aVisible) {
+            b = crossing;
+        } else {
+            a = crossing;
+        }
+        return true;
     }
 
     float3 toClip(float2 screenPos, float depth, float w, float2 viewport) {
@@ -64,38 +82,44 @@ namespace GraphicsContext3D {
         uint joinIndex = payload.joinIndex;
         LineJoinGPUData data = joinData[joinIndex];
 
-        float2 prevScreen = toScreen(data.prevPoint, uniforms.viewProjection, uniforms.viewport);
-        float2 joinScreen = toScreen(data.joinPoint, uniforms.viewProjection, uniforms.viewport);
-        float2 nextScreen = toScreen(data.nextPoint, uniforms.viewProjection, uniforms.viewport);
-
         float radius = data.lineWidth / 2.0;
 
         uint vertexCount = 0;
         uint primitiveCount = 0;
 
-        // Transform points to clip space for depth
         float4 prevClip = uniforms.viewProjection * float4(data.prevPoint, 1.0);
         float4 joinClip = uniforms.viewProjection * float4(data.joinPoint, 1.0);
         float4 nextClip = uniforms.viewProjection * float4(data.nextPoint, 1.0);
 
-        float prevDepth = prevClip.z / prevClip.w;
-        float joinDepth = joinClip.z / joinClip.w;
-        float nextDepth = nextClip.z / nextClip.w;
+        // Clip each half-segment against the camera plane before projecting, so points
+        // behind the camera are never mirrored across the screen.
+        float4 segmentAStart = prevClip;
+        float4 segmentAEnd = joinClip;
+        bool hasSegmentA = data.isStartCap == 0 && clipSegment(segmentAStart, segmentAEnd);
+
+        float4 segmentBStart = joinClip;
+        float4 segmentBEnd = nextClip;
+        bool hasSegmentB = data.isEndCap == 0 && clipSegment(segmentBStart, segmentBEnd);
 
         // Half-segment A: prevPoint to joinPoint
-        if (data.isStartCap == 0) {
-            float2 dirPrev = normalize(joinScreen - prevScreen);
-            float2 perpPrev = float2(-dirPrev.y, dirPrev.x);
+        if (hasSegmentA) {
+            float2 startScreen = toScreen(segmentAStart, uniforms.viewport);
+            float2 endScreen = toScreen(segmentAEnd, uniforms.viewport);
+            float startDepth = segmentAStart.z / segmentAStart.w;
+            float endDepth = segmentAEnd.z / segmentAEnd.w;
 
-            float2 p0 = prevScreen - perpPrev * radius;
-            float2 p1 = prevScreen + perpPrev * radius;
-            float2 p2 = joinScreen + perpPrev * radius;
-            float2 p3 = joinScreen - perpPrev * radius;
+            float2 direction = normalize(endScreen - startScreen);
+            float2 perpendicular = float2(-direction.y, direction.x);
 
-            mesh_out.set_vertex(vertexCount + 0, VertexOut{float4(toClip(p0, prevDepth, prevClip.w, uniforms.viewport), 1.0), data.color});
-            mesh_out.set_vertex(vertexCount + 1, VertexOut{float4(toClip(p1, prevDepth, prevClip.w, uniforms.viewport), 1.0), data.color});
-            mesh_out.set_vertex(vertexCount + 2, VertexOut{float4(toClip(p2, joinDepth, joinClip.w, uniforms.viewport), 1.0), data.color});
-            mesh_out.set_vertex(vertexCount + 3, VertexOut{float4(toClip(p3, joinDepth, joinClip.w, uniforms.viewport), 1.0), data.color});
+            float2 p0 = startScreen - perpendicular * radius;
+            float2 p1 = startScreen + perpendicular * radius;
+            float2 p2 = endScreen + perpendicular * radius;
+            float2 p3 = endScreen - perpendicular * radius;
+
+            mesh_out.set_vertex(vertexCount + 0, VertexOut{float4(toClip(p0, startDepth, 1.0, uniforms.viewport), 1.0), data.color});
+            mesh_out.set_vertex(vertexCount + 1, VertexOut{float4(toClip(p1, startDepth, 1.0, uniforms.viewport), 1.0), data.color});
+            mesh_out.set_vertex(vertexCount + 2, VertexOut{float4(toClip(p2, endDepth, 1.0, uniforms.viewport), 1.0), data.color});
+            mesh_out.set_vertex(vertexCount + 3, VertexOut{float4(toClip(p3, endDepth, 1.0, uniforms.viewport), 1.0), data.color});
 
             mesh_out.set_index(primitiveCount * 3 + 0, vertexCount + 0);
             mesh_out.set_index(primitiveCount * 3 + 1, vertexCount + 1);
@@ -111,19 +135,24 @@ namespace GraphicsContext3D {
         }
 
         // Half-segment B: joinPoint to nextPoint
-        if (data.isEndCap == 0) {
-            float2 dirNext = normalize(nextScreen - joinScreen);
-            float2 perpNext = float2(-dirNext.y, dirNext.x);
+        if (hasSegmentB) {
+            float2 startScreen = toScreen(segmentBStart, uniforms.viewport);
+            float2 endScreen = toScreen(segmentBEnd, uniforms.viewport);
+            float startDepth = segmentBStart.z / segmentBStart.w;
+            float endDepth = segmentBEnd.z / segmentBEnd.w;
 
-            float2 p0 = joinScreen - perpNext * radius;
-            float2 p1 = joinScreen + perpNext * radius;
-            float2 p2 = nextScreen + perpNext * radius;
-            float2 p3 = nextScreen - perpNext * radius;
+            float2 direction = normalize(endScreen - startScreen);
+            float2 perpendicular = float2(-direction.y, direction.x);
 
-            mesh_out.set_vertex(vertexCount + 0, VertexOut{float4(toClip(p0, joinDepth, joinClip.w, uniforms.viewport), 1.0), data.color});
-            mesh_out.set_vertex(vertexCount + 1, VertexOut{float4(toClip(p1, joinDepth, joinClip.w, uniforms.viewport), 1.0), data.color});
-            mesh_out.set_vertex(vertexCount + 2, VertexOut{float4(toClip(p2, nextDepth, nextClip.w, uniforms.viewport), 1.0), data.color});
-            mesh_out.set_vertex(vertexCount + 3, VertexOut{float4(toClip(p3, nextDepth, nextClip.w, uniforms.viewport), 1.0), data.color});
+            float2 p0 = startScreen - perpendicular * radius;
+            float2 p1 = startScreen + perpendicular * radius;
+            float2 p2 = endScreen + perpendicular * radius;
+            float2 p3 = endScreen - perpendicular * radius;
+
+            mesh_out.set_vertex(vertexCount + 0, VertexOut{float4(toClip(p0, startDepth, 1.0, uniforms.viewport), 1.0), data.color});
+            mesh_out.set_vertex(vertexCount + 1, VertexOut{float4(toClip(p1, startDepth, 1.0, uniforms.viewport), 1.0), data.color});
+            mesh_out.set_vertex(vertexCount + 2, VertexOut{float4(toClip(p2, endDepth, 1.0, uniforms.viewport), 1.0), data.color});
+            mesh_out.set_vertex(vertexCount + 3, VertexOut{float4(toClip(p3, endDepth, 1.0, uniforms.viewport), 1.0), data.color});
 
             mesh_out.set_index(primitiveCount * 3 + 0, vertexCount + 0);
             mesh_out.set_index(primitiveCount * 3 + 1, vertexCount + 1);
@@ -137,6 +166,18 @@ namespace GraphicsContext3D {
 
             vertexCount += 4;
         }
+
+        // Joins and caps sit on the join point, so skip them when it is behind the camera.
+        if (joinClip.w < minimumW) {
+            mesh_out.set_primitive_count(primitiveCount);
+            return;
+        }
+
+        // When the join point is visible, the clipped segment ends give the on-screen directions.
+        float2 joinScreen = toScreen(joinClip, uniforms.viewport);
+        float2 prevScreen = hasSegmentA ? toScreen(segmentAStart, uniforms.viewport) : joinScreen;
+        float2 nextScreen = hasSegmentB ? toScreen(segmentBEnd, uniforms.viewport) : joinScreen;
+        float joinDepth = joinClip.z / joinClip.w;
 
         // Join at center point
         if (data.isStartCap == 0 && data.isEndCap == 0) {
@@ -375,11 +416,13 @@ namespace GraphicsContext3D {
 
     [[vertex]] VertexOut vertexShader(
         const device GraphicsContext3DVertex* vertices [[buffer(0)]],
+        const device LineJoinUniforms& uniforms [[buffer(1)]],
         uint vertexID [[vertex_id]]
     ) {
         GraphicsContext3DVertex in = vertices[vertexID];
         VertexOut out;
-        out.position = float4(in.position, 1.0);
+        // Full clip-space position, so the rasterizer clips fills against the near plane.
+        out.position = uniforms.viewProjection * float4(in.position, 1.0);
         out.color = in.color;
         return out;
     }

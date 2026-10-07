@@ -25,17 +25,18 @@ public struct GraphicsContext3DRenderPipeline: Element {
     @MSState
     private var fillFragmentShader = ShaderLibrary.module.namespaced("GraphicsContext3D").requiredFunction(named: "fragmentShader", type: FragmentShader.self)
 
+    // Replaced (never rewritten) on regeneration, so in-flight frames keep reading their own copy.
     @MSState
     var joinDataBuffer: MTLBuffer?
-
-    @MSState
-    var uniformsBuffer: MTLBuffer?
 
     @MSState
     var fillVertexBuffer: MTLBuffer?
 
     @MSState
     var previousContext: GraphicsContext3D?
+
+    @MSState
+    var contextHasCurves = false
 
     @MSState
     var previousViewProjection: float4x4?
@@ -61,29 +62,17 @@ public struct GraphicsContext3DRenderPipeline: Element {
 
     public var body: some Element {
         get throws {
-            if let device {
-                if joinDataBuffer == nil {
-                    let bufferSize = 16 * 1_024 * 1_024
-                    joinDataBuffer = device.makeBuffer(length: bufferSize, options: .storageModeShared)
-                    joinDataBuffer?.label = "GraphicsContext3D Join Data Buffer"
-                }
-
-                if uniformsBuffer == nil {
-                    uniformsBuffer = device.makeBuffer(length: MemoryLayout<LineJoinUniforms>.stride, options: .storageModeShared)
-                    uniformsBuffer?.label = "GraphicsContext3D Uniforms Buffer"
-                }
-
-                if fillVertexBuffer == nil {
-                    let bufferSize = 64 * 1_024 * 1_024
-                    fillVertexBuffer = device.makeBuffer(length: bufferSize, options: .storageModeShared)
-                    fillVertexBuffer?.label = "GraphicsContext3D Fill Vertex Buffer"
-                }
+            guard let device else {
+                throw MetalSprocketsError.resourceCreationFailure("No Metal device in environment")
             }
 
+            // Join data and fill vertices are world space; only curve tessellation depends on the camera.
             let hasValidViewport = viewport.x > 0 && viewport.y > 0
-            let needsRegeneration = hasValidViewport && (previousContext != context || previousViewProjection != viewProjection || previousViewport != viewport)
+            let contextChanged = previousContext != context
+            let cameraChanged = previousViewProjection != viewProjection || previousViewport != viewport
+            let needsRegeneration = hasValidViewport && (contextChanged || (contextHasCurves && cameraChanged))
 
-            if needsRegeneration, let joinDataBuffer, let uniformsBuffer, let fillVertexBuffer {
+            if needsRegeneration {
                 let generator = GeometryGenerator(viewProjection: viewProjection, viewport: viewport)
 
                 var allJoinData: [LineJoinGPUData] = []
@@ -103,39 +92,35 @@ public struct GraphicsContext3DRenderPipeline: Element {
                     }
                 }
 
-                if !allJoinData.isEmpty {
-                    let byteCount = allJoinData.count * MemoryLayout<LineJoinGPUData>.stride
-                    joinDataBuffer.contents().copyMemory(from: allJoinData, byteCount: byteCount)
-                }
+                joinDataBuffer = try Self.makeBuffer(device: device, contents: allJoinData, label: "GraphicsContext3D Join Data Buffer")
                 joinCount = allJoinData.count
 
-                if !allFillVertices.isEmpty {
-                    let byteCount = allFillVertices.count * MemoryLayout<Vertex>.stride
-                    fillVertexBuffer.contents().copyMemory(from: allFillVertices, byteCount: byteCount)
-                }
+                fillVertexBuffer = try Self.makeBuffer(device: device, contents: allFillVertices, label: "GraphicsContext3D Fill Vertex Buffer")
                 fillVertexCount = allFillVertices.count
 
-                var uniforms = LineJoinUniforms(
-                    viewProjection: viewProjection,
-                    viewport: viewport,
-                    _padding: (0, 0)
-                )
-                uniformsBuffer.contents().copyMemory(from: &uniforms, byteCount: MemoryLayout<LineJoinUniforms>.stride)
-
+                if contextChanged {
+                    contextHasCurves = context.commands.contains { command in
+                        switch command {
+                        case let .stroke(path, _, _), let .fill(path, _):
+                            GeometryGenerator.hasCurves(path)
+                        case .text:
+                            false
+                        }
+                    }
+                }
                 previousContext = context
                 previousViewProjection = viewProjection
                 previousViewport = viewport
             }
 
-            guard let joinDataBuffer, let uniformsBuffer, let fillVertexBuffer else {
-                throw MetalSprocketsError.resourceCreationFailure("Failed to create required buffers")
-            }
+            // Uniforms are bound by value, so each frame gets its own copy.
+            let uniforms = LineJoinUniforms(viewProjection: viewProjection, viewport: viewport, _padding: (0, 0))
 
             // Only build a pipeline when it has something to draw. An empty
             // mesh pipeline still binds mesh-stage buffers, which traps on GPUs
             // without mesh-shader support (issue #29).
             return try Group {
-                if joinCount > 0 {
+                if joinCount > 0, let joinDataBuffer {
                     try MeshRenderPipeline(label: "GraphicsContext3D Stroke", objectShader: objectShader, meshShader: meshShader, fragmentShader: meshFragmentShader) {
                         Draw { encoder in
                             encoder.setCullMode(.none)
@@ -148,12 +133,12 @@ public struct GraphicsContext3DRenderPipeline: Element {
                         }
                         .debugGroup("GraphicsContext3D Stroke Mesh Shader (joinCount: \(joinCount))")
                         .parameter("joinData", functionType: .mesh, buffer: joinDataBuffer, offset: 0)
-                        .parameter("uniforms", functionType: .mesh, buffer: uniformsBuffer, offset: 0)
+                        .parameter("uniforms", functionType: .mesh, value: uniforms)
                     }
                     .depthCompare(function: .less, enabled: true)
                 }
 
-                if fillVertexCount > 0 {
+                if fillVertexCount > 0, let fillVertexBuffer {
                     try RenderPipeline(label: "GraphicsContext3D Fill", vertexShader: fillVertexShader, fragmentShader: fillFragmentShader) {
                         Draw { encoder in
                             encoder.setCullMode(.none)
@@ -162,6 +147,7 @@ public struct GraphicsContext3DRenderPipeline: Element {
                         }
                         .debugGroup("GraphicsContext3D Fill Geometry (fillVertexCount: \(fillVertexCount))")
                         .parameter("vertices", functionType: .vertex, buffer: fillVertexBuffer, offset: 0)
+                        .parameter("uniforms", functionType: .vertex, value: uniforms)
                     }
                     .depthCompare(function: .less, enabled: true)
                     .renderPipelineDescriptorTransformer { descriptor in
@@ -187,5 +173,19 @@ public struct GraphicsContext3DRenderPipeline: Element {
                 #endif
             }
         }
+    }
+
+    private static func makeBuffer<T>(device: MTLDevice, contents: [T], label: String) throws -> MTLBuffer? {
+        guard !contents.isEmpty else {
+            return nil
+        }
+        let buffer = contents.withUnsafeBytes { bytes in
+            device.makeBuffer(bytes: bytes.baseAddress!, length: bytes.count, options: .storageModeShared)
+        }
+        guard let buffer else {
+            throw MetalSprocketsError.resourceCreationFailure("Failed to create \(label)")
+        }
+        buffer.label = label
+        return buffer
     }
 }

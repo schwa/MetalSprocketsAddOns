@@ -52,6 +52,18 @@ internal struct GeometryGenerator {
         return (chordLength + controlLength) / 2
     }
 
+    /// Curve tessellation depends on screen length, so only curved paths depend on the view projection and viewport.
+    internal static func hasCurves(_ path: Path3D) -> Bool {
+        path.getElements().contains { element in
+            switch element {
+            case .quadCurve, .curve:
+                true
+            default:
+                false
+            }
+        }
+    }
+
     /// Number of line segments to approximate a curve of the given on-screen length.
     internal static func segmentCount(forScreenLength screenLength: Float) -> Int {
         let pixelsPerSegment: Float = 4.0
@@ -101,17 +113,10 @@ internal struct GeometryGenerator {
             let idx1 = Int(indices[i + 1])
             let idx2 = Int(indices[i + 2])
 
-            let p0Clip = viewProjection * SIMD4<Float>(points[idx0], 1.0)
-            let p1Clip = viewProjection * SIMD4<Float>(points[idx1], 1.0)
-            let p2Clip = viewProjection * SIMD4<Float>(points[idx2], 1.0)
-
-            let p0NDC = p0Clip.xyz / p0Clip.w
-            let p1NDC = p1Clip.xyz / p1Clip.w
-            let p2NDC = p2Clip.xyz / p2Clip.w
-
-            vertices.append(Vertex(position: p0NDC, color: color))
-            vertices.append(Vertex(position: p1NDC, color: color))
-            vertices.append(Vertex(position: p2NDC, color: color))
+            // World space; the vertex shader projects so the GPU clips against the near plane.
+            vertices.append(Vertex(position: points[idx0], color: color))
+            vertices.append(Vertex(position: points[idx1], color: color))
+            vertices.append(Vertex(position: points[idx2], color: color))
         }
 
         return vertices

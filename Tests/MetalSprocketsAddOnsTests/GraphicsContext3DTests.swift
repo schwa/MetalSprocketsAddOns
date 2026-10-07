@@ -446,3 +446,50 @@ func testGraphicsContext3D_fillRespectsAlpha() throws {
     #expect(center.x > 150 && center.x < 210)
     #expect(center.x == center.y && center.y == center.z)
 }
+
+@Test(.requiresMetal4)
+@MainActor
+func testGraphicsContext3D_strokeCrossingBehindCameraIsClipped() throws {
+    // Regression test for issue #67: a segment that passes behind the camera used to be
+    // mirrored across the screen. Every point here has x >= 0 and y >= 0, so its visible
+    // part projects only into the top-right quadrant; a mirrored part lands bottom-left.
+    let projection = perspectiveProjection()
+    let camera = float4x4(translation: SIMD3<Float>(0, 0, 3))
+    let viewProjection = projection * camera.inverse
+    let viewport = SIMD2<Float>(Float(defaultRenderSize.width), Float(defaultRenderSize.height))
+
+    let path = Path3D { path in
+        path.move(to: [0.1, 0.1, 0])
+        path.addLine(to: [0.5, 0.5, 10])
+    }
+    let context = GraphicsContext3D { ctx in
+        ctx.stroke(path, with: .white, style: StrokeStyle(lineWidth: 8, lineCap: .round, lineJoin: .round))
+    }
+
+    let renderPass = try RenderPass {
+        GraphicsContext3DRenderPipeline(context: context, viewProjection: viewProjection, viewport: viewport)
+    }
+    let renderer = try OffscreenRenderer(size: defaultRenderSize)
+    let rendering = try renderer.render(renderPass)
+
+    let width = Int(defaultRenderSize.width)
+    let height = Int(defaultRenderSize.height)
+    var pixels = [UInt8](repeating: 0, count: width * height * 4)
+    rendering.texture.getBytes(&pixels, bytesPerRow: width * 4, from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0)
+
+    // Texture rows run top to bottom, so the bottom-left quadrant is the lower-left of the array.
+    var litBottomLeft = 0
+    var litTopRight = 0
+    for y in 0..<height {
+        for x in 0..<width where pixels[(y * width + x) * 4 + 1] > 0 {
+            if x < width / 2 - 8, y > height / 2 + 8 {
+                litBottomLeft += 1
+            }
+            if x > width / 2, y < height / 2 {
+                litTopRight += 1
+            }
+        }
+    }
+    #expect(litTopRight > 0)
+    #expect(litBottomLeft == 0)
+}
