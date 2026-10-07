@@ -2306,12 +2306,13 @@ Replace all demo camera interaction with Interaction3D and remove OrbitCamera. T
 ## 89: PointCloudFramebuffer serializes frames with a queue barrier
 
 +++
-status: open
+status: closed
 priority: low
 kind: task
 labels: area:performance, effort:s, area:rendering
 created: 2026-10-07T21:19:16Z
-updated: 2026-10-07T21:44:20Z
+updated: 2026-10-07T21:47:45Z
+closed: 2026-10-07T21:47:45Z
 +++
 
 PointCloudRasterizePass clears and rewrites one shared per-pixel buffer each frame. To avoid racing earlier frames' resolve passes it starts with QueueBarrier(after: [.fragment, .dispatch], before: [.blit, .dispatch]), which makes each frame wait for the previous frame's fragment work. A buffer per frame in flight would remove that wait. Blocked on MetalSprockets#485 (no per-frame index).

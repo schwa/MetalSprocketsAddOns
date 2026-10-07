@@ -186,6 +186,32 @@ func testPointCloud_goldenImage() throws {
     #expect(try image.isEqualToGoldenImage(named: "PointCloudHelix"))
 }
 
+// MARK: - Frames in flight
+
+// Issue #89: each submission rasterizes into its own buffer, one per frame in flight, so a frame
+// never clears a buffer an earlier frame may still be resolving.
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_framebufferHasOneBufferPerFrameInFlight() throws {
+    let buffer = try makePointBuffer([PointCloudPoint(position: .zero, color: [255, 255, 255, 255])])
+    let framebuffer = PointCloudFramebuffer()
+    // OffscreenRenderer's runner allows 3 submissions in flight.
+    let renderer = try OffscreenRenderer(size: defaultRenderSize)
+    var used: [ObjectIdentifier] = []
+    for _ in 0..<4 {
+        let element = try MetalSprockets.Group {
+            try PointCloudRasterizePass(points: buffer, count: 1, viewProjection: viewProjection(), viewportSize: size, framebuffer: framebuffer)
+            try RenderPass {
+                try PointCloudResolvePipeline(framebuffer: framebuffer)
+            }
+        }
+        _ = try renderer.render(element)
+        used.append(ObjectIdentifier(try #require(framebuffer.buffer)))
+    }
+    #expect(Set(used.prefix(3)).count == 3)
+    #expect(used[3] == used[0])
+}
+
 // MARK: - Colour space
 
 // Issue #81: OffscreenRenderer targets bgra8Unorm_srgb. sRGB-encoded colours must round-trip;

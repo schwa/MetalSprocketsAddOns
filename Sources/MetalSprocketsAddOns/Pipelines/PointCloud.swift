@@ -45,8 +45,12 @@ public extension PointCloudPoint {
 /// Create one per view and pass the same instance to both elements. The rasterize pass sizes it to
 /// the viewport each frame.
 public final class PointCloudFramebuffer {
+    /// The buffer for the frame being recorded.
     public private(set) var buffer: MTLBuffer?
     public private(set) var parameters: PointCloudParameters?
+
+    // One buffer per frame in flight, so a frame never clears a buffer an earlier frame still reads.
+    private var slots: [MTLBuffer?] = []
 
     public init() {
         // Buffer is created by the first rasterize pass.
@@ -57,15 +61,23 @@ public final class PointCloudFramebuffer {
         device.supportsFamily(.apple8)
     }
 
-    fileprivate func prepare(device: MTLDevice, parameters: PointCloudParameters) throws -> MTLBuffer {
-        let length = Int(parameters.viewportSize.x) * Int(parameters.viewportSize.y) * MemoryLayout<UInt64>.stride
-        if let buffer, buffer.length == length, buffer.device === device {
-            self.parameters = parameters
-            return buffer
+    /// Picks the buffer for this submission: `submissionIndex % slotCount`.
+    fileprivate func prepare(device: MTLDevice, parameters: PointCloudParameters, submissionIndex: UInt64, slotCount: Int) throws -> MTLBuffer {
+        let slotCount = max(slotCount, 1)
+        if slots.count != slotCount {
+            slots = Array(repeating: nil, count: slotCount)
         }
-        let buffer = try device.makeBuffer(length: length, options: .storageModePrivate)
-            .orThrow(.resourceCreationFailure("Failed to create point cloud framebuffer"))
-        buffer.label = "PointCloud Framebuffer"
+        let slot = Int(submissionIndex % UInt64(slotCount))
+        let length = Int(parameters.viewportSize.x) * Int(parameters.viewportSize.y) * MemoryLayout<UInt64>.stride
+        let buffer: MTLBuffer
+        if let existing = slots[slot], existing.length == length, existing.device === device {
+            buffer = existing
+        } else {
+            buffer = try device.makeBuffer(length: length, options: .storageModePrivate)
+                .orThrow(.resourceCreationFailure("Failed to create point cloud framebuffer"))
+            buffer.label = "PointCloud Framebuffer \(slot)"
+            slots[slot] = buffer
+        }
         self.buffer = buffer
         self.parameters = parameters
         return buffer
@@ -124,7 +136,9 @@ public enum PointCloudShaderSupport {
 /// Rasterizes points into a ``PointCloudFramebuffer`` with a compute pass.
 ///
 /// - Important: This element runs its own compute pass, so place it as a sibling *before* the
-///   render pass that contains the matching ``PointCloudResolvePipeline``.
+///   render pass that contains the matching ``PointCloudResolvePipeline``. It does not wait for
+///   earlier GPU work, so if the points (or `userData`) are written on the GPU in the same frame,
+///   order that work before this pass yourself.
 public struct PointCloudRasterizePass: Element {
     let points: MTLBuffer
     let pointCount: Int
@@ -141,6 +155,12 @@ public struct PointCloudRasterizePass: Element {
     // Bound as `userData` when the describe function has none.
     @MSState
     private var emptyUserData: MTLBuffer?
+
+    @MSEnvironment(\.submissionIndex)
+    private var submissionIndex
+
+    @MSEnvironment(\.maximumInFlightSubmissions)
+    private var maximumInFlightSubmissions
 
     /// - Parameters:
     ///   - points: A buffer of `count` points: ``PointCloudPoint`` values, or any layout `describe` reads.
@@ -197,14 +217,13 @@ public struct PointCloudRasterizePass: Element {
 
     public var body: some Element {
         get throws {
-            let buffer = try framebuffer.prepare(device: points.device, parameters: parameters)
+            // Each submission gets its own buffer, so no earlier frame can still be reading this one.
+            let buffer = try framebuffer.prepare(device: points.device, parameters: parameters, submissionIndex: submissionIndex, slotCount: maximumInFlightSubmissions)
             let parameters = parameters
             let userData = try describe.map { describe in
                 try describe.userData ?? emptyUserDataBuffer()
             }
             try ComputePass(label: "PointCloud Rasterize") {
-                // Earlier frames' resolve passes may still read the buffer we are about to clear.
-                QueueBarrier(after: [.fragment, .dispatch], before: [.blit, .dispatch])
                 ComputeCommand { encoder in
                     encoder.fill(buffer: buffer, range: 0..<buffer.length, value: 0xFF)
                 }
