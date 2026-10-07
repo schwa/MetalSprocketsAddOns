@@ -1927,12 +1927,13 @@ Alternatives to consider: dynamic libraries (MTLDynamicLibrary) linked into the 
 ## 69: Point cloud: core compute rasterizer pass (#68)
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: area:rendering, effort:m, subtask
 created: 2026-10-07T19:20:53Z
-updated: 2026-10-07T19:20:56Z
+updated: 2026-10-07T19:23:59Z
+closed: 2026-10-07T19:23:59Z
 +++
 
 Subtask of #68. No element renders a point buffer with the compute approach from Schütz et al. 2021 (https://arxiv.org/abs/2104.07526): project each point, 64-bit atomic min of packed depth+color into a per-pixel buffer, then resolve into the color and depth attachments so the result depth-tests against other passes. Needs a golden-image test and a clear error on GPUs without 64-bit buffer atomics.

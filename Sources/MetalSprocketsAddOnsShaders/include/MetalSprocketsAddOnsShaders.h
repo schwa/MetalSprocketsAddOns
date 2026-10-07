@@ -35,3 +35,4 @@ NS_ASSUME_NONNULL_END
 #import "DebugShaders.h"
 #import "ShadowMap.h"
 #import "RayTracedShadows.h"
+#import "PointCloud.h"

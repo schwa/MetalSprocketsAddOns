@@ -180,7 +180,7 @@ public struct GraphicsContext3DRenderPipeline: Element {
             return nil
         }
         let buffer = contents.withUnsafeBytes { bytes in
-            device.makeBuffer(bytes: bytes.baseAddress!, length: bytes.count, options: .storageModeShared)
+            bytes.baseAddress.flatMap { device.makeBuffer(bytes: $0, length: bytes.count, options: .storageModeShared) }
         }
         guard let buffer else {
             throw MetalSprocketsError.resourceCreationFailure("Failed to create \(label)")
