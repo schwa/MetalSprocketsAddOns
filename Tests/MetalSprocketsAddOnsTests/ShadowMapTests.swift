@@ -184,6 +184,23 @@ func testShadowPipelines_depthPassThenMaskPass_darkensScene() throws {
     #expect(shadowedLuminance < litLuminance * 0.97)
 }
 
+@Test
+@MainActor
+func testShadowTestScene_groundIsHorizontal() throws {
+    // Issue #62: MTKMesh.plane lies in the XY plane, so translating it alone gives a wall.
+    let scene = try ShadowTestScene()
+    let attribute = try #require(scene.plane.vertexDescriptor.attributes[0] as? MDLVertexAttribute)
+    let layout = try #require(scene.plane.vertexDescriptor.layouts[attribute.bufferIndex] as? MDLVertexBufferLayout)
+    let buffer = scene.plane.vertexBuffers[attribute.bufferIndex]
+    let contents = buffer.buffer.contents().advanced(by: buffer.offset + attribute.offset)
+    let heights = (0..<scene.plane.vertexCount).map { index in
+        let local = contents.advanced(by: index * layout.stride).assumingMemoryBound(to: Float.self)
+        let world = scene.planeTransform * SIMD4<Float>(local[0], local[1], local[2], 1)
+        return world.y
+    }
+    #expect(heights.allSatisfy { abs($0 - scene.planeTransform.translation.y) < 1e-5 })
+}
+
 // The mean-luminance check above passes even if the shadow lands in the wrong place, so also
 // check the two points the shadow geometry says must and must not darken.
 @Test(.requiresMetal4)

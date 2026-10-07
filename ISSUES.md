@@ -1772,12 +1772,13 @@ MetalSprockets metal4 now documents which MPS kernels work on Metal 4 (MetalSpro
 ## 62: ShadowTestScene ground plane is vertical
 
 +++
-status: open
+status: closed
 priority: low
 kind: bug
 labels: area:testing, effort:s
 created: 2026-09-30T18:49:31Z
-updated: 2026-10-07T18:59:49Z
+updated: 2026-10-07T19:07:45Z
+closed: 2026-10-07T19:07:45Z
 +++
 
 Tests/MetalSprocketsAddOnsTests/Support/ShadowTestScene.swift builds the ground with `MTKMesh.plane(width:height:)` and only translates it to y = -1. MTKMesh.plane lies in the XY plane, so the "ground" is a vertical wall at z = 0, not a floor. This is the same mistake fixed in the Examples demos in #55.

@@ -30,7 +30,9 @@ struct ShadowTestScene {
         sphere = MTKMesh.sphere(extent: [0.6, 0.6, 0.6])
         plane = MTKMesh.plane(width: 4, height: 4)
         sphereTransform = float4x4(translation: SIMD3<Float>(0, 0.5, 0))
+        // MTKMesh.plane lies in the XY plane; rotate it onto XZ (facing +Y) to make a floor.
         planeTransform = float4x4(translation: SIMD3<Float>(0, -1.0, 0))
+            * float4x4(simd_quatf(angle: -.pi / 2, axis: SIMD3<Float>(1, 0, 0)))
 
         let camera = float4x4(translation: SIMD3<Float>(0, 1.5, 4))
             * float4x4(simd_quatf(angle: -.pi / 8, axis: SIMD3<Float>(1, 0, 0)))
