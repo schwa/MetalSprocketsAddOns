@@ -25,7 +25,7 @@ struct DebugShadingDemoView: View {
     private let scene = DebugShadingDemoScene()
 
     var body: some View {
-        DemoLayout {
+        DemoLayoutView {
             RenderView { _, drawableSize in
                 try scene.element(
                     useSphere: useSphere,

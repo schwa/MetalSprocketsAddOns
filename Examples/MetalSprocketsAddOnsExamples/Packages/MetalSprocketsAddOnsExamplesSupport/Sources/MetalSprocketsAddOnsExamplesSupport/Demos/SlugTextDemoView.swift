@@ -25,7 +25,7 @@ struct SlugTextDemoView: View {
     @State private var angle: Float = 0
 
     var body: some View {
-        DemoLayout {
+        DemoLayoutView {
             TimelineView(.animation(paused: !spin)) { timeline in
                 renderView
                     .onChange(of: timeline.date, initial: true) {

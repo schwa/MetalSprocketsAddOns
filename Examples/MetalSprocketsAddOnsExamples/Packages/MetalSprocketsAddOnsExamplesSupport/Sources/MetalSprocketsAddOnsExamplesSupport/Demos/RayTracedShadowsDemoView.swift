@@ -28,7 +28,7 @@ struct RayTracedShadowsDemoView: View {
     }
 
     var body: some View {
-        DemoLayout {
+        DemoLayoutView {
             if supportsRayTracing {
                 TimelineView(.animation(paused: !animate)) { timeline in
                     renderView

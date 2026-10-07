@@ -33,7 +33,7 @@ struct ShadowMapDemoView: View {
     private let scene = ShadowMapDemoScene()
 
     var body: some View {
-        DemoLayout {
+        DemoLayoutView {
             TimelineView(.animation(paused: !animate)) { timeline in
                 renderView
                     .onChange(of: timeline.date, initial: true) {

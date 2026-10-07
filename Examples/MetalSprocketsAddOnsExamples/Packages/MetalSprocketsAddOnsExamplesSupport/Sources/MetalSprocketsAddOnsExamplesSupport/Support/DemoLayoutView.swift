@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Shared chrome for every demo: the render surface fills the window and the demo's
 /// controls sit in an inspector so the demos themselves only describe their own knobs.
-struct DemoLayout<Content: View, Controls: View>: View {
+struct DemoLayoutView<Content: View, Controls: View>: View {
     @ViewBuilder var content: Content
     @ViewBuilder var controls: Controls
 

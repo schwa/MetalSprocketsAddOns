@@ -14,7 +14,8 @@ import SwiftUI
 /// The interesting part is the argument-buffer plumbing: `Lighting` owns two `MTLBuffer`s
 /// (lights and positions) that are packed into an argument buffer once per frame, and
 /// `BlinnPhongMaterial` packs its `ColorSource`s the same way. Both are attached with a
-/// single modifier each, and the lights are mutated in place between frames.
+/// single modifier each, and the lights are updated between frames (copy-on-write, so frames
+/// still on the GPU keep their own light data).
 struct BlinnPhongDemoView: View {
     @State private var camera = OrbitCamera(pitch: -.pi / 8, distance: 6, target: [0, 0.2, 0])
     @State private var lighting: Lighting?
@@ -25,7 +26,7 @@ struct BlinnPhongDemoView: View {
     private let scene = BlinnPhongDemoScene()
 
     var body: some View {
-        DemoLayout {
+        DemoLayoutView {
             TimelineView(.animation(paused: !animate)) { timeline in
                 renderView
                     .onChange(of: timeline.date, initial: true) {

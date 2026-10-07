@@ -21,7 +21,7 @@ struct GraphicsContext3DDemoView: View {
     @State private var debugWireframe = false
 
     var body: some View {
-        DemoLayout {
+        DemoLayoutView {
             RenderView { _, drawableSize in
                 let projection = camera.projectionMatrix(drawableSize: drawableSize)
                 let viewport = SIMD2<Float>(Float(drawableSize.width), Float(drawableSize.height))
