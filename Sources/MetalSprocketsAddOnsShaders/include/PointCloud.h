@@ -33,6 +33,27 @@ typedef MS_ENUM(uint32_t, PointCloudRasterPass) {
     PointCloudRasterPassBlendedAccumulate = 2,
 };
 
+/// What a point's size is measured in.
+typedef MS_ENUM(uint32_t, PointCloudSizeUnits) {
+    /// Screen pixels: the same size at any distance.
+    PointCloudSizeUnitsPixels = 0,
+    /// World units (diameter): shrinks with distance.
+    PointCloudSizeUnitsWorld = 1,
+};
+
+/// A point too large for the compute stamp, drawn by the hardware rasterizer instead.
+struct PointCloudLargeSplat {
+    /// Centre in pixels, rows top to bottom.
+    simd_float2 centre;
+    /// NDC depth, flipped for reverse Z like the framebuffer.
+    float depth;
+    uint32_t color;
+    /// Diameter in pixels.
+    float size;
+    uint32_t shape;
+};
+typedef struct PointCloudLargeSplat PointCloudLargeSplat;
+
 /// The default point layout: packed world-space position and an RGBA8 colour (red in the lowest
 /// byte), 16 bytes per point.
 struct PointCloudPoint {
@@ -74,5 +95,12 @@ struct PointCloudParameters {
     uint32_t pass;
     /// Blended mode: points within this fraction of the nearest point's view depth are averaged.
     float depthTolerance;
+    /// A `PointCloudSizeUnits` value.
+    uint32_t sizeUnits;
+    /// Pixels per world unit at view depth 1: projection[1][1] * viewport height / 2.
+    float projectionScale;
+    /// How many points larger than `maximumPointSize` can go to the hardware path per frame.
+    /// Beyond that (or when 0) they are clamped to `maximumPointSize`.
+    uint32_t largeSplatCapacity;
 };
 typedef struct PointCloudParameters PointCloudParameters;

@@ -53,12 +53,21 @@ public extension PointCloudPoint {
 /// Create one per view and pass the same instance to both elements. The rasterize pass sizes it to
 /// the viewport each frame.
 public final class PointCloudFramebuffer {
-    /// The buffer for the frame being recorded.
+    /// The per-pixel buffer for the frame being recorded.
     public private(set) var buffer: MTLBuffer?
     public private(set) var parameters: PointCloudParameters?
+    /// Points too large for the compute stamp, and the indirect draw arguments that count them.
+    private(set) var largeSplats: MTLBuffer?
+    private(set) var largeSplatArguments: MTLBuffer?
 
-    // One buffer per frame in flight, so a frame never clears a buffer an earlier frame still reads.
-    private var slots: [MTLBuffer?] = []
+    private struct Slot {
+        var buffer: MTLBuffer
+        var largeSplats: MTLBuffer
+        var largeSplatArguments: MTLBuffer
+    }
+
+    // One set of buffers per frame in flight, so a frame never touches buffers an earlier frame still reads.
+    private var slots: [Slot?] = []
 
     public init() {
         // Buffer is created by the first rasterize pass.
@@ -81,19 +90,37 @@ public final class PointCloudFramebuffer {
         if slots.count != slotCount {
             slots = Array(repeating: nil, count: slotCount)
         }
-        let slot = Int(submissionIndex % UInt64(slotCount))
+        let index = Int(submissionIndex % UInt64(slotCount))
         let length = Int(parameters.viewportSize.x) * Int(parameters.viewportSize.y) * Self.bytesPerPixel(pass: parameters.pass)
-        let buffer: MTLBuffer
-        if let existing = slots[slot], existing.length == length, existing.device === device {
-            buffer = existing
+        // At least one entry, so the buffer can always be bound.
+        let largeSplatsLength = max(Int(parameters.largeSplatCapacity), 1) * MemoryLayout<PointCloudLargeSplat>.stride
+        let slot: Slot
+        if let existing = slots[index], existing.buffer.length == length, existing.largeSplats.length == largeSplatsLength, existing.buffer.device === device {
+            slot = existing
         } else {
-            buffer = try device.makeBuffer(length: length, options: .storageModePrivate)
-                .orThrow(.resourceCreationFailure("Failed to create point cloud framebuffer"))
-            buffer.label = "PointCloud Framebuffer \(slot)"
-            slots[slot] = buffer
+            slot = Slot(
+                buffer: try Self.makeBuffer(device: device, length: length, options: .storageModePrivate, label: "PointCloud Framebuffer \(index)"),
+                largeSplats: try Self.makeBuffer(device: device, length: largeSplatsLength, options: .storageModePrivate, label: "PointCloud Large Splats \(index)"),
+                largeSplatArguments: try Self.makeBuffer(device: device, length: MemoryLayout<MTLDrawPrimitivesIndirectArguments>.stride, options: .storageModeShared, label: "PointCloud Large Splat Arguments \(index)")
+            )
+            slots[index] = slot
         }
-        self.buffer = buffer
+        // Safe to write on the CPU: the GPU finished with this slot before this recording started.
+        slot.largeSplatArguments.contents().storeBytes(
+            of: MTLDrawPrimitivesIndirectArguments(vertexCount: 6, instanceCount: 0, vertexStart: 0, baseInstance: 0),
+            as: MTLDrawPrimitivesIndirectArguments.self
+        )
+        buffer = slot.buffer
+        largeSplats = slot.largeSplats
+        largeSplatArguments = slot.largeSplatArguments
         self.parameters = parameters
+        return slot.buffer
+    }
+
+    private static func makeBuffer(device: MTLDevice, length: Int, options: MTLResourceOptions, label: String) throws -> MTLBuffer {
+        let buffer = try device.makeBuffer(length: length, options: options)
+            .orThrow(.resourceCreationFailure("Failed to create \(label)"))
+        buffer.label = label
         return buffer
     }
 }
@@ -211,6 +238,9 @@ public struct PointCloudRasterizePass: Element {
     ///   - maximumPointSize: Sizes above this, in pixels, are clamped.
     ///   - colorSpace: How the points' packed colours are encoded. Most 8-bit colour data is sRGB.
     ///   - quality: Nearest point per pixel, or a blend of the nearest points.
+    ///   - sizeUnits: Whether sizes are in pixels or world units (diameter).
+    ///   - largePointCapacity: How many points larger than `maximumPointSize` per frame are drawn
+    ///     by the hardware rasterizer at full size. Beyond that, or when 0, they are clamped.
     ///   - describe: Optional consumer function that describes each point.
     public init(
         points: MTLBuffer,
@@ -224,6 +254,8 @@ public struct PointCloudRasterizePass: Element {
         maximumPointSize: Float = 64,
         colorSpace: PointCloudColorSpace = .sRGB,
         quality: PointCloudQuality = .fast,
+        sizeUnits: PointCloudSizeUnits = .pixels,
+        largePointCapacity: Int = 16_384,
         describe: PointCloudPointFunction? = nil
     ) throws {
         guard PointCloudFramebuffer.isSupported(on: points.device) else {
@@ -247,7 +279,10 @@ public struct PointCloudRasterizePass: Element {
             maximumPointSize: maximumPointSize,
             colorSpace: colorSpace.rawValue,
             pass: PointCloudRasterPass.nearest.rawValue,
-            depthTolerance: 0
+            depthTolerance: 0,
+            sizeUnits: sizeUnits.rawValue,
+            projectionScale: Self.projectionScale(viewProjection: viewProjection, viewportHeight: viewportSize.y),
+            largeSplatCapacity: UInt32(max(largePointCapacity, 0))
         )
         if case let .blended(depthTolerance) = quality {
             // The framebuffer and resolve see the accumulate pass; the depth pass is a variant.
@@ -257,6 +292,13 @@ public struct PointCloudRasterizePass: Element {
         self.parameters = parameters
         self.framebuffer = framebuffer
         self.describe = describe
+    }
+
+    /// Pixels per world unit at view depth 1. For a perspective projection the length of the
+    /// view-projection's second row (xyz) is projection[1][1], because the view's rotation keeps lengths.
+    static func projectionScale(viewProjection: float4x4, viewportHeight: Int) -> Float {
+        let row = SIMD3<Float>(viewProjection.columns.0.y, viewProjection.columns.1.y, viewProjection.columns.2.y)
+        return length(row) * Float(viewportHeight) / 2
     }
 
     private static func kernel(hasDescribe: Bool) -> ComputeKernel {
@@ -301,7 +343,7 @@ public struct PointCloudRasterizePass: Element {
                 }
             }
             // The resolve pass reads the buffer from its fragment stage.
-            .barrierAfterPass(after: .dispatch, beforeQueueStages: .fragment)
+            .barrierAfterPass(after: .dispatch, beforeQueueStages: [.vertex, .fragment])
         }
     }
 
@@ -336,6 +378,8 @@ public struct PointCloudRasterizePass: Element {
         .parameter("points", buffer: points)
         .parameter("framebuffer", buffer: framebuffer)
         .parameter("params", value: parameters)
+        .parameter("largeSplats", buffer: self.framebuffer.largeSplats.orFatalError("prepare sets largeSplats"))
+        .parameter("largeSplatArguments", buffer: self.framebuffer.largeSplatArguments.orFatalError("prepare sets largeSplatArguments"))
     }
 
     private func emptyUserDataBuffer() throws -> MTLBuffer {
@@ -363,6 +407,12 @@ public struct PointCloudResolvePipeline: Element {
     @MSState
     private var fragmentShader = ShaderLibrary.module.namespaced("PointCloud").requiredFunction(named: "resolve_fragment", type: FragmentShader.self)
 
+    @MSState
+    private var largeSplatVertexShader = ShaderLibrary.module.namespaced("PointCloud").requiredFunction(named: "large_splat_vertex", type: VertexShader.self)
+
+    @MSState
+    private var largeSplatFragmentShader = ShaderLibrary.module.namespaced("PointCloud").requiredFunction(named: "large_splat_fragment", type: FragmentShader.self)
+
     public init(framebuffer: PointCloudFramebuffer) {
         self.framebuffer = framebuffer
     }
@@ -378,6 +428,20 @@ public struct PointCloudResolvePipeline: Element {
                 .parameter("params", functionType: .fragment, value: parameters)
             }
             .depthCompare(function: parameters.reverseZ != 0 ? .greater : .less, enabled: true)
+
+            if parameters.largeSplatCapacity > 0, let largeSplats = framebuffer.largeSplats, let arguments = framebuffer.largeSplatArguments {
+                // Points too large for the compute stamp; the compute pass wrote the instance count.
+                try RenderPipeline(label: "PointCloud Large Splats", vertexShader: largeSplatVertexShader, fragmentShader: largeSplatFragmentShader) {
+                    Draw { encoder in
+                        encoder.drawPrimitives(primitiveType: .triangle, indirectBuffer: arguments.gpuAddress)
+                    }
+                    .parameter("largeSplats", functionType: .vertex, buffer: largeSplats)
+                    .parameter("params", functionType: .vertex, value: parameters)
+                    .parameter("params", functionType: .fragment, value: parameters)
+                    .useResource(arguments, usage: .read, stages: .vertex)
+                }
+                .depthCompare(function: parameters.reverseZ != 0 ? .greater : .less, enabled: true)
+            }
         }
     }
 

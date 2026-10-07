@@ -100,7 +100,10 @@ namespace PointCloud {
         device void *framebuffer [[buffer(1)]],
         constant PointCloudParameters &params [[buffer(2)]],
         visible_function_table<DescribePoint> describe [[buffer(3), function_constant(HAS_DESCRIBE)]],
-        const device void *userData [[buffer(4), function_constant(HAS_DESCRIBE)]]
+        const device void *userData [[buffer(4), function_constant(HAS_DESCRIBE)]],
+        device PointCloudLargeSplat *largeSplats [[buffer(5)]],
+        // MTLDrawPrimitivesIndirectArguments: vertexCount, instanceCount, vertexStart, baseInstance.
+        device atomic_uint *largeSplatArguments [[buffer(6)]]
     ) {
         if (pointIndex >= params.pointCount) {
             return;
@@ -124,13 +127,31 @@ namespace PointCloud {
         // Pixel rows run top to bottom, matching [[position]] in the resolve pass.
         float2 viewport = float2(params.viewportSize);
         float2 centre = float2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5) * viewport;
-        float size = min(splat.size, params.maximumPointSize);
+        float size = params.sizeUnits == PointCloudSizeUnitsWorld ? splat.size * params.projectionScale / clip.w : splat.size;
+        float depth = params.reverseZ != 0 ? 1.0 - ndc.z : ndc.z;
+
+        // Points too large for the stamp loop go to the hardware rasterizer in the resolve pass. The
+        // blended depth pass still stamps them (clamped), so blended pixels they cover stay empty
+        // and the hardware draw fills them.
+        if (size > params.maximumPointSize) {
+            float halfSize = size * 0.5;
+            if (any(centre + halfSize < 0.0) || any(centre - halfSize >= viewport)) {
+                return;
+            }
+            if (params.pass != PointCloudRasterPassBlendedDepth && params.largeSplatCapacity > 0) {
+                uint slot = atomic_fetch_add_explicit(largeSplatArguments + 1, 1, memory_order_relaxed);
+                if (slot < params.largeSplatCapacity) {
+                    largeSplats[slot] = { centre, depth, splat.color, size, splat.shape };
+                    return;
+                }
+            }
+            size = params.maximumPointSize;
+        }
+
         float radius = max(size, 1.0) * 0.5;
         if (any(centre + radius < 0.0) || any(centre - radius >= viewport)) {
             return;
         }
-
-        float depth = params.reverseZ != 0 ? 1.0 - ndc.z : ndc.z;
         uint width = params.viewportSize.x;
 
         if (size <= 1.0) {
@@ -158,6 +179,53 @@ namespace PointCloud {
     struct ResolveVertexOut {
         float4 position [[position]];
     };
+
+    struct LargeSplatVertexOut {
+        float4 position [[position]];
+        float2 offset;
+        float radius [[flat]];
+        uint shape [[flat]];
+        uint color [[flat]];
+    };
+
+    // Two triangles per large splat, one instance each.
+    [[vertex]] LargeSplatVertexOut large_splat_vertex(
+        uint vertexID [[vertex_id]],
+        uint instanceID [[instance_id]],
+        const device PointCloudLargeSplat *largeSplats [[buffer(0)]],
+        constant PointCloudParameters &params [[buffer(1)]]
+    ) {
+        LargeSplatVertexOut out;
+        if (instanceID >= params.largeSplatCapacity) {
+            // More points overflowed than fit; the extras were clamped in the compute pass.
+            out.position = float4(0, 0, -1, 1);
+            return out;
+        }
+        const float2 corners[6] = { {-1, -1}, {1, -1}, {1, 1}, {-1, -1}, {1, 1}, {-1, 1} };
+        PointCloudLargeSplat splat = largeSplats[instanceID];
+        float radius = splat.size * 0.5;
+        float2 offset = corners[vertexID] * radius;
+        float2 pixel = splat.centre + offset;
+        float2 viewport = float2(params.viewportSize);
+        float2 ndc = float2(pixel.x / viewport.x * 2.0 - 1.0, 1.0 - pixel.y / viewport.y * 2.0);
+        float depth = params.reverseZ != 0 ? 1.0 - splat.depth : splat.depth;
+        out.position = float4(ndc, depth, 1.0);
+        out.offset = offset;
+        out.radius = radius;
+        out.shape = splat.shape;
+        out.color = splat.color;
+        return out;
+    }
+
+    [[fragment]] float4 large_splat_fragment(
+        LargeSplatVertexOut in [[stage_in]],
+        constant PointCloudParameters &params [[buffer(0)]]
+    ) {
+        if (!covers(in.offset, in.radius, in.shape)) {
+            discard_fragment();
+        }
+        return decodeColour(in.color, params.colorSpace);
+    }
 
     [[vertex]] ResolveVertexOut resolve_vertex(uint vertexID [[vertex_id]]) {
         // Oversized triangle covering the viewport.

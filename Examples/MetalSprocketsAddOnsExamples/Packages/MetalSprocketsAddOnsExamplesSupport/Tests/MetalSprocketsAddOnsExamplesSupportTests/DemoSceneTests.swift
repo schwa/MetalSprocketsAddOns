@@ -186,3 +186,20 @@ func testPointCloudDemoSceneBlended() throws {
     let image = try renderer.render(element).cgImage
     #expect(try image.isEqualToGoldenImage(named: "PointCloudDemoBlended"))
 }
+
+@Test(.requiresMetal4, .disabled(if: !supportsPointCloud, "64-bit atomics unsupported on this GPU"))
+@MainActor
+func testPointCloudDemoSceneWorldSized() throws {
+    // Close to the knot so near points exceed 64 px and take the hardware path.
+    let scene = try PointCloudDemoScene(pointCount: 20_000, colorMode: .height)
+    let camera = InteractionState(pitch: -.pi / 8, distance: 2.5, target: [0, 0.5, 0])
+    let renderer = try OffscreenRenderer(size: demoRenderSize)
+    renderer.renderPassDescriptor.colorAttachments[0].clearColor = PointCloudDemoScene.clearColor
+    var style = PointCloudDemoScene.Style()
+    style.worldSized = true
+    style.worldSize = 0.08
+    style.shape = .disc
+    let element = try scene.element(camera: camera, drawableSize: demoRenderSize, showGrid: true, style: style)
+    let image = try renderer.render(element).cgImage
+    #expect(try image.isEqualToGoldenImage(named: "PointCloudDemoWorldSized"))
+}

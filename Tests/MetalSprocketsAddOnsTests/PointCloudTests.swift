@@ -32,7 +32,9 @@ private func render(
     pointSize: Float = 1,
     shape: PointCloudShape = .square,
     maximumPointSize: Float = 64,
-    quality: PointCloudQuality = .fast
+    quality: PointCloudQuality = .fast,
+    sizeUnits: PointCloudSizeUnits = .pixels,
+    largePointCapacity: Int = 16_384
 ) throws -> [SIMD4<UInt8>] {
     try render(
         buffer: makePointBuffer(points),
@@ -42,7 +44,9 @@ private func render(
         pointSize: pointSize,
         shape: shape,
         maximumPointSize: maximumPointSize,
-        quality: quality
+        quality: quality,
+        sizeUnits: sizeUnits,
+        largePointCapacity: largePointCapacity
     )
 }
 
@@ -57,6 +61,8 @@ private func render(
     maximumPointSize: Float = 64,
     colorSpace: PointCloudColorSpace = .sRGB,
     quality: PointCloudQuality = .fast,
+    sizeUnits: PointCloudSizeUnits = .pixels,
+    largePointCapacity: Int = 16_384,
     describe: PointCloudPointFunction? = nil
 ) throws -> [SIMD4<UInt8>] {
     let framebuffer = PointCloudFramebuffer()
@@ -75,6 +81,8 @@ private func render(
             maximumPointSize: maximumPointSize,
             colorSpace: colorSpace,
             quality: quality,
+            sizeUnits: sizeUnits,
+            largePointCapacity: largePointCapacity,
             describe: describe
         )
         try RenderPass {
@@ -338,10 +346,57 @@ func testPointCloud_ringIsHollow() throws {
 
 @Test(.requiresMetal4)
 @MainActor
-func testPointCloud_sizeIsClampedToMaximum() throws {
-    let pixels = try render([PointCloudPoint(position: centre, color: white)], pointSize: 200, shape: .square, maximumPointSize: 16)
+func testPointCloud_sizeIsClampedToMaximumWithoutLargePointCapacity() throws {
+    let pixels = try render([PointCloudPoint(position: centre, color: white)], pointSize: 200, shape: .square, maximumPointSize: 16, largePointCapacity: 0)
     #expect(isLit(pixels, at: centre, offset: [6, 0]))
     #expect(!isLit(pixels, at: centre, offset: [12, 0]))
+}
+
+// Issue #86: points above maximumPointSize are drawn full size by the hardware rasterizer.
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_largePointsDrawFullSize() throws {
+    let pixels = try render([PointCloudPoint(position: centre, color: white)], pointSize: 81, shape: .disc, maximumPointSize: 16)
+    #expect(isLit(pixels, at: centre, offset: [36, 0]))
+    #expect(isLit(pixels, at: centre, offset: [0, -36]))
+    // Still a disc: the bounding box corner stays empty.
+    #expect(!isLit(pixels, at: centre, offset: [36, 36]))
+}
+
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_largePointsDepthTestAgainstOtherGeometry() throws {
+    // A large point behind the occluder (left half at z = 0.5) only shows on the right.
+    let point = SIMD3<Float>(-0.1, 0, 0)
+    let pixels = try render([PointCloudPoint(position: point, color: white)], occluder: true, pointSize: 101, shape: .square, maximumPointSize: 16)
+    // Red channel (BGRA z): only the white point has red; the occluder is blue.
+    func red(_ offset: SIMD2<Int>) -> UInt8 {
+        let coordinate = pixelCoordinate(of: point) &+ offset
+        return pixels[coordinate.y * size.x + coordinate.x].z
+    }
+    #expect(red([40, 0]) > 200)
+    #expect(red([-40, 0]) < 50)
+}
+
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_worldSizedPointsShrinkWithDistance() throws {
+    // Same world diameter (0.2) at view depths 2 and 6: the nearer one is three times wider.
+    let near = SIMD3<Float>(-0.4, 0, 1)
+    let far = SIMD3<Float>(1.2, 0, -3)
+    func litWidth(_ pixels: [SIMD4<UInt8>], at point: SIMD3<Float>) -> Int {
+        (-60...60).filter { isLit(pixels, at: point, offset: [$0, 0]) }.count
+    }
+    let points = [
+        PointCloudPoint(position: near, color: white),
+        PointCloudPoint(position: far, color: white)
+    ]
+    let pixels = try render(points, pointSize: 0.2, shape: .square, sizeUnits: .world)
+    let nearWidth = litWidth(pixels, at: near)
+    let farWidth = litWidth(pixels, at: far)
+    // 0.2 * projectionScale / depth, with projectionScale = cot(30°) * 256 ≈ 443 for this 512 px view.
+    #expect(abs(nearWidth - 44) <= 2)
+    #expect(abs(farWidth - 15) <= 2)
 }
 
 @Test(.requiresMetal4)

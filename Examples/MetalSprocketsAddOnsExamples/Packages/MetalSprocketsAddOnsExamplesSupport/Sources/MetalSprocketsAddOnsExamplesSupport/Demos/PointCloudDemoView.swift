@@ -62,8 +62,17 @@ struct PointCloudDemoView: View {
                     Text(mode.name).tag(mode)
                 }
             }
+            Picker("Size Units", selection: $style.worldSized) {
+                Text("Pixels").tag(false)
+                Text("World").tag(true)
+            }
+            .disabled(style.useCustomDescribe)
             LabeledContent("Size") {
-                Slider(value: $style.pointSize, in: 1...16)
+                if style.worldSized {
+                    Slider(value: $style.worldSize, in: 0.005...0.2)
+                } else {
+                    Slider(value: $style.pointSize, in: 1...16)
+                }
             }
             .disabled(style.useCustomDescribe)
             Picker("Shape", selection: $style.shape) {
@@ -166,6 +175,10 @@ final class PointCloudDemoScene: @unchecked Sendable {
         static let shapes: [PointCloudShape] = [.square, .disc, .crosshair, .ring]
 
         var pointSize: Float = 1
+        /// World-unit diameter when `worldSized`. Near points can exceed 64 px; those go to the
+        /// hardware rasterizer.
+        var worldSize: Float = 0.02
+        var worldSized = false
         var shape = PointCloudShape.square
         var useCustomDescribe = false
         /// The paper's high-quality mode: average overlapping points instead of keeping the nearest.
@@ -292,9 +305,10 @@ final class PointCloudDemoScene: @unchecked Sendable {
                 viewProjection: projection * camera.viewMatrix,
                 viewportSize: viewportSize,
                 framebuffer: framebuffer,
-                pointSize: style.pointSize,
+                pointSize: style.worldSized ? style.worldSize : style.pointSize,
                 shape: style.shape,
                 quality: style.blended ? .blended() : .fast,
+                sizeUnits: style.worldSized ? .world : .pixels,
                 describe: style.useCustomDescribe ? customDescribe : nil
             )
             try RenderPass {

@@ -2251,13 +2251,14 @@ The Point Cloud demo (#70) is covered by golden tests only. It has not been run 
 ## 86: Point cloud: no world-space point sizes
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: area:rendering, area:performance, effort:l
 depends: 73
 created: 2026-10-07T19:47:45Z
-updated: 2026-10-07T19:47:47Z
+updated: 2026-10-07T21:57:25Z
+closed: 2026-10-07T21:57:25Z
 +++
 
 Follow-up to #73. Points sized in world units (for example 5 cm discs) cover a footprint that grows as they approach the camera: thousands of pixels for near points. One compute thread per point then runs a long serial stamp loop and stalls its SIMD group, so the #73 screen-space stamp approach does not scale to world-space sizes. Splats may also need per-pixel depth (sphere-like) instead of flat depth.
