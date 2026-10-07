@@ -2216,12 +2216,13 @@ PointCloudShader.userData is a shared MTLBuffer. Writing it every frame (for exa
 ## 84: Point cloud API has no docs
 
 +++
-status: open
+status: closed
 priority: low
 kind: documentation
 labels: area:rendering, effort:s
 created: 2026-10-07T19:44:09Z
-updated: 2026-10-07T21:19:52Z
+updated: 2026-10-07T21:57:55Z
+closed: 2026-10-07T21:57:55Z
 +++
 
 PointCloudRasterizePass, PointCloudResolvePipeline, PointCloudFramebuffer, PointCloudShader and PointCloudOrder have only source comments. There is no README section or DocC article explaining the two-element setup, the GPU requirement, custom shaders, or ordering.
