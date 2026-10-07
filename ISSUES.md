@@ -2178,12 +2178,13 @@ Treat packed point colours as sRGB-encoded by default and convert to linear in t
 ## 82: Point cloud reverse-Z path is untested
 
 +++
-status: open
+status: closed
 priority: low
 kind: task
 labels: area:testing, effort:xs
 created: 2026-10-07T19:44:09Z
-updated: 2026-10-07T21:19:52Z
+updated: 2026-10-07T21:40:49Z
+closed: 2026-10-07T21:40:49Z
 +++
 
 PointCloudRasterizePass(reverseZ: true) flips depth before the atomic min and the resolve uses .greater depth compare. No test renders with a reverse-Z projection and depth buffer.

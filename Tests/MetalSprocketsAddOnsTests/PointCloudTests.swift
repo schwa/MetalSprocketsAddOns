@@ -12,8 +12,11 @@ import Testing
 
 private let size = SIMD2<Int>(Int(defaultRenderSize.width), Int(defaultRenderSize.height))
 
-private func viewProjection() -> float4x4 {
-    perspectiveProjection() * float4x4(translation: SIMD3<Float>(0, 0, 3)).inverse
+private func viewProjection(reverseZ: Bool = false) -> float4x4 {
+    let projection = reverseZ
+        ? PerspectiveProjection(verticalAngleOfView: .degrees(60), depthMode: .reversed(zMin: 0.1)).projectionMatrix(aspectRatio: 1)
+        : perspectiveProjection()
+    return projection * float4x4(translation: SIMD3<Float>(0, 0, 3)).inverse
 }
 
 private func makePointBuffer(_ points: [PointCloudPoint]) throws -> MTLBuffer {
@@ -25,11 +28,12 @@ private func makePointBuffer(_ points: [PointCloudPoint]) throws -> MTLBuffer {
 private func render(
     _ points: [PointCloudPoint],
     occluder: Bool = false,
+    reverseZ: Bool = false,
     pointSize: Float = 1,
     shape: PointCloudShape = .square,
     maximumPointSize: Float = 64
 ) throws -> [SIMD4<UInt8>] {
-    try render(buffer: makePointBuffer(points), count: points.count, occluder: occluder, pointSize: pointSize, shape: shape, maximumPointSize: maximumPointSize)
+    try render(buffer: makePointBuffer(points), count: points.count, occluder: occluder, reverseZ: reverseZ, pointSize: pointSize, shape: shape, maximumPointSize: maximumPointSize)
 }
 
 @MainActor
@@ -37,13 +41,14 @@ private func render(
     buffer: MTLBuffer,
     count: Int,
     occluder: Bool = false,
+    reverseZ: Bool = false,
     pointSize: Float = 1,
     shape: PointCloudShape = .square,
     maximumPointSize: Float = 64,
     describe: PointCloudPointFunction? = nil
 ) throws -> [SIMD4<UInt8>] {
     let framebuffer = PointCloudFramebuffer()
-    let viewProjection = viewProjection()
+    let viewProjection = viewProjection(reverseZ: reverseZ)
     let quad = MTKMesh.plane(width: 1, height: 2)
     let element = try MetalSprockets.Group {
         try PointCloudRasterizePass(
@@ -51,6 +56,7 @@ private func render(
             count: count,
             viewProjection: viewProjection,
             viewportSize: size,
+            reverseZ: reverseZ,
             framebuffer: framebuffer,
             pointSize: pointSize,
             shape: shape,
@@ -68,12 +74,12 @@ private func render(
                     .vertexBuffers(of: quad)
                 }
                 .vertexDescriptor(MTLVertexDescriptor(quad.vertexDescriptor))
-                .depthCompare(function: .less, enabled: true)
+                .depthCompare(function: reverseZ ? .greater : .less, enabled: true)
             }
             try PointCloudResolvePipeline(framebuffer: framebuffer)
         }
     }
-    let rendering = try OffscreenRenderer(size: defaultRenderSize).render(element)
+    let rendering = try OffscreenRenderer(size: defaultRenderSize, clearDepth: reverseZ ? 0 : 1).render(element)
     var pixels = [SIMD4<UInt8>](repeating: .zero, count: size.x * size.y)
     rendering.texture.getBytes(&pixels, bytesPerRow: size.x * 4, from: MTLRegionMake2D(0, 0, size.x, size.y), mipmapLevel: 0)
     return pixels
@@ -122,6 +128,34 @@ func testPointCloud_depthTestsAgainstOtherGeometry() throws {
         PointCloudPoint(position: hidden, color: [255, 0, 0, 255]),
         PointCloudPoint(position: visible, color: [255, 0, 0, 255])
     ], occluder: true)
+    #expect(pixels[pixel(of: hidden)].z < 50)
+    #expect(pixels[pixel(of: visible)].z > 200)
+}
+
+// Issue #82: the same two checks with a reverse-Z projection and depth buffer (cleared to 0, compare .greater).
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_reverseZ_nearestPointWinsPerPixel() throws {
+    let far = SIMD3<Float>(0.2, 0.1, -1)
+    let near = far * 0.5 + SIMD3<Float>(0, 0, 3) * 0.5
+    let pixels = try render([
+        PointCloudPoint(position: far, color: [0, 255, 0, 255]),
+        PointCloudPoint(position: near, color: [255, 0, 0, 255])
+    ], reverseZ: true)
+    let bgra = pixels[pixel(of: far)]
+    #expect(bgra.z > 200 && bgra.y < 50)
+}
+
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_reverseZ_depthTestsAgainstOtherGeometry() throws {
+    let hidden = SIMD3<Float>(-0.5, 0, 0)
+    let visible = SIMD3<Float>(0.5, 0, 0)
+    let points = [
+        PointCloudPoint(position: hidden, color: [255, 0, 0, 255]),
+        PointCloudPoint(position: visible, color: [255, 0, 0, 255])
+    ]
+    let pixels = try render(points, occluder: true, reverseZ: true)
     #expect(pixels[pixel(of: hidden)].z < 50)
     #expect(pixels[pixel(of: visible)].z > 200)
 }
