@@ -236,6 +236,13 @@ func testVideoTexturePipeline_playProducesATexture() async throws {
     }
 
     #expect(pipeline.currentTexture != nil)
+
+    // Issue #64: the CVMetalTexture backing the frame must stay alive with it, and be exposed so
+    // renderers can retain it until the GPU is done.
+    let owner = try #require(pipeline.currentTextureOwner)
+    // swiftlint:disable:next force_cast
+    #expect(CVMetalTextureGetTexture(owner as! CVMetalTexture) === pipeline.currentTexture)
+
     pipeline.pause()
     #expect(pipeline.updateTask == nil)
 }

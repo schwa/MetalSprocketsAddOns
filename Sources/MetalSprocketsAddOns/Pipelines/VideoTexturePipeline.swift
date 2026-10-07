@@ -20,7 +20,13 @@ public class VideoTexturePipeline {
     private(set) var updateTask: Task<Void, Never>?
     private var endOfItemObserver: (any NSObjectProtocol)?
 
+    /// Valid only while `currentTextureOwner` is alive. Retain the owner for each frame that samples
+    /// the texture (for example with `.retainOwners([owner])`), or the texture cache can recycle the
+    /// backing surface while the GPU still reads it.
     public private(set) var currentTexture: MTLTexture?
+
+    /// The `CVMetalTexture` backing `currentTexture`.
+    public private(set) var currentTextureOwner: AnyObject?
     private var textureCache: CVMetalTextureCache?
 
     public init(device: MTLDevice) {
@@ -172,6 +178,7 @@ public class VideoTexturePipeline {
 
         texture.label = "Video Frame Texture"
         currentTexture = texture
+        currentTextureOwner = cvTexture
     }
 
     // Isolated so that teardown can touch the main-actor state it owns.

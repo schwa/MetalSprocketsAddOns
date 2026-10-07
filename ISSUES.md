@@ -1806,12 +1806,13 @@ Lighting.setLightPosition(_:at:) and setLight(_:at:) write through lights.conten
 ## 64: VideoTexturePipeline releases the CVMetalTexture before the GPU is done
 
 +++
-status: open
+status: closed
 priority: high
 kind: bug
 labels: area:metal4, effort:s
 created: 2026-10-02T22:34:29Z
-updated: 2026-10-07T18:59:49Z
+updated: 2026-10-07T19:05:13Z
+closed: 2026-10-07T19:05:13Z
 +++
 
 VideoTexturePipeline.updateFrame keeps only CVMetalTextureGetTexture(cvTexture) in currentTexture. The CVMetalTexture is a local and is released right away. The CVMetalTextureCache can then recycle the backing IOSurface while in-flight frames still sample the MTLTexture. Keep the CVMetalTexture (or CVPixelBuffer) alive with the frame, and expose it as an owner so callers can retain it until completion, like YCbCrBillboardRenderPass(owners:). Affects VideoPlayback and AppleEventLogo in MetalSprocketsExamples (#439).
