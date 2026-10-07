@@ -1,7 +1,8 @@
+import MetalSprocketsUI
 import SwiftUI
 
-/// Shared chrome for every demo: the render surface fills the window and the demo's
-/// controls sit in an inspector so the demos themselves only describe their own knobs.
+/// Shared chrome for every demo: the render surface fills the window with a frame rate HUD, and
+/// the demo's controls sit in an inspector so the demos themselves only describe their own knobs.
 struct DemoLayoutView<Content: View, Controls: View>: View {
     @ViewBuilder var content: Content
     @ViewBuilder var controls: Controls
@@ -11,6 +12,8 @@ struct DemoLayoutView<Content: View, Controls: View>: View {
     var body: some View {
         content
             .ignoresSafeArea()
+            // After ignoresSafeArea so the HUD stays clear of the toolbar.
+            .modifier(FrameRateHUDModifier())
             #if os(visionOS)
             // visionOS has no inspector; show the controls in an ornament beside the window.
             .ornament(visibility: showsInspector ? .visible : .hidden, attachmentAnchor: .scene(.trailing), contentAlignment: .leading) {
@@ -27,7 +30,7 @@ struct DemoLayoutView<Content: View, Controls: View>: View {
                     controls
                 }
                 .formStyle(.grouped)
-                .inspectorColumnWidth(min: 220, ideal: 280, max: 400)
+                .inspectorColumnWidth(280)
             }
             #endif
             .toolbar {
