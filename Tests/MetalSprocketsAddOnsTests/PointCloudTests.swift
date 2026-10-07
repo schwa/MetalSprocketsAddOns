@@ -22,13 +22,41 @@ private func makePointBuffer(_ points: [PointCloudPoint]) throws -> MTLBuffer {
 
 /// Renders `points` (and optionally an occluding quad) and returns BGRA8 pixels, top row first.
 @MainActor
-private func render(_ points: [PointCloudPoint], occluder: Bool = false, shader: PointCloudShader? = nil) throws -> [SIMD4<UInt8>] {
-    let buffer = try makePointBuffer(points)
+private func render(
+    _ points: [PointCloudPoint],
+    occluder: Bool = false,
+    pointSize: Float = 1,
+    shape: PointCloudShape = .square,
+    maximumPointSize: Float = 64
+) throws -> [SIMD4<UInt8>] {
+    try render(buffer: makePointBuffer(points), count: points.count, occluder: occluder, pointSize: pointSize, shape: shape, maximumPointSize: maximumPointSize)
+}
+
+@MainActor
+private func render(
+    buffer: MTLBuffer,
+    count: Int,
+    occluder: Bool = false,
+    pointSize: Float = 1,
+    shape: PointCloudShape = .square,
+    maximumPointSize: Float = 64,
+    describe: PointCloudPointFunction? = nil
+) throws -> [SIMD4<UInt8>] {
     let framebuffer = PointCloudFramebuffer()
     let viewProjection = viewProjection()
     let quad = MTKMesh.plane(width: 1, height: 2)
     let element = try MetalSprockets.Group {
-        try PointCloudRasterizePass(points: buffer, count: points.count, viewProjection: viewProjection, viewportSize: size, framebuffer: framebuffer, shader: shader)
+        try PointCloudRasterizePass(
+            points: buffer,
+            count: count,
+            viewProjection: viewProjection,
+            viewportSize: size,
+            framebuffer: framebuffer,
+            pointSize: pointSize,
+            shape: shape,
+            maximumPointSize: maximumPointSize,
+            describe: describe
+        )
         try RenderPass {
             if occluder {
                 // Covers the left half of the view at z = 0.5.
@@ -51,12 +79,23 @@ private func render(_ points: [PointCloudPoint], occluder: Bool = false, shader:
     return pixels
 }
 
-private func pixel(of world: SIMD3<Float>) -> Int {
+/// The pixel a world-space point projects to, origin top-left.
+private func pixelCoordinate(of world: SIMD3<Float>) -> SIMD2<Int> {
     let clip = viewProjection() * SIMD4<Float>(world, 1)
     let ndc = SIMD2<Float>(clip.x, clip.y) / clip.w
-    let x = Int((ndc.x * 0.5 + 0.5) * Float(size.x))
-    let y = Int((0.5 - ndc.y * 0.5) * Float(size.y))
-    return y * size.x + x
+    return SIMD2<Int>(Int((ndc.x * 0.5 + 0.5) * Float(size.x)), Int((0.5 - ndc.y * 0.5) * Float(size.y)))
+}
+
+private func pixel(of world: SIMD3<Float>) -> Int {
+    let coordinate = pixelCoordinate(of: world)
+    return coordinate.y * size.x + coordinate.x
+}
+
+/// Whether the pixel `offset` from `world`'s pixel is lit (non-black).
+private func isLit(_ pixels: [SIMD4<UInt8>], at world: SIMD3<Float>, offset: SIMD2<Int>) -> Bool {
+    let coordinate = pixelCoordinate(of: world) &+ offset
+    let pixel = pixels[coordinate.y * size.x + coordinate.x]
+    return max(pixel.x, pixel.y, pixel.z) > 100
 }
 
 @Test(.requiresMetal4)
@@ -111,39 +150,115 @@ func testPointCloud_goldenImage() throws {
     #expect(try image.isEqualToGoldenImage(named: "PointCloudHelix"))
 }
 
-// A consumer shader compiled from source at runtime, in its own library.
-private let consumerShaderSource = """
-#include <metal_stdlib>
-using namespace metal;
+// MARK: - Sizes and shapes
 
-[[visible]] uint shadeGreen(float3 position, uint color, uint pointIndex, const device void *userData) {
-    return 0xFF00FF00;
+private let centre = SIMD3<Float>(0.1, 0.05, 0)
+private let white = SIMD4<UInt8>(255, 255, 255, 255)
+
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_squareFillsItsBox() throws {
+    let pixels = try render([PointCloudPoint(position: centre, color: white)], pointSize: 9, shape: .square)
+    #expect(isLit(pixels, at: centre, offset: [3, 3]))
+    #expect(isLit(pixels, at: centre, offset: [-3, -3]))
+    #expect(!isLit(pixels, at: centre, offset: [7, 0]))
 }
 
-[[visible]] uint shadeFromUserData(float3 position, uint color, uint pointIndex, const device void *userData) {
-    return ((const device uint *)userData)[0];
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_discLeavesCornersEmpty() throws {
+    let pixels = try render([PointCloudPoint(position: centre, color: white)], pointSize: 21, shape: .disc)
+    #expect(isLit(pixels, at: centre, offset: [8, 0]))
+    #expect(isLit(pixels, at: centre, offset: [0, -8]))
+    #expect(!isLit(pixels, at: centre, offset: [8, 8]))
+}
+
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_crosshairIsTwoLines() throws {
+    let pixels = try render([PointCloudPoint(position: centre, color: white)], pointSize: 15, shape: .crosshair)
+    #expect(isLit(pixels, at: centre, offset: [6, 0]) || isLit(pixels, at: centre, offset: [6, 1]))
+    #expect(isLit(pixels, at: centre, offset: [0, -6]) || isLit(pixels, at: centre, offset: [1, -6]))
+    #expect(!isLit(pixels, at: centre, offset: [4, 4]))
+}
+
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_ringIsHollow() throws {
+    let pixels = try render([PointCloudPoint(position: centre, color: white)], pointSize: 25, shape: .ring)
+    #expect(isLit(pixels, at: centre, offset: [11, 0]))
+    #expect(!isLit(pixels, at: centre, offset: [0, 0]))
+    #expect(!isLit(pixels, at: centre, offset: [4, 0]))
+}
+
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_sizeIsClampedToMaximum() throws {
+    let pixels = try render([PointCloudPoint(position: centre, color: white)], pointSize: 200, shape: .square, maximumPointSize: 16)
+    #expect(isLit(pixels, at: centre, offset: [6, 0]))
+    #expect(!isLit(pixels, at: centre, offset: [12, 0]))
+}
+
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_stampsClipAtViewportEdges() throws {
+    // A large square centred just outside the left edge must still draw its visible half.
+    let edge = SIMD3<Float>(-1.75, 0, 0)
+    let pixels = try render([PointCloudPoint(position: edge, color: white)], pointSize: 64, shape: .square)
+    let row = pixelCoordinate(of: edge).y
+    #expect(max(pixels[row * size.x].x, pixels[row * size.x].y, pixels[row * size.x].z) > 100)
+}
+
+// MARK: - Consumer describe functions
+
+// A consumer point layout and describe functions, compiled from source at runtime in their own library.
+private let consumerSource = PointCloudShaderSupport.metalSource + """
+using namespace metal;
+
+// xyz = position, w = size in pixels.
+struct ConsumerPoint {
+    float4 positionAndSize;
+};
+
+[[visible]] PointCloudSplat greenDiscs(uint index, const device void *points, const device void *userData) {
+    float4 point = ((const device ConsumerPoint *)points)[index].positionAndSize;
+    return { point.xyz, 0xFF00FF00, point.w, PointCloudShapeDisc };
+}
+
+[[visible]] PointCloudSplat colourFromUserData(uint index, const device void *points, const device void *userData) {
+    float4 point = ((const device ConsumerPoint *)points)[index].positionAndSize;
+    return { point.xyz, ((const device uint *)userData)[0], 1.0, PointCloudShapeSquare };
 }
 """
 
 @Test(.requiresMetal4)
 @MainActor
-func testPointCloud_consumerShaderReplacesColor() throws {
-    let library = try ShaderLibrary(source: consumerShaderSource)
-    let shader = PointCloudShader(try library.function(type: VisibleFunction.self, named: "shadeGreen"))
-    let position = SIMD3<Float>(0.3, 0.2, 0)
-    let pixels = try render([PointCloudPoint(position: position, color: [255, 0, 0, 255])], shader: shader)
-    let bgra = pixels[pixel(of: position)]
-    #expect(bgra.y > 200 && bgra.z < 50)
+func testPointCloud_describeFunctionReadsConsumerLayoutPerPoint() throws {
+    let library = try ShaderLibrary(source: consumerSource)
+    let describe = PointCloudPointFunction(try library.function(type: VisibleFunction.self, named: "greenDiscs"))
+    // Two points with different sizes in the consumer's own layout.
+    let small = SIMD3<Float>(-0.5, 0, 0)
+    let large = SIMD3<Float>(0.5, 0, 0)
+    let points: [SIMD4<Float>] = [SIMD4(small, 3), SIMD4(large, 21)]
+    let buffer = try _MTLCreateSystemDefaultDevice().makeBuffer(unsafeBytesOf: points)
+    let pixels = try render(buffer: buffer, count: points.count, describe: describe)
+
+    #expect(isLit(pixels, at: large, offset: [8, 0]))
+    #expect(!isLit(pixels, at: small, offset: [8, 0]))
+    let colour = pixels[pixel(of: large)]
+    #expect(colour.y > 200 && colour.z < 50)
 }
 
 @Test(.requiresMetal4)
 @MainActor
-func testPointCloud_consumerShaderReadsUserData() throws {
-    let library = try ShaderLibrary(source: consumerShaderSource)
-    let userData = try _MTLCreateSystemDefaultDevice().makeBuffer(unsafeBytesOf: [UInt32(0xFFFF_0000)])
-    let shader = PointCloudShader(try library.function(type: VisibleFunction.self, named: "shadeFromUserData"), userData: userData)
+func testPointCloud_describeFunctionReadsUserData() throws {
+    let library = try ShaderLibrary(source: consumerSource)
+    let device = _MTLCreateSystemDefaultDevice()
+    let userData = try device.makeBuffer(unsafeBytesOf: [UInt32(0xFFFF_0000)])
+    let describe = PointCloudPointFunction(try library.function(type: VisibleFunction.self, named: "colourFromUserData"), userData: userData)
     let position = SIMD3<Float>(-0.3, -0.2, 0)
-    let pixels = try render([PointCloudPoint(position: position, color: [255, 0, 0, 255])], shader: shader)
+    let buffer = try device.makeBuffer(unsafeBytesOf: [SIMD4<Float>(position, 1)])
+    let pixels = try render(buffer: buffer, count: 1, describe: describe)
     // 0xFFFF0000 is blue (third byte) at full alpha.
     let bgra = pixels[pixel(of: position)]
     #expect(bgra.x > 200 && bgra.z < 50)
@@ -153,4 +268,9 @@ func testPointCloud_consumerShaderReadsUserData() throws {
 func testPointCloudPoint_packsColorRedInLowestByte() {
     let point = PointCloudPoint(position: .zero, color: [0x11, 0x22, 0x33, 0x44])
     #expect(point.color == 0x4433_2211)
+}
+
+@Test
+func testPointCloudPoint_isPacked() {
+    #expect(MemoryLayout<PointCloudPoint>.stride == 16)
 }

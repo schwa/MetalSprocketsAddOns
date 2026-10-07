@@ -1998,12 +1998,13 @@ Subtask of #68. Not covered by the core pass: Morton / shuffled-Morton vertex or
 ## 73: Point cloud points are always single-pixel, same-shape, fixed-format
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: area:rendering, effort:l
 created: 2026-10-07T19:31:43Z
-updated: 2026-10-07T19:54:00Z
+updated: 2026-10-07T20:26:12Z
+closed: 2026-10-07T20:26:12Z
 +++
 
 PointCloudRasterizePass (#69) draws every point as exactly one pixel, with one fixed point layout (PointCloudPoint: float3 position + RGBA8 colour). Consumers cannot:
