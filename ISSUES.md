@@ -2196,12 +2196,13 @@ PointCloudRasterizePass(reverseZ: true) flips depth before the atomic min and th
 ## 83: PointCloudPointFunction userData cannot be updated per frame safely
 
 +++
-status: open
+status: closed
 priority: low
 kind: bug
 labels: area:rendering, area:metal4, effort:s
 created: 2026-10-07T19:44:09Z
-updated: 2026-10-07T21:44:20Z
+updated: 2026-10-07T21:48:40Z
+closed: 2026-10-07T21:48:40Z
 +++
 
 PointCloudShader.userData is a shared MTLBuffer. Writing it every frame (for example to animate the shader) races with frames still in flight, as in #63. There is no per-frame value path for user data.

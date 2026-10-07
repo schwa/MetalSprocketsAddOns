@@ -98,15 +98,31 @@ public final class PointCloudFramebuffer {
 /// ```
 ///
 /// The points buffer can use any layout. Colours are RGBA8 with red in the lowest byte; sizes are
-/// in pixels. `userData` points at `userData`; when that is `nil` it points at a small
-/// placeholder buffer the function must not read.
+/// in pixels. `userData` points at the function's ``UserData``; with ``UserData/none`` it points at a
+/// small placeholder the function must not read.
 public struct PointCloudPointFunction {
+    public enum UserData {
+        case none
+        /// A buffer you own. Writing it while earlier frames are in flight races with them.
+        case buffer(MTLBuffer)
+        /// Bytes copied into per-submission storage, so they can change every frame.
+        case bytes([UInt8])
+    }
+
     public var function: VisibleFunction
-    public var userData: MTLBuffer?
+    public var userData: UserData
 
     public init(_ function: VisibleFunction, userData: MTLBuffer? = nil) {
         self.function = function
-        self.userData = userData
+        self.userData = userData.map(UserData.buffer) ?? .none
+    }
+
+    /// Passes `userValue` (a plain-old-data value) to the function, copied per submission. Use this
+    /// for values that change every frame, such as time or animation parameters.
+    public init<Value>(_ function: VisibleFunction, userValue: Value) {
+        assert(_isPOD(Value.self), "User value must be a POD type.")
+        self.function = function
+        self.userData = .bytes(withUnsafeBytes(of: userValue) { Array($0) })
     }
 }
 
@@ -220,20 +236,28 @@ public struct PointCloudRasterizePass: Element {
             // Each submission gets its own buffer, so no earlier frame can still be reading this one.
             let buffer = try framebuffer.prepare(device: points.device, parameters: parameters, submissionIndex: submissionIndex, slotCount: maximumInFlightSubmissions)
             let parameters = parameters
-            let userData = try describe.map { describe in
-                try describe.userData ?? emptyUserDataBuffer()
-            }
+            let placeholder = try describe.map { _ in try emptyUserDataBuffer() }
             try ComputePass(label: "PointCloud Rasterize") {
                 ComputeCommand { encoder in
                     encoder.fill(buffer: buffer, range: 0..<buffer.length, value: 0xFF)
                 }
                 .useComputeResources([buffer], usage: .write)
                 EncoderBarrier(after: .blit, before: .dispatch)
-                if pointCount > 0, let describe, let userData {
+                if pointCount > 0, let describe, let placeholder {
                     try ComputePipeline(label: "PointCloud Rasterize (Described)", computeKernel: describingKernel) {
                         try dispatch(framebuffer: buffer, parameters: parameters)
                             .visibleFunctionTable("describe", functions: [describe.function])
-                            .parameter("userData", buffer: userData)
+                            .parameters { parameters in
+                                switch describe.userData {
+                                case .none:
+                                    parameters.set("userData", buffer: placeholder)
+                                case .buffer(let userData):
+                                    parameters.set("userData", buffer: userData)
+                                case .bytes(let bytes):
+                                    // Values are copied into storage owned by this submission.
+                                    parameters.set("userData", values: bytes.isEmpty ? [0] : bytes)
+                                }
+                            }
                     }
                     .linkedFunctions([describe.function])
                 } else if pointCount > 0 {

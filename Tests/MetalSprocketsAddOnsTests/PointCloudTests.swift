@@ -341,6 +341,44 @@ func testPointCloud_describeFunctionReadsUserData() throws {
     #expect(bgra.x > 200 && bgra.z < 50)
 }
 
+// Issue #83: per-frame user values are copied per submission, so changing them every frame is safe.
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_describeFunctionUserValueChangesPerFrame() throws {
+    let library = try ShaderLibrary(source: consumerSource)
+    let function = try library.function(type: VisibleFunction.self, named: "colourFromUserData")
+    let position = SIMD3<Float>(0.3, -0.2, 0)
+    let points = try _MTLCreateSystemDefaultDevice().makeBuffer(unsafeBytesOf: [SIMD4<Float>(position, 1)])
+    let framebuffer = PointCloudFramebuffer()
+    let renderer = try OffscreenRenderer(size: defaultRenderSize)
+
+    func renderFrame(colour: UInt32) throws -> SIMD4<UInt8> {
+        let element = try MetalSprockets.Group {
+            try PointCloudRasterizePass(
+                points: points,
+                count: 1,
+                viewProjection: viewProjection(),
+                viewportSize: size,
+                framebuffer: framebuffer,
+                describe: PointCloudPointFunction(function, userValue: colour)
+            )
+            try RenderPass {
+                try PointCloudResolvePipeline(framebuffer: framebuffer)
+            }
+        }
+        let rendering = try renderer.render(element)
+        var pixels = [SIMD4<UInt8>](repeating: .zero, count: size.x * size.y)
+        rendering.texture.getBytes(&pixels, bytesPerRow: size.x * 4, from: MTLRegionMake2D(0, 0, size.x, size.y), mipmapLevel: 0)
+        return pixels[pixel(of: position)]
+    }
+
+    // BGRA readback: blue is x, green is y.
+    let blue = try renderFrame(colour: 0xFFFF_0000)
+    let green = try renderFrame(colour: 0xFF00_FF00)
+    #expect(blue.x > 200 && blue.y < 50)
+    #expect(green.y > 200 && green.x < 50)
+}
+
 @Test
 func testPointCloudPoint_packsColorRedInLowestByte() {
     let point = PointCloudPoint(position: .zero, color: [0x11, 0x22, 0x33, 0x44])
