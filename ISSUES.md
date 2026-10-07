@@ -2003,7 +2003,7 @@ priority: medium
 kind: feature
 labels: area:rendering, effort:l
 created: 2026-10-07T19:31:43Z
-updated: 2026-10-07T19:47:45Z
+updated: 2026-10-07T19:54:00Z
 +++
 
 PointCloudRasterizePass (#69) draws every point as exactly one pixel, with one fixed point layout (PointCloudPoint: float3 position + RGBA8 colour). Consumers cannot:
@@ -2023,6 +2023,8 @@ Things to watch:
 - SIMD divergence when sizes vary within a thread group.
 - Hard edges only: nearest-wins cannot blend (soft edges depend on #76).
 - Bandwidth cost of larger point layouts.
+
+- `2026-10-07T19:54:00Z`: Note: PointCloudPoint is 32 bytes (simd_float3 is 16-byte aligned), not 16. A packed layout (packed_float3 + colour = 16 bytes) would halve bandwidth; consider it as part of the point-format work here.
 
 ---
 
@@ -2235,11 +2237,13 @@ Hybrid: points whose projected footprint is under a threshold (to be measured; g
 ## 87: Point Cloud demo generates points on the CPU
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 labels: area:examples, area:performance, effort:s
 created: 2026-10-07T19:49:25Z
+updated: 2026-10-07T19:54:00Z
+closed: 2026-10-07T19:54:00Z
 +++
 
 PointCloudDemoScene.init builds every point in a single-threaded Swift loop (SplitMix64 jitter) and writes it into a shared MTLBuffer. At 4M-8M points this takes noticeable time on every point-count or colour-mode change, even though it runs in a detached task.

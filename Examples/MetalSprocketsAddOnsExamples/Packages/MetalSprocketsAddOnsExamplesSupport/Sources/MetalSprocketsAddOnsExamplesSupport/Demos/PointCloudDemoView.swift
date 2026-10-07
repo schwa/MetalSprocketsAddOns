@@ -86,6 +86,8 @@ private struct PointCloudRenderView: View {
 
 /// The generated points and per-frame scene, separate from the view so tests can render it offscreen.
 ///
+/// Points are generated on the GPU by a kernel compiled from source at runtime.
+///
 /// `@unchecked Sendable`: built off the main actor, then only read; the framebuffer is only
 /// touched while the element tree is walked.
 final class PointCloudDemoScene: @unchecked Sendable {
@@ -99,6 +101,15 @@ final class PointCloudDemoScene: @unchecked Sendable {
             case .position: "Position"
             case .height: "Height"
             case .random: "Random"
+            }
+        }
+
+        /// Matches the `colorMode` switch in `generatorSource`.
+        var shaderValue: UInt32 {
+            switch self {
+            case .position: 0
+            case .height: 1
+            case .random: 2
             }
         }
     }
@@ -130,44 +141,85 @@ final class PointCloudDemoScene: @unchecked Sendable {
     }
     """
 
+    /// Points on a thick (2, 3) torus knot, jittered inside the tube. Jitter and random colours
+    /// come from a hash of the point index, so the output is the same on every run.
+    static let generatorSource = """
+    #include <metal_stdlib>
+    using namespace metal;
+
+    // Same layout as PointCloudPoint in PointCloud.h.
+    struct Point {
+        float3 position;
+        uint color;
+    };
+
+    // PCG hash (Jarzynski & Olano 2020).
+    uint hash(uint value) {
+        uint state = value * 747796405u + 2891336453u;
+        uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+        return (word >> 22u) ^ word;
+    }
+
+    // Uniform in [0, 1) from the index and a per-use salt.
+    float unit(uint index, uint salt) {
+        return float(hash(index * 6u + salt) >> 8) / 16777216.0;
+    }
+
+    kernel void generatePoints(
+        uint index [[thread_position_in_grid]],
+        device Point *points [[buffer(0)]],
+        constant uint &count [[buffer(1)]],
+        constant uint &colorMode [[buffer(2)]]
+    ) {
+        if (index >= count) {
+            return;
+        }
+        float t = float(index) / float(count) * 2.0 * M_PI_F;
+        float radius = 1.2 + 0.5 * cos(3.0 * t);
+        float3 centre = float3(radius * cos(2.0 * t), 0.5 * sin(3.0 * t) + 1.0, radius * sin(2.0 * t));
+        float3 offset = float3(unit(index, 0), unit(index, 1), unit(index, 2)) * 2.0 - 1.0;
+        float3 position = centre + offset * 0.18;
+
+        float3 color;
+        switch (colorMode) {
+        case 0:
+            color = saturate((position + float3(1.7, 0.0, 1.7)) / float3(3.4, 2.0, 3.4));
+            break;
+        case 1:
+            color = mix(float3(0.1, 0.3, 1.0), float3(1.0, 0.8, 0.2), saturate(position.y / 2.0));
+            break;
+        default:
+            color = float3(unit(index, 3), unit(index, 4), unit(index, 5));
+            break;
+        }
+        points[index] = { position, pack_float_to_unorm4x8(float4(color, 1.0)) };
+    }
+    """
+
     init(pointCount: Int, colorMode: ColorMode) throws {
         let device = _MTLCreateSystemDefaultDevice()
-        let buffer = try device.makeBuffer(length: pointCount * MemoryLayout<PointCloudPoint>.stride, options: .storageModeShared)
+        let buffer = try device.makeBuffer(length: pointCount * MemoryLayout<PointCloudPoint>.stride, options: .storageModePrivate)
             .orThrow(.resourceCreationFailure("Failed to create point buffer"))
         buffer.label = "PointCloud Demo Points"
-        let points = buffer.contents().bindMemory(to: PointCloudPoint.self, capacity: pointCount)
-        var generator = SplitMix64(seed: 0x5EED)
-        for index in 0..<pointCount {
-            points[index] = Self.point(index: index, of: pointCount, colorMode: colorMode, generator: &generator)
+        let kernel = try ShaderLibrary(source: Self.generatorSource).function(type: ComputeKernel.self, named: "generatePoints")
+        try ComputePass(label: "PointCloud Demo Generate") {
+            try ComputePipeline(label: "PointCloud Demo Generate", computeKernel: kernel) {
+                try ComputeDispatch(
+                    threadsPerGrid: MTLSize(width: pointCount, height: 1, depth: 1),
+                    threadsPerThreadgroup: MTLSize(width: 256, height: 1, depth: 1)
+                )
+                .parameter("points", buffer: buffer)
+                .parameter("count", value: UInt32(pointCount))
+                .parameter("colorMode", value: colorMode.shaderValue)
+            }
         }
+        .run()
         self.points = buffer
         self.pointCount = pointCount
 
         let library = try ShaderLibrary(source: Self.customShaderSource)
         let spacing = try device.makeBuffer(unsafeBytesOf: [Float(0.15)])
         customShader = PointCloudShader(try library.function(type: VisibleFunction.self, named: "heightBands"), userData: spacing)
-    }
-
-    /// A point on a thick (2, 3) torus knot, jittered inside the tube.
-    private static func point(index: Int, of count: Int, colorMode: ColorMode, generator: inout SplitMix64) -> PointCloudPoint {
-        let t = Float(index) / Float(count) * 2 * .pi
-        let radius = 1.2 + 0.5 * cos(3 * t)
-        let centre = SIMD3<Float>(radius * cos(2 * t), 0.5 * sin(3 * t) + 1, radius * sin(2 * t))
-        let offset = SIMD3<Float>(generator.nextSigned(), generator.nextSigned(), generator.nextSigned())
-        let position = centre + offset * 0.18
-
-        let color: SIMD3<Float>
-        switch colorMode {
-        case .position:
-            color = simd_clamp((position + SIMD3<Float>(1.7, 0, 1.7)) / SIMD3<Float>(3.4, 2, 3.4), .zero, .one)
-        case .height:
-            let height = simd_clamp(position.y / 2, 0, 1)
-            color = simd_mix(SIMD3<Float>(0.1, 0.3, 1), SIMD3<Float>(1, 0.8, 0.2), SIMD3<Float>(repeating: height))
-        case .random:
-            color = SIMD3<Float>(generator.nextUnit(), generator.nextUnit(), generator.nextUnit())
-        }
-        let bytes = SIMD3<UInt8>(color * 255)
-        return PointCloudPoint(position: position, color: SIMD4<UInt8>(bytes, 255))
     }
 
     func element(camera: OrbitCamera, drawableSize: CGSize, showGrid: Bool, useCustomShader: Bool = false) throws -> some Element {
@@ -189,33 +241,6 @@ final class PointCloudDemoScene: @unchecked Sendable {
                 try PointCloudResolvePipeline(framebuffer: framebuffer)
             }
         }
-    }
-}
-
-/// Small deterministic generator so the demo (and its golden image) is reproducible.
-private struct SplitMix64 {
-    var state: UInt64
-
-    init(seed: UInt64) {
-        state = seed
-    }
-
-    mutating func next() -> UInt64 {
-        state &+= 0x9E37_79B9_7F4A_7C15
-        var value = state
-        value = (value ^ (value >> 30)) &* 0xBF58_476D_1CE4_E5B9
-        value = (value ^ (value >> 27)) &* 0x94D0_49BB_1331_11EB
-        return value ^ (value >> 31)
-    }
-
-    /// Uniform in [0, 1).
-    mutating func nextUnit() -> Float {
-        Float(next() >> 40) / Float(1 << 24)
-    }
-
-    /// Uniform in [-1, 1).
-    mutating func nextSigned() -> Float {
-        nextUnit() * 2 - 1
     }
 }
 
