@@ -21,7 +21,8 @@ import SwiftUI
 struct PointCloudDemoView: View {
     @State private var camera = InteractionState(pitch: -.pi / 8, distance: 6, target: [0, 0.5, 0])
     @State private var scene: PointCloudDemoScene?
-    @State private var pointCount = PointCloudDemoScene.pointCounts[2]
+    @State private var pointCount = 4_000_000
+    @State private var generationError: String?
     @State private var colorMode = PointCloudDemoScene.ColorMode.position
     @State private var showGrid = true
     @State private var style = PointCloudDemoScene.Style()
@@ -38,6 +39,12 @@ struct PointCloudDemoView: View {
                     systemImage: "exclamationmark.triangle",
                     description: Text("Point cloud rasterization needs Apple GPU family 8 or later.")
                 )
+            } else if let generationError {
+                ContentUnavailableView(
+                    "Could Not Generate Points",
+                    systemImage: "exclamationmark.triangle",
+                    description: Text(generationError)
+                )
             } else if let scene {
                 PointCloudRenderView(scene: scene, camera: camera, showGrid: showGrid, style: style)
                     .demoCameraControls($camera)
@@ -46,7 +53,7 @@ struct PointCloudDemoView: View {
             }
         } controls: {
             Picker("Points", selection: $pointCount) {
-                ForEach(PointCloudDemoScene.pointCounts, id: \.self) { count in
+                ForEach(PointCloudDemoScene.availablePointCounts, id: \.self) { count in
                     Text(count.formatted()).tag(count)
                 }
             }
@@ -74,9 +81,15 @@ struct PointCloudDemoView: View {
             }
             let pointCount = pointCount
             let colorMode = colorMode
-            scene = try? await Task.detached(priority: .userInitiated) {
-                try PointCloudDemoScene(pointCount: pointCount, colorMode: colorMode)
-            }.value
+            do {
+                scene = try await Task.detached(priority: .userInitiated) {
+                    try PointCloudDemoScene(pointCount: pointCount, colorMode: colorMode)
+                }.value
+                generationError = nil
+            } catch {
+                scene = nil
+                generationError = error.localizedDescription
+            }
         }
     }
 }
@@ -131,7 +144,15 @@ final class PointCloudDemoScene: @unchecked Sendable {
         var colorMode: ColorMode
     }
 
-    static let pointCounts = [100_000, 1_000_000, 4_000_000, 8_000_000]
+    static let pointCounts = [100_000, 1_000_000, 4_000_000, 8_000_000, 32_000_000, 100_000_000, 250_000_000, 500_000_000, 1_000_000_000]
+
+    /// The point counts whose buffer fits on this device: within the largest buffer Metal allows
+    /// and half the recommended GPU working set.
+    static var availablePointCounts: [Int] {
+        let device = _MTLCreateSystemDefaultDevice()
+        let limit = min(device.maxBufferLength, Int(device.recommendedMaxWorkingSetSize / 2))
+        return pointCounts.filter { $0 * MemoryLayout<PointCloudPoint>.stride <= limit }
+    }
     static let clearColor = MTLClearColor(red: 0.03, green: 0.03, blue: 0.05, alpha: 1)
 
     let points: MTLBuffer

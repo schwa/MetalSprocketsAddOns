@@ -115,6 +115,56 @@ func benchmarkPointCloudOrders() throws {
     try report.write(toFile: "/tmp/PointCloudBenchmark.txt", atomically: true, encoding: .utf8)
 }
 
+/// GPU time of the rasterize pass as the point count grows (random cube, random order). Opt in with
+/// POINT_CLOUD_BENCHMARK=1; results are written to /tmp/PointCloudScaling.txt.
+@Test(.requiresMetal4, .enabled(if: ProcessInfo.processInfo.environment["POINT_CLOUD_BENCHMARK"] != nil))
+@MainActor
+func benchmarkPointCloudScaling() throws {
+    let device = _MTLCreateSystemDefaultDevice()
+    let viewProjection = perspectiveProjection() * float4x4(translation: SIMD3<Float>(0, 0, 3)).inverse
+    let size = SIMD2<Int>(1_920, 1_080)
+    let renderer = try OffscreenRenderer(size: CGSize(width: size.x, height: size.y))
+
+    var lines: [String] = []
+    for count in [8_000_000, 32_000_000, 100_000_000, 250_000_000] {
+        let buffer = try device.makeBuffer(length: count * MemoryLayout<PointCloudPoint>.stride, options: .storageModeShared)
+            .orThrow(.resourceCreationFailure("Failed to create \(count) point buffer"))
+        let points = buffer.contents().bindMemory(to: PointCloudPoint.self, capacity: count)
+        var generator = TestRandom(state: 1)
+        for index in 0..<count {
+            let position = SIMD3<Float>(
+                Float.random(in: -1...1, using: &generator),
+                Float.random(in: -1...1, using: &generator),
+                Float.random(in: -1...1, using: &generator)
+            )
+            points[index] = PointCloudPoint(position: position, color: UInt32(truncatingIfNeeded: index))
+        }
+        let framebuffer = PointCloudFramebuffer()
+        let samples = OSAllocatedUnfairLock<[TimeInterval]>(initialState: [])
+        for _ in 0..<40 {
+            let element = try MetalSprockets.Group {
+                try PointCloudRasterizePass(points: buffer, count: count, viewProjection: viewProjection, viewportSize: size, framebuffer: framebuffer)
+                    .gpuCounters { sample in
+                        if let duration = sample.duration {
+                            samples.withLock { $0.append(duration) }
+                        }
+                    }
+                try RenderPass {
+                    try PointCloudResolvePipeline(framebuffer: framebuffer)
+                }
+            }
+            _ = try renderer.render(element)
+        }
+        let durations = samples.withLock { $0 }.dropFirst(10).sorted()
+        let median = durations.isEmpty ? .nan : durations[durations.count / 2] * 1_000
+        let minimum = (durations.first ?? .nan) * 1_000
+        lines.append("PointCloud scaling \(count) points: median \(String(format: "%.2f", median)) ms, min \(String(format: "%.2f", minimum)) ms")
+    }
+    let report = lines.joined(separator: "\n")
+    print(report)
+    try report.write(toFile: "/tmp/PointCloudScaling.txt", atomically: true, encoding: .utf8)
+}
+
 private struct TestRandom: RandomNumberGenerator {
     var state: UInt64
 
