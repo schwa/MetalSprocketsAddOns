@@ -2105,14 +2105,15 @@ TextureView (Sources/MetalSprocketsAddOnsUI/TextureView.swift) caches its CGImag
 status: open
 priority: medium
 kind: task
-labels: area:metal4, blocked, upstream, effort:m
+labels: area:metal4, effort:m
 created: 2026-10-07T19:44:09Z
-updated: 2026-10-07T21:19:16Z
+updated: 2026-10-07T21:44:20Z
 +++
 
 The #65 fix puts QueueBarrier(after: [.dispatch, .fragment], before: .fragment) inside each ShadowMapDepthPass render pass. It is not verified that a queue barrier encoded inside the pass also orders the depth attachment load action (clear), which runs at pass start. If not, the next frame can still clear the shadow map while the previous frame samples it. Needs confirmation (Metal docs or a GPU capture); a fix may need a pass-level consumer barrier in MetalSprockets.
 
 - `2026-10-07T21:19:16Z`: Investigation: MTL4CommandEncoder.barrier(afterQueueStages:beforeStages:) docs say it gates 'subsequent work you encode in the current command encoder' for beforeStages; MTLStages.fragment is 'all fragment shader stage work'. The Resource synchronization article lists render pass attachments' implicit load/store operations as conflict sources but does not say which stage they belong to or whether consumer barriers order them. WWDC 2025 'Explore Metal 4 games' (wwdc2025-254) only covers fragment stage work. So: unverifiable from docs, and a cross-frame race cannot be tested deterministically. Fix that does not depend on the answer: a ring of shadow maps, one per frame in flight. Blocked: MetalSprockets exposes no per-frame/submission index that sibling passes (depth pass and ShadowMaskPass) can share, and advancing a counter in body is unreliable. Filed MetalSprockets#485.
+- `2026-10-07T21:44:20Z`: Unblocked: MetalSprockets#485 added MSEnvironmentValues.submissionIndex and maximumInFlightSubmissions (MetalSprockets main 33ffbd8). AddOns now depends on MetalSprockets main until it is tagged.
 
 ---
 
@@ -2197,14 +2198,15 @@ PointCloudRasterizePass(reverseZ: true) flips depth before the atomic min and th
 status: open
 priority: low
 kind: bug
-labels: area:rendering, area:metal4, effort:s, blocked, upstream
+labels: area:rendering, area:metal4, effort:s
 created: 2026-10-07T19:44:09Z
-updated: 2026-10-07T21:19:16Z
+updated: 2026-10-07T21:44:20Z
 +++
 
 PointCloudShader.userData is a shared MTLBuffer. Writing it every frame (for example to animate the shader) races with frames still in flight, as in #63. There is no per-frame value path for user data.
 
 - `2026-10-07T21:19:16Z`: Renamed from PointCloudShader (now PointCloudPointFunction, #73). Needs a per-frame slot index to ring user data buffers; blocked on MetalSprockets#485.
+- `2026-10-07T21:44:20Z`: Unblocked: MetalSprockets#485 added MSEnvironmentValues.submissionIndex and maximumInFlightSubmissions (MetalSprockets main 33ffbd8). AddOns now depends on MetalSprockets main until it is tagged.
 
 ---
 
@@ -2306,11 +2308,13 @@ Replace all demo camera interaction with Interaction3D and remove OrbitCamera. T
 status: open
 priority: low
 kind: task
-labels: area:performance, effort:s, blocked, upstream, area:rendering
+labels: area:performance, effort:s, area:rendering
 created: 2026-10-07T21:19:16Z
-updated: 2026-10-07T21:19:52Z
+updated: 2026-10-07T21:44:20Z
 +++
 
 PointCloudRasterizePass clears and rewrites one shared per-pixel buffer each frame. To avoid racing earlier frames' resolve passes it starts with QueueBarrier(after: [.fragment, .dispatch], before: [.blit, .dispatch]), which makes each frame wait for the previous frame's fragment work. A buffer per frame in flight would remove that wait. Blocked on MetalSprockets#485 (no per-frame index).
+
+- `2026-10-07T21:44:20Z`: Unblocked: MetalSprockets#485 added MSEnvironmentValues.submissionIndex and maximumInFlightSubmissions (MetalSprockets main 33ffbd8). AddOns now depends on MetalSprockets main until it is tagged.
 
 ---
