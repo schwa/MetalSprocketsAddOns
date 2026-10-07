@@ -1695,12 +1695,12 @@ Screenshot: ~/Library/Application Support/CleanShot/media/media_gHZg8nSrZ1/Scree
 ## 58: Ray-traced self-shadow edge on curved meshes is stair-stepped
 
 +++
-status: new
+status: open
 priority: low
 kind: bug
-labels: area:rendering
+labels: area:rendering, effort:m
 created: 2026-09-30T16:34:13Z
-updated: 2026-09-30T17:14:45Z
+updated: 2026-10-07T18:59:49Z
 +++
 
 With RayTracedShadowComputePass, the shadow a sphere casts on itself has a blocky, stair-stepped edge instead of following the curve. The shadow cast onto the ground looks correct.
@@ -1738,11 +1738,12 @@ Four demo bugs were only found by looking at the running app: geometry cut by a 
 ## 60: RayTracedShadowComputePass still packs the acceleration structure into its parameter struct
 
 +++
-status: new
+status: open
 priority: low
 kind: task
 labels: area:rendering, area:metal4, effort:s
 created: 2026-09-30T18:49:31Z
+updated: 2026-10-07T18:59:49Z
 +++
 
 During the Metal 4 port, MetalSprockets could not bind acceleration structures as shader parameters, so the instance acceleration structure was moved into `RayTracedShadowParameters` as an `MTLResourceID` (RayTracedShadows.h, RayTracedShadows.metal, RayTracedShadows.swift) instead of a `[[buffer(0)]]` kernel argument.
@@ -1754,11 +1755,12 @@ MetalSprockets metal4 now supports `.parameter(_:accelerationStructure:)` (Metal
 ## 61: GaussianBlurPipeline uses a custom kernel; MPS may work again on Metal 4
 
 +++
-status: new
+status: open
 priority: low
 kind: task
 labels: area:metal4, effort:s
 created: 2026-09-30T18:49:31Z
+updated: 2026-10-07T18:59:49Z
 +++
 
 During the Metal 4 port, MetalSprockets had no way to encode MPS work, so GaussianBlurPipeline was rewritten from MPSImageGaussianBlur to a custom two-pass separable compute kernel (GaussianBlur.metal), and its edgeMode changed from MPSImageEdgeMode to its own enum.
@@ -1770,11 +1772,12 @@ MetalSprockets metal4 now documents which MPS kernels work on Metal 4 (MetalSpro
 ## 62: ShadowTestScene ground plane is vertical
 
 +++
-status: new
+status: open
 priority: low
 kind: bug
 labels: area:testing, effort:s
 created: 2026-09-30T18:49:31Z
+updated: 2026-10-07T18:59:49Z
 +++
 
 Tests/MetalSprocketsAddOnsTests/Support/ShadowTestScene.swift builds the ground with `MTKMesh.plane(width:height:)` and only translates it to y = -1. MTKMesh.plane lies in the XY plane, so the "ground" is a vertical wall at z = 0, not a floor. This is the same mistake fixed in the Examples demos in #55.
@@ -1786,25 +1789,29 @@ The shadow-map and ray-traced shadow tests and their golden images (for example 
 ## 63: Lighting writes GPU-visible buffers in place while frames are in flight
 
 +++
-status: new
+status: open
 priority: high
 kind: bug
-labels: area:metal4
+labels: area:metal4, effort:m
 created: 2026-10-02T22:34:29Z
+updated: 2026-10-07T18:59:49Z
 +++
 
 Lighting.setLightPosition(_:at:) and setLight(_:at:) write through lights.contents() and lightPositions.contents() into shared MTLBuffers. Callers animate lights every frame. Examples: RayTracedShadow, ShadowMap, BlinnPhong, and PBR via LightingAnimator. Up to maximumInFlightSubmissions (default 3) earlier frames may still read those buffers, so this is a CPU/GPU race: lights can jitter or tear. Fix options: a ring of buffers sized to frames in flight, copy-on-write per frame, or pass the light data as parameter values. Reported from MetalSprocketsExamples #439.
+
+- `2026-10-07T18:59:50Z`: Related: #66 fixed the same in-flight buffer rewrite pattern in GraphicsContext3DRenderPipeline (fresh buffers per regeneration, uniforms via parameter values).
 
 ---
 
 ## 64: VideoTexturePipeline releases the CVMetalTexture before the GPU is done
 
 +++
-status: new
+status: open
 priority: high
 kind: bug
-labels: area:metal4
+labels: area:metal4, effort:s
 created: 2026-10-02T22:34:29Z
+updated: 2026-10-07T18:59:49Z
 +++
 
 VideoTexturePipeline.updateFrame keeps only CVMetalTextureGetTexture(cvTexture) in currentTexture. The CVMetalTexture is a local and is released right away. The CVMetalTextureCache can then recycle the backing IOSurface while in-flight frames still sample the MTLTexture. Keep the CVMetalTexture (or CVPixelBuffer) alive with the frame, and expose it as an owner so callers can retain it until completion, like YCbCrBillboardRenderPass(owners:). Affects VideoPlayback and AppleEventLogo in MetalSprocketsExamples (#439).
@@ -1814,11 +1821,12 @@ VideoTexturePipeline.updateFrame keeps only CVMetalTextureGetTexture(cvTexture) 
 ## 65: ShadowMapDepthPass needs a WAR barrier before rewriting the shadow map
 
 +++
-status: new
+status: open
 priority: medium
 kind: bug
-labels: area:metal4
+labels: area:metal4, effort:s
 created: 2026-10-02T22:34:29Z
+updated: 2026-10-07T18:59:49Z
 +++
 
 Each depth RenderPass in ShadowMapDepthPass ends with barrierAfterPass(after: .fragment, beforeQueueStages: [.vertex, .fragment, .dispatch]), but nothing orders it after earlier readers. The next frame can clear and rewrite the shadow map while the previous frame's main pass (fragment) and ShadowMaskPass (dispatch) still sample it. Add QueueBarrier(after: [.dispatch, .fragment], before: .fragment) at the start of each depth RenderPass. Callers cannot add it from outside, because a QueueBarrier only gates its own encoder. Reported from MetalSprocketsExamples #439.
@@ -1871,5 +1879,33 @@ In `GraphicsContext3DShaders.metal`, `toScreen` divides clip-space xy by `clipPo
 `toScreen` only guards `abs(clipPos.w) < 1e-6`, which returns (0, 0) and also produces wrong geometry.
 
 Seen in ARSprockets (~/Projects/Scratch/ARSprockets) stroking ARKit plane outlines. The user stands inside the room, so floor and wall outlines often pass behind the camera.
+
+---
+
+## 68: No reusable point cloud render pass
+
++++
+status: open
+priority: medium
+kind: feature
+labels: area:rendering, area:performance, effort:xl
+created: 2026-10-07T18:55:34Z
+updated: 2026-10-07T18:59:49Z
++++
+
+MetalSprocketsAddOns has no shared element for drawing large point clouds. Consumers (ARSprockets, SceneGraph, GaussianSplats tooling, the PointCloudDemo in MetalSprocketsExamples) have to write their own, and point-primitive rasterization does not scale to tens or hundreds of millions of points.
+
+Reference: Schütz, Kerbl, Wimmer, "Rendering Point Clouds with Compute Shaders and Vertex Order Optimization" (2021), https://arxiv.org/abs/2104.07526. The paper renders points with compute shaders: each point is projected and written to a 64-bit framebuffer with an atomic min of packed depth+color, then resolved to the color target. It also covers batching, vertex-order optimization (e.g. Morton order / shuffled order) for coherent access, and a high-quality mode that blends overlapping points.
+
+Wanted:
+- A reusable element (compute rasterize + resolve) that other packages can drop into a render graph, composing with depth from other passes.
+- A demo in MetalSprocketsAddOnsExamples with a large point cloud and controls for the paper's variants.
+- Tests, including a golden image.
+
+Open question: can consumers supply their own code? For example, custom per-point shading/color, point attribute layout, culling or LOD, or splat size, via user shader functions (function constants, visible/linked functions, or stitched functions) instead of forking the pass.
+
+\- `2026-10-07T18:56:57Z`: Proposed approach for consumer-supplied code (per schwa): visible functions. Consumers write a Metal function (e.g. `float4 shadePoint(PointData, ...)`) that is linked into the compute rasterizer, so they can customize per-point shading/attributes without forking the pass. Needs to fit the MetalSprockets shader-library model.
+
+Alternatives to consider: dynamic libraries (MTLDynamicLibrary) linked into the kernel; stitched functions (MTLFunctionStitchingGraph) for graph-built shading.
 
 ---
