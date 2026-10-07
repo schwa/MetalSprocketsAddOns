@@ -1757,17 +1757,20 @@ MetalSprockets metal4 now supports `.parameter(_:accelerationStructure:)` (Metal
 ## 61: GaussianBlurPipeline uses a custom kernel; MPS may work again on Metal 4
 
 +++
-status: open
+status: closed
 priority: low
 kind: task
 labels: area:metal4, effort:s
 created: 2026-09-30T18:49:31Z
-updated: 2026-10-07T18:59:49Z
+updated: 2026-10-07T19:09:05Z
+closed: 2026-10-07T19:09:05Z
 +++
 
 During the Metal 4 port, MetalSprockets had no way to encode MPS work, so GaussianBlurPipeline was rewritten from MPSImageGaussianBlur to a custom two-pass separable compute kernel (GaussianBlur.metal), and its edgeMode changed from MPSImageEdgeMode to its own enum.
 
 MetalSprockets metal4 now documents which MPS kernels work on Metal 4 (MetalSprockets #451). It is not known yet whether MPSImageGaussianBlur is one of them.
+
+- `2026-10-07T19:09:05Z`: Answered by MetalSprockets Documentation/Porting-to-Metal4.md (MetalPerformanceShaders section): MPSImageGaussianBlur and other MPSUnaryImageKernel/MPSBinaryImageKernel subclasses only encode into a Metal 3 MTLCommandBuffer and are not supported in an element tree; committing on a separate Metal 3 queue runs before earlier passes of the same submission. Only MPSNDArray kernels have MTL4 encoders. Keeping the custom separable compute kernel. Revisit if RFC 0005 (Metal 3 interop) lands.
 
 ---
 
@@ -1897,8 +1900,9 @@ status: open
 priority: medium
 kind: feature
 labels: area:rendering, area:performance, effort:xl
+depends: 69, 70, 71, 72
 created: 2026-10-07T18:55:34Z
-updated: 2026-10-07T18:59:49Z
+updated: 2026-10-07T19:20:56Z
 +++
 
 MetalSprocketsAddOns has no shared element for drawing large point clouds. Consumers (ARSprockets, SceneGraph, GaussianSplats tooling, the PointCloudDemo in MetalSprocketsExamples) have to write their own, and point-primitive rasterization does not scale to tens or hundreds of millions of points.
@@ -1915,5 +1919,70 @@ Open question: can consumers supply their own code? For example, custom per-poin
 \- `2026-10-07T18:56:57Z`: Proposed approach for consumer-supplied code (per schwa): visible functions. Consumers write a Metal function (e.g. `float4 shadePoint(PointData, ...)`) that is linked into the compute rasterizer, so they can customize per-point shading/attributes without forking the pass. Needs to fit the MetalSprockets shader-library model.
 
 Alternatives to consider: dynamic libraries (MTLDynamicLibrary) linked into the kernel; stitched functions (MTLFunctionStitchingGraph) for graph-built shading.
+
+- `2026-10-07T19:20:56Z`: Split into #69 (core pass), #70 (demo), #71 (visible-function shading), #72 (paper extras).
+
+---
+
+## 69: Point cloud: core compute rasterizer pass (#68)
+
++++
+status: open
+priority: medium
+kind: feature
+labels: area:rendering, effort:m, subtask
+created: 2026-10-07T19:20:53Z
+updated: 2026-10-07T19:20:56Z
++++
+
+Subtask of #68. No element renders a point buffer with the compute approach from Schütz et al. 2021 (https://arxiv.org/abs/2104.07526): project each point, 64-bit atomic min of packed depth+color into a per-pixel buffer, then resolve into the color and depth attachments so the result depth-tests against other passes. Needs a golden-image test and a clear error on GPUs without 64-bit buffer atomics.
+
+---
+
+## 70: Point cloud: demo in MetalSprocketsAddOnsExamples (#68)
+
++++
+status: open
+priority: medium
+kind: feature
+labels: area:rendering, area:examples, effort:s, subtask
+depends: 69
+created: 2026-10-07T19:20:53Z
+updated: 2026-10-07T19:20:56Z
++++
+
+Subtask of #68. The examples app has no point cloud demo. Wanted: millions of procedurally generated points with an orbit camera and color-mode controls, plus a golden test like the other demos. MetalSprocketsExamples PointCloudDemoView may help.
+
+---
+
+## 71: Point cloud: consumer-supplied shading via visible functions (#68)
+
++++
+status: open
+priority: medium
+kind: feature
+labels: area:rendering, effort:m, subtask
+depends: 69
+created: 2026-10-07T19:20:53Z
+updated: 2026-10-07T19:20:56Z
++++
+
+Subtask of #68. Consumers cannot customize per-point shading without forking the pass. Proposed (per schwa): a visible function such as `float4 shadePoint(PointData, ...)` linked into the rasterizer kernel. Alternatives: MTLDynamicLibrary, function stitching. Include a sample custom shader in the demo.
+
+---
+
+## 72: Point cloud: paper extras - ordering, batch culling, high-quality mode, 32-bit fallback (#68)
+
++++
+status: open
+priority: low
+kind: feature
+labels: area:rendering, area:performance, effort:l, subtask
+depends: 69
+created: 2026-10-07T19:20:53Z
+updated: 2026-10-07T19:20:56Z
++++
+
+Subtask of #68. Not covered by the core pass: Morton / shuffled-Morton vertex order, per-batch frustum culling, the high-quality mode that blends overlapping points, and a fallback for GPUs without 64-bit atomics.
 
 ---
