@@ -23,6 +23,16 @@ typedef MS_ENUM(uint32_t, PointCloudColorSpace) {
     PointCloudColorSpaceLinear = 1,
 };
 
+/// The passes of the rasterizer. Fast mode uses one pass; blended mode uses the other two.
+typedef MS_ENUM(uint32_t, PointCloudRasterPass) {
+    /// Nearest point per pixel: 64-bit atomic min of (depth << 32 | colour).
+    PointCloudRasterPassNearest = 0,
+    /// Blended, first pass: nearest view depth per pixel.
+    PointCloudRasterPassBlendedDepth = 1,
+    /// Blended, second pass: sum the colours of points near that depth.
+    PointCloudRasterPassBlendedAccumulate = 2,
+};
+
 /// The default point layout: packed world-space position and an RGBA8 colour (red in the lowest
 /// byte), 16 bytes per point.
 struct PointCloudPoint {
@@ -60,5 +70,9 @@ struct PointCloudParameters {
     float maximumPointSize;
     /// A `PointCloudColorSpace` value.
     uint32_t colorSpace;
+    /// A `PointCloudRasterPass` value: which pass this dispatch (or resolve) is for.
+    uint32_t pass;
+    /// Blended mode: points within this fraction of the nearest point's view depth are averaged.
+    float depthTolerance;
 };
 typedef struct PointCloudParameters PointCloudParameters;

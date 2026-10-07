@@ -6,8 +6,14 @@ using namespace metal;
 
 // Compute rasterization of points after Schütz, Kerbl & Wimmer 2021,
 // "Rendering Point Clouds with Compute Shaders and Vertex Order Optimization".
-// Each point packs (depth << 32 | colour) and does a 64-bit atomic min into its pixel,
-// so the nearest point wins. A resolve pass then writes colour and depth.
+//
+// Nearest mode: each point packs (depth << 32 | colour) and does a 64-bit atomic min into its
+// pixel, so the nearest point wins.
+//
+// Blended mode (the paper's high-quality shading): a depth pass keeps the nearest view depth per
+// pixel, then an accumulate pass sums the linear colours of every point within a tolerance of it.
+// The resolve pass writes the average. Blended framebuffer layout, struct-of-arrays per pixel:
+//   [nearest view depth (float bits)] [nearest NDC depth (float bits)] [r g b a sums] [count]
 namespace PointCloud {
 
     // Empty pixel: larger than any packed value with a depth in [0, 1].
@@ -18,6 +24,58 @@ namespace PointCloud {
 
     // Consumer hook: (point index, point buffer, user data) -> what to draw for that point.
     using DescribePoint = PointCloudSplat(uint, const device void *, const device void *);
+
+    // Fixed-point scale for the blended colour sums.
+    constant float accumulationScale = 1023.0;
+
+    struct BlendedFramebuffer {
+        device atomic_uint *nearestViewDepth;
+        device atomic_uint *nearestDepth;
+        device atomic_uint *sums;
+        device atomic_uint *counts;
+
+        BlendedFramebuffer(device void *base, uint pixelCount) {
+            nearestViewDepth = static_cast<device atomic_uint *>(base);
+            nearestDepth = nearestViewDepth + pixelCount;
+            sums = nearestDepth + pixelCount;
+            counts = sums + 4 * pixelCount;
+        }
+    };
+
+    float4 decodeColour(uint packed, uint colorSpace) {
+        return colorSpace == PointCloudColorSpaceSRGB ? unpack_unorm4x8_srgb_to_float(packed) : unpack_unorm4x8_to_float(packed);
+    }
+
+    // One covered pixel. `viewDepth` is clip.w; `depth` is NDC depth, flipped for reverse Z.
+    void writePixel(device void *framebuffer, uint index, constant PointCloudParameters &params, float viewDepth, float depth, uint colour) {
+        switch (params.pass) {
+        case PointCloudRasterPassNearest: {
+            // Non-negative floats order the same as their bit patterns.
+            ulong packed = (ulong(as_type<uint>(depth)) << 32) | ulong(colour);
+            atomic_min_explicit(static_cast<device atomic_ulong *>(framebuffer) + index, packed, memory_order_relaxed);
+            break;
+        }
+        case PointCloudRasterPassBlendedDepth: {
+            BlendedFramebuffer blended(framebuffer, params.viewportSize.x * params.viewportSize.y);
+            atomic_fetch_min_explicit(blended.nearestViewDepth + index, as_type<uint>(viewDepth), memory_order_relaxed);
+            break;
+        }
+        default: {
+            BlendedFramebuffer blended(framebuffer, params.viewportSize.x * params.viewportSize.y);
+            float nearest = as_type<float>(atomic_load_explicit(blended.nearestViewDepth + index, memory_order_relaxed));
+            if (viewDepth > nearest * (1.0 + params.depthTolerance)) {
+                return;
+            }
+            atomic_fetch_min_explicit(blended.nearestDepth + index, as_type<uint>(depth), memory_order_relaxed);
+            uint4 fixed = uint4(round(decodeColour(colour, params.colorSpace) * accumulationScale));
+            for (uint channel = 0; channel < 4; channel++) {
+                atomic_fetch_add_explicit(blended.sums + index * 4 + channel, fixed[channel], memory_order_relaxed);
+            }
+            atomic_fetch_add_explicit(blended.counts + index, 1, memory_order_relaxed);
+            break;
+        }
+        }
+    }
 
     // Whether the pixel whose centre is `offset` pixels from the point's centre is inside the shape.
     bool covers(float2 offset, float radius, uint shape) {
@@ -39,7 +97,7 @@ namespace PointCloud {
     [[kernel]] void rasterize(
         uint pointIndex [[thread_position_in_grid]],
         const device void *points [[buffer(0)]],
-        device atomic_ulong *framebuffer [[buffer(1)]],
+        device void *framebuffer [[buffer(1)]],
         constant PointCloudParameters &params [[buffer(2)]],
         visible_function_table<DescribePoint> describe [[buffer(3), function_constant(HAS_DESCRIBE)]],
         const device void *userData [[buffer(4), function_constant(HAS_DESCRIBE)]]
@@ -72,9 +130,7 @@ namespace PointCloud {
             return;
         }
 
-        // Non-negative floats order the same as their bit patterns.
         float depth = params.reverseZ != 0 ? 1.0 - ndc.z : ndc.z;
-        ulong packed = (ulong(as_type<uint>(depth)) << 32) | ulong(splat.color);
         uint width = params.viewportSize.x;
 
         if (size <= 1.0) {
@@ -82,7 +138,7 @@ namespace PointCloud {
                 return;
             }
             uint2 pixel = uint2(centre);
-            atomic_min_explicit(&framebuffer[pixel.y * width + pixel.x], packed, memory_order_relaxed);
+            writePixel(framebuffer, pixel.y * width + pixel.x, params, clip.w, depth, splat.color);
             return;
         }
 
@@ -93,7 +149,7 @@ namespace PointCloud {
             for (int x = lower.x; x <= upper.x; x++) {
                 float2 offset = float2(x, y) + 0.5 - centre;
                 if (all(abs(offset) <= radius) && covers(offset, radius, splat.shape)) {
-                    atomic_min_explicit(&framebuffer[uint(y) * width + uint(x)], packed, memory_order_relaxed);
+                    writePixel(framebuffer, uint(y) * width + uint(x), params, clip.w, depth, splat.color);
                 }
             }
         }
@@ -116,19 +172,33 @@ namespace PointCloud {
 
     [[fragment]] ResolveFragmentOut resolve_fragment(
         ResolveVertexOut in [[stage_in]],
-        const device ulong *framebuffer [[buffer(0)]],
+        device void *framebuffer [[buffer(0)]],
         constant PointCloudParameters &params [[buffer(1)]]
     ) {
         uint2 pixel = uint2(in.position.xy);
-        ulong packed = framebuffer[pixel.y * params.viewportSize.x + pixel.x];
-        if (packed == emptyPixel) {
-            discard_fragment();
+        uint index = pixel.y * params.viewportSize.x + pixel.x;
+        float depth;
+        float4 color;
+        if (params.pass == PointCloudRasterPassNearest) {
+            ulong packed = static_cast<const device ulong *>(framebuffer)[index];
+            if (packed == emptyPixel) {
+                discard_fragment();
+            }
+            depth = as_type<float>(uint(packed >> 32));
+            color = decodeColour(uint(packed & 0xFFFFFFFF), params.colorSpace);
+        } else {
+            BlendedFramebuffer blended(framebuffer, params.viewportSize.x * params.viewportSize.y);
+            uint count = atomic_load_explicit(blended.counts + index, memory_order_relaxed);
+            if (count == 0) {
+                discard_fragment();
+            }
+            uint4 sums;
+            for (uint channel = 0; channel < 4; channel++) {
+                sums[channel] = atomic_load_explicit(blended.sums + index * 4 + channel, memory_order_relaxed);
+            }
+            color = float4(sums) / (accumulationScale * float(count));
+            depth = as_type<float>(atomic_load_explicit(blended.nearestDepth + index, memory_order_relaxed));
         }
-        float depth = as_type<float>(uint(packed >> 32));
-        uint packedColor = uint(packed & 0xFFFFFFFF);
-        float4 color = params.colorSpace == PointCloudColorSpaceSRGB
-            ? unpack_unorm4x8_srgb_to_float(packedColor)
-            : unpack_unorm4x8_to_float(packedColor);
         return { color, params.reverseZ != 0 ? 1.0 - depth : depth };
     }
 

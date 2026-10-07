@@ -2069,12 +2069,13 @@ Subtask of #68 (split from #72). Every point is projected even when its whole re
 ## 76: Point cloud: no high-quality (blended) mode (#68)
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: area:rendering, effort:m, subtask
 created: 2026-10-07T19:32:12Z
-updated: 2026-10-07T19:32:15Z
+updated: 2026-10-07T21:52:23Z
+closed: 2026-10-07T21:52:23Z
 +++
 
 Subtask of #68 (split from #72). Nearest-wins rasterization aliases: each pixel shows one arbitrary point. The paper's high-quality mode does a depth pass, then accumulates the colours of all points within a small depth range of the nearest, then resolves the average.

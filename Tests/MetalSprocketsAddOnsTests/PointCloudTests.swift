@@ -31,9 +31,19 @@ private func render(
     reverseZ: Bool = false,
     pointSize: Float = 1,
     shape: PointCloudShape = .square,
-    maximumPointSize: Float = 64
+    maximumPointSize: Float = 64,
+    quality: PointCloudQuality = .fast
 ) throws -> [SIMD4<UInt8>] {
-    try render(buffer: makePointBuffer(points), count: points.count, occluder: occluder, reverseZ: reverseZ, pointSize: pointSize, shape: shape, maximumPointSize: maximumPointSize)
+    try render(
+        buffer: makePointBuffer(points),
+        count: points.count,
+        occluder: occluder,
+        reverseZ: reverseZ,
+        pointSize: pointSize,
+        shape: shape,
+        maximumPointSize: maximumPointSize,
+        quality: quality
+    )
 }
 
 @MainActor
@@ -46,6 +56,7 @@ private func render(
     shape: PointCloudShape = .square,
     maximumPointSize: Float = 64,
     colorSpace: PointCloudColorSpace = .sRGB,
+    quality: PointCloudQuality = .fast,
     describe: PointCloudPointFunction? = nil
 ) throws -> [SIMD4<UInt8>] {
     let framebuffer = PointCloudFramebuffer()
@@ -63,6 +74,7 @@ private func render(
             shape: shape,
             maximumPointSize: maximumPointSize,
             colorSpace: colorSpace,
+            quality: quality,
             describe: describe
         )
         try RenderPass {
@@ -184,6 +196,62 @@ func testPointCloud_goldenImage() throws {
     }
     let image = try OffscreenRenderer(size: defaultRenderSize).render(element).cgImage
     #expect(try image.isEqualToGoldenImage(named: "PointCloudHelix"))
+}
+
+// MARK: - Blended quality (#76)
+
+private let camera = SIMD3<Float>(0, 0, 3)
+
+/// A point on the ray from the camera through `point`, `fraction` of the way toward the camera.
+private func towardCamera(_ point: SIMD3<Float>, fraction: Float) -> SIMD3<Float> {
+    point + (camera - point) * fraction
+}
+
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_blendedAveragesPointsWithinTolerance() throws {
+    // View depths 4.0 and 3.98: 0.5% apart, inside the 1% default tolerance.
+    let far = SIMD3<Float>(0.2, 0.1, -1)
+    let near = towardCamera(far, fraction: 0.005)
+    let points = [
+        PointCloudPoint(position: far, color: [255, 0, 0, 255]),
+        PointCloudPoint(position: near, color: [0, 0, 255, 255])
+    ]
+    let fast = try render(points)[pixel(of: far)]
+    let blended = try render(points, quality: .blended())[pixel(of: far)]
+    // BGRA. Fast keeps only the nearer blue point.
+    #expect(fast.x > 200 && fast.z < 50)
+    // Blended averages in linear space: 0.5 encodes to about 188 on the sRGB target.
+    #expect(abs(Int(blended.x) - 188) <= 3)
+    #expect(abs(Int(blended.z) - 188) <= 3)
+}
+
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_blendedKeepsOnlyNearestBeyondTolerance() throws {
+    // 5% apart: outside the tolerance, so only the nearer point counts.
+    let far = SIMD3<Float>(0.2, 0.1, -1)
+    let near = towardCamera(far, fraction: 0.05)
+    let pixels = try render([
+        PointCloudPoint(position: far, color: [255, 0, 0, 255]),
+        PointCloudPoint(position: near, color: [0, 0, 255, 255])
+    ], quality: .blended())
+    let bgra = pixels[pixel(of: far)]
+    #expect(bgra.x > 200 && bgra.z < 50)
+}
+
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_blendedDepthTestsAgainstOtherGeometry() throws {
+    let hidden = SIMD3<Float>(-0.5, 0, 0)
+    let visible = SIMD3<Float>(0.5, 0, 0)
+    let points = [
+        PointCloudPoint(position: hidden, color: [255, 0, 0, 255]),
+        PointCloudPoint(position: visible, color: [255, 0, 0, 255])
+    ]
+    let pixels = try render(points, occluder: true, quality: .blended())
+    #expect(pixels[pixel(of: hidden)].z < 50)
+    #expect(pixels[pixel(of: visible)].z > 200)
 }
 
 // MARK: - Frames in flight

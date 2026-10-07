@@ -24,6 +24,14 @@ import simd
 // }
 // ```
 
+private extension PointCloudParameters {
+    func with(pass: PointCloudRasterPass) -> Self {
+        var copy = self
+        copy.pass = pass.rawValue
+        return copy
+    }
+}
+
 public extension PointCloudPoint {
     init(position: SIMD3<Float>, color: UInt32) {
         self.init(x: position.x, y: position.y, z: position.z, color: color)
@@ -61,6 +69,12 @@ public final class PointCloudFramebuffer {
         device.supportsFamily(.apple8)
     }
 
+    /// Nearest mode packs depth and colour into 8 bytes. Blended mode keeps two depths, four colour
+    /// sums and a count: 7 × 4 bytes.
+    fileprivate static func bytesPerPixel(pass: UInt32) -> Int {
+        pass == PointCloudRasterPass.nearest.rawValue ? MemoryLayout<UInt64>.stride : 7 * MemoryLayout<UInt32>.stride
+    }
+
     /// Picks the buffer for this submission: `submissionIndex % slotCount`.
     fileprivate func prepare(device: MTLDevice, parameters: PointCloudParameters, submissionIndex: UInt64, slotCount: Int) throws -> MTLBuffer {
         let slotCount = max(slotCount, 1)
@@ -68,7 +82,7 @@ public final class PointCloudFramebuffer {
             slots = Array(repeating: nil, count: slotCount)
         }
         let slot = Int(submissionIndex % UInt64(slotCount))
-        let length = Int(parameters.viewportSize.x) * Int(parameters.viewportSize.y) * MemoryLayout<UInt64>.stride
+        let length = Int(parameters.viewportSize.x) * Int(parameters.viewportSize.y) * Self.bytesPerPixel(pass: parameters.pass)
         let buffer: MTLBuffer
         if let existing = slots[slot], existing.length == length, existing.device === device {
             buffer = existing
@@ -82,6 +96,16 @@ public final class PointCloudFramebuffer {
         self.parameters = parameters
         return buffer
     }
+}
+
+/// How the rasterizer resolves several points landing on one pixel.
+public enum PointCloudQuality: Sendable, Equatable {
+    /// The nearest point wins. One pass.
+    case fast
+    /// The paper's high-quality shading: average the colours of every point within
+    /// `depthTolerance` (a fraction of view depth) of the nearest one. Two passes and 3.5× the
+    /// framebuffer memory; softens aliasing where points overlap.
+    case blended(depthTolerance: Float = 0.01)
 }
 
 /// A consumer-supplied function that describes each point: its position, colour, size and shape.
@@ -186,6 +210,7 @@ public struct PointCloudRasterizePass: Element {
     ///   - shape: Shape for every point when `describe` is `nil`.
     ///   - maximumPointSize: Sizes above this, in pixels, are clamped.
     ///   - colorSpace: How the points' packed colours are encoded. Most 8-bit colour data is sRGB.
+    ///   - quality: Nearest point per pixel, or a blend of the nearest points.
     ///   - describe: Optional consumer function that describes each point.
     public init(
         points: MTLBuffer,
@@ -198,6 +223,7 @@ public struct PointCloudRasterizePass: Element {
         shape: PointCloudShape = .square,
         maximumPointSize: Float = 64,
         colorSpace: PointCloudColorSpace = .sRGB,
+        quality: PointCloudQuality = .fast,
         describe: PointCloudPointFunction? = nil
     ) throws {
         guard PointCloudFramebuffer.isSupported(on: points.device) else {
@@ -211,7 +237,7 @@ public struct PointCloudRasterizePass: Element {
         }
         self.points = points
         self.pointCount = count
-        self.parameters = PointCloudParameters(
+        var parameters = PointCloudParameters(
             viewProjection: viewProjection,
             viewportSize: SIMD2<UInt32>(UInt32(viewportSize.x), UInt32(viewportSize.y)),
             pointCount: UInt32(count),
@@ -219,8 +245,16 @@ public struct PointCloudRasterizePass: Element {
             pointSize: pointSize,
             pointShape: shape.rawValue,
             maximumPointSize: maximumPointSize,
-            colorSpace: colorSpace.rawValue
+            colorSpace: colorSpace.rawValue,
+            pass: PointCloudRasterPass.nearest.rawValue,
+            depthTolerance: 0
         )
+        if case let .blended(depthTolerance) = quality {
+            // The framebuffer and resolve see the accumulate pass; the depth pass is a variant.
+            parameters.pass = PointCloudRasterPass.blendedAccumulate.rawValue
+            parameters.depthTolerance = depthTolerance
+        }
+        self.parameters = parameters
         self.framebuffer = framebuffer
         self.describe = describe
     }
@@ -239,13 +273,13 @@ public struct PointCloudRasterizePass: Element {
             let placeholder = try describe.map { _ in try emptyUserDataBuffer() }
             try ComputePass(label: "PointCloud Rasterize") {
                 ComputeCommand { encoder in
-                    encoder.fill(buffer: buffer, range: 0..<buffer.length, value: 0xFF)
+                    Self.clear(buffer, parameters: parameters, encoder: encoder)
                 }
                 .useComputeResources([buffer], usage: .write)
                 EncoderBarrier(after: .blit, before: .dispatch)
                 if pointCount > 0, let describe, let placeholder {
                     try ComputePipeline(label: "PointCloud Rasterize (Described)", computeKernel: describingKernel) {
-                        try dispatch(framebuffer: buffer, parameters: parameters)
+                        try dispatches(framebuffer: buffer, parameters: parameters)
                             .visibleFunctionTable("describe", functions: [describe.function])
                             .parameters { parameters in
                                 switch describe.userData {
@@ -262,12 +296,35 @@ public struct PointCloudRasterizePass: Element {
                     .linkedFunctions([describe.function])
                 } else if pointCount > 0 {
                     try ComputePipeline(label: "PointCloud Rasterize", computeKernel: kernel) {
-                        try dispatch(framebuffer: buffer, parameters: parameters)
+                        try dispatches(framebuffer: buffer, parameters: parameters)
                     }
                 }
             }
             // The resolve pass reads the buffer from its fragment stage.
             .barrierAfterPass(after: .dispatch, beforeQueueStages: .fragment)
+        }
+    }
+
+    /// Empty pixels: depths all ones (larger than any real depth); blended sums and counts zero.
+    private static func clear(_ buffer: MTLBuffer, parameters: PointCloudParameters, encoder: any MTL4ComputeCommandEncoder) {
+        guard parameters.pass != PointCloudRasterPass.nearest.rawValue else {
+            encoder.fill(buffer: buffer, range: 0..<buffer.length, value: 0xFF)
+            return
+        }
+        let depthBytes = Int(parameters.viewportSize.x) * Int(parameters.viewportSize.y) * 2 * MemoryLayout<UInt32>.stride
+        encoder.fill(buffer: buffer, range: 0..<depthBytes, value: 0xFF)
+        encoder.fill(buffer: buffer, range: depthBytes..<buffer.length, value: 0)
+    }
+
+    /// One dispatch in nearest mode; depth, barrier, accumulate in blended mode.
+    @ElementBuilder
+    private func dispatches(framebuffer: MTLBuffer, parameters: PointCloudParameters) throws -> some Element {
+        if parameters.pass == PointCloudRasterPass.nearest.rawValue {
+            try dispatch(framebuffer: framebuffer, parameters: parameters)
+        } else {
+            try dispatch(framebuffer: framebuffer, parameters: parameters.with(pass: .blendedDepth))
+            EncoderBarrier(after: .dispatch, before: .dispatch)
+            try dispatch(framebuffer: framebuffer, parameters: parameters)
         }
     }
 

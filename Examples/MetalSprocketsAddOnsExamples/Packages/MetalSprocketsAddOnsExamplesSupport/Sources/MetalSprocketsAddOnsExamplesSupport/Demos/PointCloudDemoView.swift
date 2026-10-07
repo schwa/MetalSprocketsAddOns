@@ -73,6 +73,7 @@ struct PointCloudDemoView: View {
             }
             .disabled(style.useCustomDescribe)
             Toggle("Custom Describe", isOn: $style.useCustomDescribe)
+            Toggle("Blended", isOn: $style.blended)
             Toggle("Grid", isOn: $showGrid)
         }
         .task(id: PointCloudDemoScene.Key(pointCount: pointCount, colorMode: colorMode)) {
@@ -167,6 +168,8 @@ final class PointCloudDemoScene: @unchecked Sendable {
         var pointSize: Float = 1
         var shape = PointCloudShape.square
         var useCustomDescribe = false
+        /// The paper's high-quality mode: average overlapping points instead of keeping the nearest.
+        var blended = false
 
         static func name(of shape: PointCloudShape) -> String {
             switch shape {
@@ -291,6 +294,7 @@ final class PointCloudDemoScene: @unchecked Sendable {
                 framebuffer: framebuffer,
                 pointSize: style.pointSize,
                 shape: style.shape,
+                quality: style.blended ? .blended() : .fast,
                 describe: style.useCustomDescribe ? customDescribe : nil
             )
             try RenderPass {
