@@ -1966,11 +1966,13 @@ kind: feature
 labels: area:rendering, effort:m, subtask
 depends: 69
 created: 2026-10-07T19:20:53Z
-updated: 2026-10-07T19:31:02Z
+updated: 2026-10-07T19:47:45Z
 closed: 2026-10-07T19:31:02Z
 +++
 
 Subtask of #68. Consumers cannot customize per-point shading without forking the pass. Proposed (per schwa): a visible function such as `float4 shadePoint(PointData, ...)` linked into the rasterizer kernel. Alternatives: MTLDynamicLibrary, function stitching. Include a sample custom shader in the demo.
+
+- `2026-10-07T19:47:45Z`: The #71 hook (colour only) is superseded by the point-description contract proposed in #73.
 
 ---
 
@@ -1993,22 +1995,34 @@ Subtask of #68. Not covered by the core pass: Morton / shuffled-Morton vertex or
 
 ---
 
-## 73: Point cloud points are always a single pixel
+## 73: Point cloud points are always single-pixel, same-shape, fixed-format
 
 +++
-status: new
+status: open
 priority: medium
 kind: feature
-labels: area:rendering, effort:m
+labels: area:rendering, effort:l
 created: 2026-10-07T19:31:43Z
+updated: 2026-10-07T19:47:45Z
 +++
 
-PointCloudRasterizePass (#69) writes each point to exactly one pixel. There is no way to draw points as larger or shaped markers, such as crosshairs, squares, or discs, so sparse clouds and markers are hard to see.
+PointCloudRasterizePass (#69) draws every point as exactly one pixel, with one fixed point layout (PointCloudPoint: float3 position + RGBA8 colour). Consumers cannot:
 
-Wanted: a per-pass stamp shape (crosshair, square, disc) with a pixel radius, keeping a fast path for 1-pixel points. Overlapping stamps must still resolve nearest-wins per pixel.
+- draw points as markers (crosshair, square, disc, custom shape),
+- give points a size, or a different size or shape per point,
+- use their own point layout (extra attributes such as size, shape, intensity, classification).
+
+The #71 shading hook (`uint f(float3 position, uint color, uint pointIndex, const device void *userData)`) only replaces the colour, so it cannot express any of this.
 
 ## Proposed approach (per schwa)
-The compute kernel writes the stamp's pixel offsets around the projected point, each with the same 64-bit atomic min. Cost scales with pixels per point (a 7x7 crosshair is about 13 atomics). Later options: per-point shape/size (point attribute or the #71 visible function).
+Replace the #71 hook with a point-description contract: a consumer `[[visible]]` function that, given the point index, the raw point buffer and user data, returns a description of the point: position, colour, size, shape. The kernel projects, clamps the size, and stamps the footprint into the framebuffer with the same nearest-wins 64-bit atomic min per pixel, keeping a fast path for 1-pixel points.
+
+This issue covers screen-space sizes (size in pixels, bounded footprint): built-in shapes (crosshair, square, disc) and flat depth across the stamp. World-space sizes are a follow-up.
+
+Things to watch:
+- SIMD divergence when sizes vary within a thread group.
+- Hard edges only: nearest-wins cannot blend (soft edges depend on #76).
+- Bandwidth cost of larger point layouts.
 
 ---
 
@@ -2058,5 +2072,196 @@ updated: 2026-10-07T19:32:15Z
 +++
 
 Subtask of #68 (split from #72). Nearest-wins rasterization aliases: each pixel shows one arbitrary point. The paper's high-quality mode does a depth pass, then accumulates the colours of all points within a small depth range of the nearest, then resolves the average.
+
+---
+
+## 77: TextureView can show a stale image for a new texture
+
++++
+status: new
+priority: medium
+kind: bug
+labels: area:rendering, effort:s
+created: 2026-10-07T19:44:09Z
++++
+
+TextureView (Sources/MetalSprocketsAddOnsUI/TextureView.swift) caches its CGImage keyed on ObjectIdentifier(texture). After a texture is freed, a new texture can get the same address, and TextureView then shows the old texture's image.
+
+---
+
+## 78: #65 fix may not cover the shadow map depth clear
+
++++
+status: new
+priority: medium
+kind: task
+labels: area:metal4, effort:s
+created: 2026-10-07T19:44:09Z
++++
+
+The #65 fix puts QueueBarrier(after: [.dispatch, .fragment], before: .fragment) inside each ShadowMapDepthPass render pass. It is not verified that a queue barrier encoded inside the pass also orders the depth attachment load action (clear), which runs at pass start. If not, the next frame can still clear the shadow map while the previous frame samples it. Needs confirmation (Metal docs or a GPU capture); a fix may need a pass-level consumer barrier in MetalSprockets.
+
+---
+
+## 79: Point cloud: no file loading (PLY/LAS)
+
++++
+status: closed
+priority: medium
+kind: feature
+labels: area:rendering, effort:m
+created: 2026-10-07T19:44:09Z
+updated: 2026-10-07T19:45:43Z
+closed: 2026-10-07T19:45:43Z
++++
+
+The point cloud pass (#69) only has procedural data. There is no loader for common scan formats (PLY at least; LAS/LAZ for lidar), so real scans, the main use case of the compute approach, cannot be shown in the demo or used by consumers without writing their own reader.
+
+- `2026-10-07T19:45:43Z`: Closed: not wanted (per schwa).
+
+---
+
+## 80: Point cloud: no support for clouds larger than GPU memory
+
++++
+status: closed
+priority: low
+kind: feature
+labels: area:rendering, area:performance, effort:xl
+created: 2026-10-07T19:44:09Z
+updated: 2026-10-07T19:45:43Z
+closed: 2026-10-07T19:45:43Z
++++
+
+PointCloudRasterizePass draws one buffer that must fit in GPU memory. There is no level of detail or streaming, so very large scans (billions of points) cannot be rendered.
+
+- `2026-10-07T19:45:43Z`: Closed: not wanted (per schwa).
+
+---
+
+## 81: Point cloud colours look washed out on sRGB targets
+
++++
+status: new
+priority: low
+kind: bug
+labels: area:rendering, effort:s
+created: 2026-10-07T19:44:09Z
++++
+
+PointCloudResolvePipeline writes the packed RGBA8 colour as-is. On an sRGB render target the hardware encodes it again, so colours given as sRGB bytes look washed out (visible in the PointCloudDemo golden). There is no option to say the colours are sRGB-encoded.
+
+---
+
+## 82: Point cloud reverse-Z path is untested
+
++++
+status: new
+priority: low
+kind: task
+labels: area:testing, effort:xs
+created: 2026-10-07T19:44:09Z
++++
+
+PointCloudRasterizePass(reverseZ: true) flips depth before the atomic min and the resolve uses .greater depth compare. No test renders with a reverse-Z projection and depth buffer.
+
+---
+
+## 83: PointCloudShader userData cannot be updated per frame safely
+
++++
+status: new
+priority: low
+kind: bug
+labels: area:rendering, area:metal4, effort:s
+created: 2026-10-07T19:44:09Z
++++
+
+PointCloudShader.userData is a shared MTLBuffer. Writing it every frame (for example to animate the shader) races with frames still in flight, as in #63. There is no per-frame value path for user data.
+
+---
+
+## 84: Point cloud API has no docs
+
++++
+status: new
+priority: low
+kind: documentation
+labels: area:rendering, effort:s
+created: 2026-10-07T19:44:09Z
++++
+
+PointCloudRasterizePass, PointCloudResolvePipeline, PointCloudFramebuffer, PointCloudShader and PointCloudOrder have only source comments. There is no README section or DocC article explaining the two-element setup, the GPU requirement, custom shaders, or ordering.
+
+---
+
+## 85: Point Cloud demo not checked in the running app
+
++++
+status: closed
+priority: low
+kind: task
+labels: area:examples, effort:s
+created: 2026-10-07T19:44:10Z
+updated: 2026-10-07T19:45:43Z
+closed: 2026-10-07T19:45:43Z
++++
+
+The Point Cloud demo (#70) is covered by golden tests only. It has not been run in the examples app: frame rate at 4M and 8M points and the CPU time to generate them (main-thread stalls, memory) are unknown.
+
+- `2026-10-07T19:45:43Z`: Checked in the running app by schwa.
+
+---
+
+## 86: Point cloud: no world-space point sizes
+
++++
+status: open
+priority: low
+kind: feature
+labels: area:rendering, area:performance, effort:l
+depends: 73
+created: 2026-10-07T19:47:45Z
+updated: 2026-10-07T19:47:47Z
++++
+
+Follow-up to #73. Points sized in world units (for example 5 cm discs) cover a footprint that grows as they approach the camera: thousands of pixels for near points. One compute thread per point then runs a long serial stamp loop and stalls its SIMD group, so the #73 screen-space stamp approach does not scale to world-space sizes. Splats may also need per-pixel depth (sphere-like) instead of flat depth.
+
+## Proposed approach (per schwa)
+Hybrid: points whose projected footprint is under a threshold (to be measured; guess 8-16 px) stay in the compute stamp path; larger points go to the hardware rasterizer (instanced quads or mesh shader), depth-tested in the same render pass.
+
+---
+
+## 87: Point Cloud demo generates points on the CPU
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: area:examples, area:performance, effort:s
+created: 2026-10-07T19:49:25Z
++++
+
+PointCloudDemoScene.init builds every point in a single-threaded Swift loop (SplitMix64 jitter) and writes it into a shared MTLBuffer. At 4M-8M points this takes noticeable time on every point-count or colour-mode change, even though it runs in a detached task.
+
+## Proposed approach (per schwa)
+Generate the torus knot in a compute kernel that writes straight into a private buffer, using a hash of the point index instead of a sequential RNG so the output stays deterministic (and the PointCloudDemo goldens stay meaningful).
+
+---
+
+## 88: Examples use a hand-rolled OrbitCamera instead of Interaction3D
+
++++
+status: new
+priority: medium
+kind: task
+labels: area:examples, effort:m
+created: 2026-10-07T19:50:44Z
++++
+
+Every demo in the examples app (Blinn-Phong, Shadow Map, Ray-Traced Shadows, GraphicsContext3D, Slug Text, Point Cloud, Debug Shading) drives its camera with the local OrbitCamera modifier (MetalSprocketsAddOnsExamplesSupport/Support/OrbitCamera.swift): drag to orbit, pinch to dolly. Interaction3D (https://github.com/schwa/Interaction3D) already provides this camera interaction and is not used.
+
+## Proposed approach (per schwa)
+Replace all demo camera interaction with Interaction3D and remove OrbitCamera. The dependency belongs only to the examples (the Xcode project and its MetalSprocketsAddOnsExamplesSupport package, where the demos live), never to the MetalSprocketsAddOns library package. The demo scene tests take an OrbitCamera today and need a fixed-camera replacement.
 
 ---
