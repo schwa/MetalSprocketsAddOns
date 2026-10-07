@@ -27,14 +27,18 @@ struct SlugTextDemoView: View {
     var body: some View {
         DemoLayoutView {
             TimelineView(.animation(paused: !spin)) { timeline in
-                renderView
-                    .onChange(of: timeline.date, initial: true) {
-                        // The spin uses angle * 0.4, so 5π is one full turn.
-                        angle = timeline.date.animationTime(wrappingEvery: .pi * 5)
-                        if let scene {
-                            SlugTextDemoScene.setSpin(angle, in: scene)
-                        }
+                Group {
+                    if let scene, let mesh = scene.meshes.first {
+                        SlugTextRenderView(scene: scene, mesh: mesh, camera: $camera, wireframe: wireframe)
                     }
+                }
+                .onChange(of: timeline.date, initial: true) {
+                    // The spin uses angle * 0.4, so 5π is one full turn.
+                    angle = timeline.date.animationTime(wrappingEvery: .pi * 5)
+                    if let scene {
+                        SlugTextDemoScene.setSpin(angle, in: scene)
+                    }
+                }
             }
             .orbitCamera($camera)
         } controls: {
@@ -50,18 +54,22 @@ struct SlugTextDemoView: View {
             scene = try? SlugTextDemoScene.makeScene(text: text, fontSize: fontSize)
         }
     }
+}
 
-    @ViewBuilder
-    private var renderView: some View {
-        if let scene, let mesh = scene.meshes.first {
-            RenderView { _, drawableSize in
-                try SlugTextDemoScene.element(scene: scene, camera: camera, drawableSize: drawableSize, wireframe: wireframe)
-            }
-            .id(ObjectIdentifier(scene))
-            .metalClearColor(SlugTextDemoScene.clearColor)
-            .onAppear {
-                camera = SlugTextDemoScene.framingCamera(for: mesh, pitch: camera.pitch)
-            }
+private struct SlugTextRenderView: View {
+    let scene: SlugScene
+    let mesh: SlugTextMesh
+    @Binding var camera: OrbitCamera
+    let wireframe: Bool
+
+    var body: some View {
+        RenderView { _, drawableSize in
+            try SlugTextDemoScene.element(scene: scene, camera: camera, drawableSize: drawableSize, wireframe: wireframe)
+        }
+        .id(ObjectIdentifier(scene))
+        .metalClearColor(SlugTextDemoScene.clearColor)
+        .onAppear {
+            camera = SlugTextDemoScene.framingCamera(for: mesh, pitch: camera.pitch)
         }
     }
 }

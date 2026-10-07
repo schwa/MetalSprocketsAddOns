@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Sidebar of demos plus the selected demo's render surface.
 public struct DemoBrowserView: View {
-    @State private var selection: Demo.ID?
+    @State private var selection: Demo?
 
     public init() {
         // Nothing to configure.
@@ -11,7 +11,7 @@ public struct DemoBrowserView: View {
     public var body: some View {
         NavigationSplitView {
             List(Demo.all, selection: $selection) { demo in
-                NavigationLink(value: demo.id) {
+                NavigationLink(value: demo) {
                     Label {
                         VStack(alignment: .leading) {
                             Text(demo.name)
@@ -27,8 +27,8 @@ public struct DemoBrowserView: View {
             .navigationTitle("Add-Ons")
             .navigationSplitViewColumnWidth(min: 220, ideal: 260)
         } detail: {
-            if let demo = Demo.all.first(where: { $0.id == selection }) {
-                demo.content()
+            if let demo = selection {
+                DemoView(demo: demo)
                     .navigationTitle(demo.name)
                     // Demos own GPU resources keyed to their identity; rebuild on switch.
                     .id(demo.id)

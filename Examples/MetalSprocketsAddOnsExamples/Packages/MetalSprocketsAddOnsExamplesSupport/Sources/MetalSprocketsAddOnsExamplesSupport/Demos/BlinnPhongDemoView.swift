@@ -28,10 +28,14 @@ struct BlinnPhongDemoView: View {
     var body: some View {
         DemoLayoutView {
             TimelineView(.animation(paused: !animate)) { timeline in
-                renderView
-                    .onChange(of: timeline.date, initial: true) {
-                        updateLights(at: timeline.date)
+                Group {
+                    if let lighting {
+                        BlinnPhongRenderView(scene: scene, lighting: lighting, camera: camera, shininess: shininess, showGrid: showGrid)
                     }
+                }
+                .onChange(of: timeline.date, initial: true) {
+                    updateLights(at: timeline.date)
+                }
             }
             .orbitCamera($camera)
         } controls: {
@@ -46,29 +50,34 @@ struct BlinnPhongDemoView: View {
         }
     }
 
-    @ViewBuilder
-    private var renderView: some View {
-        if let lighting {
-            RenderView { _, drawableSize in
-                try scene.element(
-                    lighting: lighting,
-                    camera: camera,
-                    projection: camera.projectionMatrix(drawableSize: drawableSize),
-                    shininess: shininess,
-                    showGrid: showGrid
-                )
-            }
-            .metalDepthStencilPixelFormat(.depth32Float)
-            .metalClearColor(BlinnPhongDemoScene.clearColor)
-        }
-    }
-
     private func updateLights(at date: Date) {
         // 10π is a whole number of turns at both rates (1 and 0.6).
         let positions = BlinnPhongDemoScene.lightPositions(at: date.animationTime(wrappingEvery: .pi * 10))
         for (index, position) in positions.enumerated() {
             lighting?.setLightPosition(position, at: index)
         }
+    }
+}
+
+private struct BlinnPhongRenderView: View {
+    let scene: BlinnPhongDemoScene
+    let lighting: Lighting
+    let camera: OrbitCamera
+    let shininess: Float
+    let showGrid: Bool
+
+    var body: some View {
+        RenderView { _, drawableSize in
+            try scene.element(
+                lighting: lighting,
+                camera: camera,
+                projection: camera.projectionMatrix(drawableSize: drawableSize),
+                shininess: shininess,
+                showGrid: showGrid
+            )
+        }
+        .metalDepthStencilPixelFormat(.depth32Float)
+        .metalClearColor(BlinnPhongDemoScene.clearColor)
     }
 }
 

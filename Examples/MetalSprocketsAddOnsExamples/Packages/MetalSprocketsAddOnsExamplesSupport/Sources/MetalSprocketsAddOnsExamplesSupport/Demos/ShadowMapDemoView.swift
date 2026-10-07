@@ -35,10 +35,23 @@ struct ShadowMapDemoView: View {
     var body: some View {
         DemoLayoutView {
             TimelineView(.animation(paused: !animate)) { timeline in
-                renderView
-                    .onChange(of: timeline.date, initial: true) {
-                        lightPosition = ShadowMapDemoScene.lightPosition(at: timeline.date.animationTime(wrappingEvery: .pi * 4))
+                Group {
+                    if let shadowMap {
+                        ShadowMapRenderView(
+                            scene: scene,
+                            shadowMap: shadowMap,
+                            camera: camera,
+                            lightPosition: lightPosition,
+                            shadowIntensity: shadowIntensity,
+                            depthBias: depthBias,
+                            slopeScale: slopeScale,
+                            showShadows: showShadows
+                        )
                     }
+                }
+                .onChange(of: timeline.date, initial: true) {
+                    lightPosition = ShadowMapDemoScene.lightPosition(at: timeline.date.animationTime(wrappingEvery: .pi * 4))
+                }
             }
             .orbitCamera($camera)
         } controls: {
@@ -63,27 +76,35 @@ struct ShadowMapDemoView: View {
             shadowMap = try? ShadowMap(resolution: resolution, lightCount: 1)
         }
     }
+}
 
-    @ViewBuilder
-    private var renderView: some View {
-        if let shadowMap {
-            RenderView { _, drawableSize in
-                let projection = camera.projectionMatrix(drawableSize: drawableSize)
-                scene.element(
-                    shadowMap: shadowMap,
-                    lightPosition: lightPosition,
-                    viewProjection: projection * camera.viewMatrix,
-                    shadowIntensity: shadowIntensity,
-                    depthBias: depthBias,
-                    slopeScale: slopeScale,
-                    showShadows: showShadows
-                )
-            }
-            .metalDepthStencilPixelFormat(.depth32Float)
-            .metalDepthStencilAttachmentTextureUsage([.renderTarget, .shaderRead])
-            .metalFramebufferOnly(false)
-            .metalClearColor(ShadowMapDemoScene.clearColor)
+private struct ShadowMapRenderView: View {
+    let scene: ShadowMapDemoScene
+    let shadowMap: ShadowMap
+    let camera: OrbitCamera
+    let lightPosition: SIMD3<Float>
+    let shadowIntensity: Float
+    let depthBias: Float
+    let slopeScale: Float
+    let showShadows: Bool
+
+    var body: some View {
+        RenderView { _, drawableSize in
+            let projection = camera.projectionMatrix(drawableSize: drawableSize)
+            scene.element(
+                shadowMap: shadowMap,
+                lightPosition: lightPosition,
+                viewProjection: projection * camera.viewMatrix,
+                shadowIntensity: shadowIntensity,
+                depthBias: depthBias,
+                slopeScale: slopeScale,
+                showShadows: showShadows
+            )
         }
+        .metalDepthStencilPixelFormat(.depth32Float)
+        .metalDepthStencilAttachmentTextureUsage([.renderTarget, .shaderRead])
+        .metalFramebufferOnly(false)
+        .metalClearColor(ShadowMapDemoScene.clearColor)
     }
 }
 

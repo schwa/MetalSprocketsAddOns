@@ -31,11 +31,21 @@ struct RayTracedShadowsDemoView: View {
         DemoLayoutView {
             if supportsRayTracing {
                 TimelineView(.animation(paused: !animate)) { timeline in
-                    renderView
-                        .onChange(of: timeline.date, initial: true) {
-                            let position = RayTracedShadowsDemoScene.lightPosition(at: timeline.date.animationTime(wrappingEvery: .pi * 4))
-                            scene?.lighting.setLightPosition(position, at: 0)
+                    Group {
+                        if let scene {
+                            RayTracedShadowsRenderView(
+                                scene: scene,
+                                camera: camera,
+                                shadowIntensity: shadowIntensity,
+                                showShadows: showShadows,
+                                debugOverlay: debugOverlay
+                            )
                         }
+                    }
+                    .onChange(of: timeline.date, initial: true) {
+                        let position = RayTracedShadowsDemoScene.lightPosition(at: timeline.date.animationTime(wrappingEvery: .pi * 4))
+                        scene?.lighting.setLightPosition(position, at: 0)
+                    }
                 }
                 .orbitCamera($camera)
             } else {
@@ -60,28 +70,33 @@ struct RayTracedShadowsDemoView: View {
             scene = try? RayTracedShadowsDemoScene()
         }
     }
+}
 
-    @ViewBuilder
-    private var renderView: some View {
-        if let scene {
-            RenderView { _, drawableSize in
-                let projection = camera.projectionMatrix(drawableSize: drawableSize)
-                RayTracedShadowsElement(
-                    scene: scene,
-                    viewProjection: projection * camera.viewMatrix,
-                    shadowIntensity: shadowIntensity,
-                    showShadows: showShadows,
-                    debug: debugOverlay
-                )
-            }
-            // `.id` forces a fresh element tree when `debug` flips: the debug flag is a
-            // function constant baked into the compute kernel at construction time.
-            .id(debugOverlay)
-            .metalDepthStencilPixelFormat(.depth32Float)
-            .metalDepthStencilAttachmentTextureUsage([.renderTarget, .shaderRead])
-            .metalFramebufferOnly(false)
-            .metalClearColor(RayTracedShadowsDemoScene.clearColor)
+private struct RayTracedShadowsRenderView: View {
+    let scene: RayTracedShadowsDemoScene
+    let camera: OrbitCamera
+    let shadowIntensity: Float
+    let showShadows: Bool
+    let debugOverlay: Bool
+
+    var body: some View {
+        RenderView { _, drawableSize in
+            let projection = camera.projectionMatrix(drawableSize: drawableSize)
+            RayTracedShadowsElement(
+                scene: scene,
+                viewProjection: projection * camera.viewMatrix,
+                shadowIntensity: shadowIntensity,
+                showShadows: showShadows,
+                debug: debugOverlay
+            )
         }
+        // `.id` forces a fresh element tree when `debug` flips: the debug flag is a
+        // function constant baked into the compute kernel at construction time.
+        .id(debugOverlay)
+        .metalDepthStencilPixelFormat(.depth32Float)
+        .metalDepthStencilAttachmentTextureUsage([.renderTarget, .shaderRead])
+        .metalFramebufferOnly(false)
+        .metalClearColor(RayTracedShadowsDemoScene.clearColor)
     }
 }
 
