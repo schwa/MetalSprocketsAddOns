@@ -125,7 +125,10 @@ namespace PointCloud {
             discard_fragment();
         }
         float depth = as_type<float>(uint(packed >> 32));
-        float4 color = unpack_unorm4x8_to_float(uint(packed & 0xFFFFFFFF));
+        uint packedColor = uint(packed & 0xFFFFFFFF);
+        float4 color = params.colorSpace == PointCloudColorSpaceSRGB
+            ? unpack_unorm4x8_srgb_to_float(packedColor)
+            : unpack_unorm4x8_to_float(packedColor);
         return { color, params.reverseZ != 0 ? 1.0 - depth : depth };
     }
 

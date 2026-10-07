@@ -45,6 +45,7 @@ private func render(
     pointSize: Float = 1,
     shape: PointCloudShape = .square,
     maximumPointSize: Float = 64,
+    colorSpace: PointCloudColorSpace = .sRGB,
     describe: PointCloudPointFunction? = nil
 ) throws -> [SIMD4<UInt8>] {
     let framebuffer = PointCloudFramebuffer()
@@ -61,6 +62,7 @@ private func render(
             pointSize: pointSize,
             shape: shape,
             maximumPointSize: maximumPointSize,
+            colorSpace: colorSpace,
             describe: describe
         )
         try RenderPass {
@@ -182,6 +184,21 @@ func testPointCloud_goldenImage() throws {
     }
     let image = try OffscreenRenderer(size: defaultRenderSize).render(element).cgImage
     #expect(try image.isEqualToGoldenImage(named: "PointCloudHelix"))
+}
+
+// MARK: - Colour space
+
+// Issue #81: OffscreenRenderer targets bgra8Unorm_srgb. sRGB-encoded colours must round-trip;
+// linear colours get sRGB-encoded on write.
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_srgbColoursRoundTripOnSrgbTarget() throws {
+    let position = SIMD3<Float>(0.2, 0.1, 0)
+    let buffer = try makePointBuffer([PointCloudPoint(position: position, color: [128, 128, 128, 255])])
+    let srgb = try render(buffer: buffer, count: 1, colorSpace: .sRGB)[pixel(of: position)]
+    let linear = try render(buffer: buffer, count: 1, colorSpace: .linear)[pixel(of: position)]
+    #expect(abs(Int(srgb.y) - 128) <= 1)
+    #expect(abs(Int(linear.y) - 188) <= 2)
 }
 
 // MARK: - Sizes and shapes

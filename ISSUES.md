@@ -2156,12 +2156,13 @@ PointCloudRasterizePass draws one buffer that must fit in GPU memory. There is n
 ## 81: Point cloud colours have no colour space; output differs between sRGB and non-sRGB targets
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: area:rendering, effort:s
 created: 2026-10-07T19:44:09Z
-updated: 2026-10-07T21:21:29Z
+updated: 2026-10-07T21:46:11Z
+closed: 2026-10-07T21:46:11Z
 +++
 
 PointCloudResolvePipeline writes each point's packed RGBA8 colour unchanged. The colour space of those bytes is undefined:

@@ -149,6 +149,7 @@ public struct PointCloudRasterizePass: Element {
     ///   - pointSize: Size in pixels for every point when `describe` is `nil`.
     ///   - shape: Shape for every point when `describe` is `nil`.
     ///   - maximumPointSize: Sizes above this, in pixels, are clamped.
+    ///   - colorSpace: How the points' packed colours are encoded. Most 8-bit colour data is sRGB.
     ///   - describe: Optional consumer function that describes each point.
     public init(
         points: MTLBuffer,
@@ -160,6 +161,7 @@ public struct PointCloudRasterizePass: Element {
         pointSize: Float = 1,
         shape: PointCloudShape = .square,
         maximumPointSize: Float = 64,
+        colorSpace: PointCloudColorSpace = .sRGB,
         describe: PointCloudPointFunction? = nil
     ) throws {
         guard PointCloudFramebuffer.isSupported(on: points.device) else {
@@ -180,7 +182,8 @@ public struct PointCloudRasterizePass: Element {
             reverseZ: reverseZ ? 1 : 0,
             pointSize: pointSize,
             pointShape: shape.rawValue,
-            maximumPointSize: maximumPointSize
+            maximumPointSize: maximumPointSize,
+            colorSpace: colorSpace.rawValue
         )
         self.framebuffer = framebuffer
         self.describe = describe

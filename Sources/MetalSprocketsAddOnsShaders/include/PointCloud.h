@@ -9,8 +9,22 @@ typedef MS_ENUM(uint32_t, PointCloudShape) {
     PointCloudShapeRing = 3,
 };
 
+#if defined(__METAL_VERSION__)
+#define POINT_CLOUD_SWIFT_NAME(name)
+#else
+#define POINT_CLOUD_SWIFT_NAME(name) __attribute__((swift_name(#name)))
+#endif
+
+/// How a point's packed RGBA8 colour is encoded.
+typedef MS_ENUM(uint32_t, PointCloudColorSpace) {
+    /// sRGB-encoded, like most 8-bit colour data. Decoded to linear before it is written.
+    PointCloudColorSpaceSRGB POINT_CLOUD_SWIFT_NAME(sRGB) = 0,
+    /// Already linear.
+    PointCloudColorSpaceLinear = 1,
+};
+
 /// The default point layout: packed world-space position and an RGBA8 colour (red in the lowest
-/// byte), 16 bytes per point. Colours are written to the target as-is.
+/// byte), 16 bytes per point.
 struct PointCloudPoint {
     float x;
     float y;
@@ -44,5 +58,7 @@ struct PointCloudParameters {
     uint32_t pointShape;
     /// Sizes above this are clamped.
     float maximumPointSize;
+    /// A `PointCloudColorSpace` value.
+    uint32_t colorSpace;
 };
 typedef struct PointCloudParameters PointCloudParameters;
