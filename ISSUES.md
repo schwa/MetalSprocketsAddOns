@@ -2050,16 +2050,19 @@ Subtask of #68 (split from #72). Point order affects rasterizer speed: spatially
 ## 75: Point cloud: no per-batch frustum culling (#68)
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: area:rendering, area:performance, effort:m, subtask
 depends: 74
 created: 2026-10-07T19:32:12Z
-updated: 2026-10-07T19:32:15Z
+updated: 2026-10-07T21:32:00Z
+closed: 2026-10-07T21:32:00Z
 +++
 
 Subtask of #68 (split from #72). Every point is projected even when its whole region is off screen. The paper groups consecutive points into batches with bounding boxes and skips batches outside the frustum. Depends on spatially coherent ordering to be effective.
+
+- `2026-10-07T21:32:00Z`: Closed: not needed for now (per schwa). Benchmarks show the rasterizer is fast without culling (250M points about 12.5 ms on M5 Max). Reopen if a GPU or data set makes per-batch culling worthwhile; #74 Morton ordering is in place for it.
 
 ---
 
@@ -2099,14 +2102,17 @@ TextureView (Sources/MetalSprocketsAddOnsUI/TextureView.swift) caches its CGImag
 ## 78: #65 fix may not cover the shadow map depth clear
 
 +++
-status: new
+status: open
 priority: medium
 kind: task
-labels: area:metal4, effort:s
+labels: area:metal4, blocked, upstream, effort:m
 created: 2026-10-07T19:44:09Z
+updated: 2026-10-07T21:19:16Z
 +++
 
 The #65 fix puts QueueBarrier(after: [.dispatch, .fragment], before: .fragment) inside each ShadowMapDepthPass render pass. It is not verified that a queue barrier encoded inside the pass also orders the depth attachment load action (clear), which runs at pass start. If not, the next frame can still clear the shadow map while the previous frame samples it. Needs confirmation (Metal docs or a GPU capture); a fix may need a pass-level consumer barrier in MetalSprockets.
+
+- `2026-10-07T21:19:16Z`: Investigation: MTL4CommandEncoder.barrier(afterQueueStages:beforeStages:) docs say it gates 'subsequent work you encode in the current command encoder' for beforeStages; MTLStages.fragment is 'all fragment shader stage work'. The Resource synchronization article lists render pass attachments' implicit load/store operations as conflict sources but does not say which stage they belong to or whether consumer barriers order them. WWDC 2025 'Explore Metal 4 games' (wwdc2025-254) only covers fragment stage work. So: unverifiable from docs, and a cross-frame race cannot be tested deterministically. Fix that does not depend on the answer: a ring of shadow maps, one per frame in flight. Blocked: MetalSprockets exposes no per-frame/submission index that sibling passes (depth pass and ShadowMaskPass) can share, and advancing a counter in body is unreliable. Filed MetalSprockets#485.
 
 ---
 
@@ -2146,59 +2152,75 @@ PointCloudRasterizePass draws one buffer that must fit in GPU memory. There is n
 
 ---
 
-## 81: Point cloud colours look washed out on sRGB targets
+## 81: Point cloud colours have no colour space; output differs between sRGB and non-sRGB targets
 
 +++
-status: new
+status: open
 priority: low
-kind: bug
+kind: enhancement
 labels: area:rendering, effort:s
 created: 2026-10-07T19:44:09Z
+updated: 2026-10-07T21:21:29Z
 +++
 
-PointCloudResolvePipeline writes the packed RGBA8 colour as-is. On an sRGB render target the hardware encodes it again, so colours given as sRGB bytes look washed out (visible in the PointCloudDemo golden). There is no option to say the colours are sRGB-encoded.
+PointCloudResolvePipeline writes each point's packed RGBA8 colour unchanged. The colour space of those bytes is undefined:
+
+- On an sRGB target (OffscreenRenderer uses bgra8Unorm_srgb, so all tests and goldens) the value is treated as linear and sRGB-encoded on write: midtones brighten (128 shows as about 188) and colours look washed out.
+- On a non-sRGB target (RenderView's default appears to be bgra8Unorm; not verified) the bytes go to the display unchanged.
+
+So the same points can look different in the app and in the golden images, and consumers cannot say which colour space their data uses. Most 8-bit colour data (scans, PLY files, picked colours) is sRGB-encoded, which looks washed out on sRGB targets today. Storing linear colour in 8 bits also bands in the darks.
+
+## Proposed approach (per schwa)
+Treat packed point colours as sRGB-encoded by default and convert to linear in the resolve pass, with an option for linear data. This changes the point cloud golden images.
 
 ---
 
 ## 82: Point cloud reverse-Z path is untested
 
 +++
-status: new
+status: open
 priority: low
 kind: task
 labels: area:testing, effort:xs
 created: 2026-10-07T19:44:09Z
+updated: 2026-10-07T21:19:52Z
 +++
 
 PointCloudRasterizePass(reverseZ: true) flips depth before the atomic min and the resolve uses .greater depth compare. No test renders with a reverse-Z projection and depth buffer.
 
 ---
 
-## 83: PointCloudShader userData cannot be updated per frame safely
+## 83: PointCloudPointFunction userData cannot be updated per frame safely
 
 +++
-status: new
+status: open
 priority: low
 kind: bug
-labels: area:rendering, area:metal4, effort:s
+labels: area:rendering, area:metal4, effort:s, blocked, upstream
 created: 2026-10-07T19:44:09Z
+updated: 2026-10-07T21:19:16Z
 +++
 
 PointCloudShader.userData is a shared MTLBuffer. Writing it every frame (for example to animate the shader) races with frames still in flight, as in #63. There is no per-frame value path for user data.
+
+- `2026-10-07T21:19:16Z`: Renamed from PointCloudShader (now PointCloudPointFunction, #73). Needs a per-frame slot index to ring user data buffers; blocked on MetalSprockets#485.
 
 ---
 
 ## 84: Point cloud API has no docs
 
 +++
-status: new
+status: open
 priority: low
 kind: documentation
 labels: area:rendering, effort:s
 created: 2026-10-07T19:44:09Z
+updated: 2026-10-07T21:19:52Z
 +++
 
 PointCloudRasterizePass, PointCloudResolvePipeline, PointCloudFramebuffer, PointCloudShader and PointCloudOrder have only source comments. There is no README section or DocC article explaining the two-element setup, the GPU requirement, custom shaders, or ordering.
+
+- `2026-10-07T21:19:52Z`: Scope now also covers #73 additions: PointCloudShape, pointSize/shape/maximumPointSize, PointCloudPointFunction + PointCloudShaderSupport.metalSource (replaced PointCloudShader), and PointCloudOrder (#74).
 
 ---
 
@@ -2274,5 +2296,20 @@ Every demo in the examples app (Blinn-Phong, Shadow Map, Ray-Traced Shadows, Gra
 
 ## Proposed approach (per schwa)
 Replace all demo camera interaction with Interaction3D and remove OrbitCamera. The dependency belongs only to the examples (the Xcode project and its MetalSprocketsAddOnsExamplesSupport package, where the demos live), never to the MetalSprocketsAddOns library package. The demo scene tests take an OrbitCamera today and need a fixed-camera replacement.
+
+---
+
+## 89: PointCloudFramebuffer serializes frames with a queue barrier
+
++++
+status: open
+priority: low
+kind: task
+labels: area:performance, effort:s, blocked, upstream, area:rendering
+created: 2026-10-07T21:19:16Z
+updated: 2026-10-07T21:19:52Z
++++
+
+PointCloudRasterizePass clears and rewrites one shared per-pixel buffer each frame. To avoid racing earlier frames' resolve passes it starts with QueueBarrier(after: [.fragment, .dispatch], before: [.blit, .dispatch]), which makes each frame wait for the previous frame's fragment work. A buffer per frame in flight would remove that wait. Blocked on MetalSprockets#485 (no per-frame index).
 
 ---
