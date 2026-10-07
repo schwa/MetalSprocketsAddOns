@@ -1943,13 +1943,14 @@ Subtask of #68. No element renders a point buffer with the compute approach from
 ## 70: Point cloud: demo in MetalSprocketsAddOnsExamples (#68)
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: area:rendering, area:examples, effort:s, subtask
 depends: 69
 created: 2026-10-07T19:20:53Z
-updated: 2026-10-07T19:20:56Z
+updated: 2026-10-07T19:26:27Z
+closed: 2026-10-07T19:26:27Z
 +++
 
 Subtask of #68. The examples app has no point cloud demo. Wanted: millions of procedurally generated points with an orbit camera and color-mode controls, plus a golden test like the other demos. MetalSprocketsExamples PointCloudDemoView may help.

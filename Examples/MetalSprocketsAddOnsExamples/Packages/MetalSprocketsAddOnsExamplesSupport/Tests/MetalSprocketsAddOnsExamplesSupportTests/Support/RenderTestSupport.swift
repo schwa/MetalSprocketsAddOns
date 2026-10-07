@@ -20,6 +20,9 @@ extension Trait where Self == ConditionTrait {
 /// True when the current default device supports ray tracing.
 let supportsRaytracing: Bool = MTLCreateSystemDefaultDevice()?.supportsRaytracing ?? false
 
+/// True when the current default device has the 64-bit atomics the point cloud rasterizer needs.
+let supportsPointCloud: Bool = MTLCreateSystemDefaultDevice()?.supportsFamily(.apple8) ?? false
+
 /// Size of the demo scene renders.
 let demoRenderSize = CGSize(width: 640, height: 400)
 

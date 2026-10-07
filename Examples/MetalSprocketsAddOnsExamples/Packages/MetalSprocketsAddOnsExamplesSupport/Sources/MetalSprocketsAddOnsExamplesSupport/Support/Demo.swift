@@ -7,6 +7,7 @@ public enum Demo: String, CaseIterable, Identifiable, Sendable {
     case rayTracedShadows
     case graphicsContext3D
     case slugText
+    case pointCloud
     case debugShading
 
     public var id: Self { self }
@@ -21,6 +22,7 @@ public enum Demo: String, CaseIterable, Identifiable, Sendable {
         case .rayTracedShadows: "Ray-Traced Shadows"
         case .graphicsContext3D: "GraphicsContext3D"
         case .slugText: "Slug Text"
+        case .pointCloud: "Point Cloud"
         case .debugShading: "Debug Shading"
         }
     }
@@ -32,6 +34,7 @@ public enum Demo: String, CaseIterable, Identifiable, Sendable {
         case .rayTracedShadows: "sparkles"
         case .graphicsContext3D: "scribble.variable"
         case .slugText: "textformat"
+        case .pointCloud: "circle.dotted"
         case .debugShading: "square.3.layers.3d"
         }
     }
@@ -43,6 +46,7 @@ public enum Demo: String, CaseIterable, Identifiable, Sendable {
         case .rayTracedShadows: "Acceleration structures plus a compute pass that traces shadow rays."
         case .graphicsContext3D: "Canvas-style stroking and filling of 3D paths at pixel-exact line widths."
         case .slugText: "Resolution-independent glyph rendering from a CoreText attributed string."
+        case .pointCloud: "Millions of points rasterized in a compute shader with 64-bit atomics."
         case .debugShading: "Per-attribute debug visualisations for diagnosing vertex-layout problems."
         }
     }
@@ -59,6 +63,7 @@ struct DemoView: View {
         case .rayTracedShadows: RayTracedShadowsDemoView()
         case .graphicsContext3D: GraphicsContext3DDemoView()
         case .slugText: SlugTextDemoView()
+        case .pointCloud: PointCloudDemoView()
         case .debugShading: DebugShadingDemoView()
         }
     }
