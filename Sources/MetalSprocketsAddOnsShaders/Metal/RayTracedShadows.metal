@@ -15,6 +15,7 @@ namespace RayTracedShadow {
         uint2 tid [[thread_position_in_grid]],
         depth2d<float, access::read> sceneDepth [[texture(0)]],
         texture2d<float, access::read_write> outputTexture [[texture(1)]],
+        metal::raytracing::instance_acceleration_structure accelerationStructure [[buffer(0)]],
         constant RayTracedShadowParameters &params [[buffer(1)]]
     ) {
         uint2 outputSize = uint2(outputTexture.get_width(), outputTexture.get_height());
@@ -80,7 +81,7 @@ namespace RayTracedShadow {
             shadowRay.min_distance = bias;
             shadowRay.max_distance = maxDistance;
 
-            auto result = i.intersect(shadowRay, params.accelerationStructure);
+            auto result = i.intersect(shadowRay, accelerationStructure);
 
             if (result.type != intersection_type::none) {
                 blockedContribution += attenuation;

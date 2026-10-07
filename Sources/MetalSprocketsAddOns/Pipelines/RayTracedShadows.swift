@@ -319,8 +319,7 @@ public struct RayTracedShadowComputePass: Element {
                     inverseViewProjection: inverseViewProjection,
                     lighting: try lighting.toArgumentBuffer(),
                     maxRayDistance: maxRayDistance,
-                    shadowIntensity: shadowIntensity,
-                    accelerationStructure: instanceAS.gpuResourceID
+                    shadowIntensity: shadowIntensity
                 )
                 try ComputePass(label: "RT Shadow") {
                     // Wait for the scene pass to finish writing depth and colour.
@@ -332,9 +331,10 @@ public struct RayTracedShadowComputePass: Element {
                         )
                         .parameter("sceneDepth", texture: sceneDepthTexture)
                         .parameter("outputTexture", texture: outputTexture)
+                        .parameter("accelerationStructure", accelerationStructure: instanceAS)
                         .parameter("params", value: params)
-                        // The params struct and lighting argument buffer refer to these by resource ID or GPU address.
-                        .useComputeResources([instanceAS] + primitiveStructures + lighting.argumentBufferResources, usage: .read)
+                        // The instance structure refers to the primitive structures, and the lighting argument buffer to its buffers.
+                        .useComputeResources(primitiveStructures + lighting.argumentBufferResources, usage: .read)
                     }
                 }
             }

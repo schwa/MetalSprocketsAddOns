@@ -1739,12 +1739,13 @@ Four demo bugs were only found by looking at the running app: geometry cut by a 
 ## 60: RayTracedShadowComputePass still packs the acceleration structure into its parameter struct
 
 +++
-status: open
+status: closed
 priority: low
 kind: task
 labels: area:rendering, area:metal4, effort:s
 created: 2026-09-30T18:49:31Z
-updated: 2026-10-07T18:59:49Z
+updated: 2026-10-07T19:08:50Z
+closed: 2026-10-07T19:08:50Z
 +++
 
 During the Metal 4 port, MetalSprockets could not bind acceleration structures as shader parameters, so the instance acceleration structure was moved into `RayTracedShadowParameters` as an `MTLResourceID` (RayTracedShadows.h, RayTracedShadows.metal, RayTracedShadows.swift) instead of a `[[buffer(0)]]` kernel argument.
