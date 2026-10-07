@@ -1896,13 +1896,14 @@ Seen in ARSprockets (~/Projects/Scratch/ARSprockets) stroking ARKit plane outlin
 ## 68: No reusable point cloud render pass
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: area:rendering, area:performance, effort:xl
 depends: 69, 70, 71, 72, 74, 75, 76
 created: 2026-10-07T18:55:34Z
-updated: 2026-10-07T19:32:15Z
+updated: 2026-10-07T21:57:59Z
+closed: 2026-10-07T21:57:59Z
 +++
 
 MetalSprocketsAddOns has no shared element for drawing large point clouds. Consumers (ARSprockets, SceneGraph, GaussianSplats tooling, the PointCloudDemo in MetalSprocketsExamples) have to write their own, and point-primitive rasterization does not scale to tens or hundreds of millions of points.
@@ -1921,6 +1922,7 @@ Open question: can consumers supply their own code? For example, custom per-poin
 Alternatives to consider: dynamic libraries (MTLDynamicLibrary) linked into the kernel; stitched functions (MTLFunctionStitchingGraph) for graph-built shading.
 
 - `2026-10-07T19:20:56Z`: Split into #69 (core pass), #70 (demo), #71 (visible-function shading), #72 (paper extras).
+- `2026-10-07T21:57:59Z`: All subtasks done: #69 core pass, #70 demo, #71/#73 consumer describe functions, #74 ordering, #76 blended mode, #81 colour space, #82 reverse-Z tests, #83 per-frame user values, #84 docs, #86 world-space sizes, #89 per-frame framebuffers. #72 (32-bit fallback) dropped and #75 (batch culling) closed as not needed.
 
 ---
 
@@ -2322,5 +2324,27 @@ closed: 2026-10-07T21:47:45Z
 PointCloudRasterizePass clears and rewrites one shared per-pixel buffer each frame. To avoid racing earlier frames' resolve passes it starts with QueueBarrier(after: [.fragment, .dispatch], before: [.blit, .dispatch]), which makes each frame wait for the previous frame's fragment work. A buffer per frame in flight would remove that wait. Blocked on MetalSprockets#485 (no per-frame index).
 
 - `2026-10-07T21:44:20Z`: Unblocked: MetalSprockets#485 added MSEnvironmentValues.submissionIndex and maximumInFlightSubmissions (MetalSprockets main 33ffbd8). AddOns now depends on MetalSprockets main until it is tagged.
+
+---
+
+## 90: Point cloud: large points flicker between full size and clamped
+
++++
+status: new
+priority: medium
+kind: bug
+labels: area:rendering, effort:m
+created: 2026-10-07T23:15:51Z
++++
+
+With `sizeUnits: .world` and a large size (or zoomed in close), points render at seemingly random sizes, and the set changes every frame even with a still camera and unchanged scene.
+
+Repro: Point Cloud demo, 1M points, Size Units World, size 0.2, shape Disc, camera distance about 1.5. Two consecutive renders of the same scene differ (seen with OffscreenRenderer: the PNGs are not byte-identical; outlines at the lower left change).
+
+Cause: points above `maximumPointSize` (#86) claim a slot in the per-frame large-point list with an atomic counter. When more than `largePointCapacity` (default 16,384) qualify, the first threads to arrive are drawn full size by the hardware path and the rest are clamped to `maximumPointSize`. GPU thread order varies per frame, so which points are large is nondeterministic.
+
+## Proposed fixes
+1. Size the list to the point count (capped by memory; 24 bytes per entry), and when it still overflows, run a counting pass first and clamp every oversized point that frame, so the result is deterministic. Costs an extra pass in world mode.
+2. Clamp world-size pixel diameters to `maximumPointSize` and drop the hardware path for them. Simple and deterministic, but near points stop growing past the limit.
 
 ---
