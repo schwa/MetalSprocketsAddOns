@@ -1900,9 +1900,9 @@ status: open
 priority: medium
 kind: feature
 labels: area:rendering, area:performance, effort:xl
-depends: 69, 70, 71, 72
+depends: 69, 70, 71, 72, 74, 75, 76
 created: 2026-10-07T18:55:34Z
-updated: 2026-10-07T19:20:56Z
+updated: 2026-10-07T19:32:15Z
 +++
 
 MetalSprocketsAddOns has no shared element for drawing large point clouds. Consumers (ARSprockets, SceneGraph, GaussianSplats tooling, the PointCloudDemo in MetalSprocketsExamples) have to write their own, and point-primitive rasterization does not scale to tens or hundreds of millions of points.
@@ -1977,15 +1977,83 @@ Subtask of #68. Consumers cannot customize per-point shading without forking the
 ## 72: Point cloud: paper extras - ordering, batch culling, high-quality mode, 32-bit fallback (#68)
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: area:rendering, area:performance, effort:l, subtask
 depends: 69
 created: 2026-10-07T19:20:53Z
-updated: 2026-10-07T19:20:56Z
+updated: 2026-10-07T19:32:15Z
+closed: 2026-10-07T19:32:15Z
 +++
 
 Subtask of #68. Not covered by the core pass: Morton / shuffled-Morton vertex order, per-batch frustum culling, the high-quality mode that blends overlapping points, and a fallback for GPUs without 64-bit atomics.
+
+- `2026-10-07T19:32:15Z`: Split into #74 (ordering), #75 (batch culling), #76 (high-quality mode). 32-bit fallback dropped per schwa (not wanted).
+
+---
+
+## 73: Point cloud points are always a single pixel
+
++++
+status: new
+priority: medium
+kind: feature
+labels: area:rendering, effort:m
+created: 2026-10-07T19:31:43Z
++++
+
+PointCloudRasterizePass (#69) writes each point to exactly one pixel. There is no way to draw points as larger or shaped markers, such as crosshairs, squares, or discs, so sparse clouds and markers are hard to see.
+
+Wanted: a per-pass stamp shape (crosshair, square, disc) with a pixel radius, keeping a fast path for 1-pixel points. Overlapping stamps must still resolve nearest-wins per pixel.
+
+## Proposed approach (per schwa)
+The compute kernel writes the stamp's pixel offsets around the projected point, each with the same 64-bit atomic min. Cost scales with pixels per point (a 7x7 crosshair is about 13 atomics). Later options: per-point shape/size (point attribute or the #71 visible function).
+
+---
+
+## 74: Point cloud: no Morton / shuffled-Morton point ordering (#68)
+
++++
+status: open
+priority: low
+kind: feature
+labels: area:rendering, area:performance, effort:m, subtask
+created: 2026-10-07T19:32:12Z
+updated: 2026-10-07T19:32:15Z
++++
+
+Subtask of #68 (split from #72). Point order affects rasterizer speed: spatially coherent order (Morton) makes neighbouring threads hit nearby pixels; the paper's shuffled Morton order keeps coherence within a batch while spreading batches to cut atomic contention. There is no helper to reorder a point buffer, and no benchmark showing the effect.
+
+---
+
+## 75: Point cloud: no per-batch frustum culling (#68)
+
++++
+status: open
+priority: low
+kind: feature
+labels: area:rendering, area:performance, effort:m, subtask
+depends: 74
+created: 2026-10-07T19:32:12Z
+updated: 2026-10-07T19:32:15Z
++++
+
+Subtask of #68 (split from #72). Every point is projected even when its whole region is off screen. The paper groups consecutive points into batches with bounding boxes and skips batches outside the frustum. Depends on spatially coherent ordering to be effective.
+
+---
+
+## 76: Point cloud: no high-quality (blended) mode (#68)
+
++++
+status: open
+priority: low
+kind: feature
+labels: area:rendering, effort:m, subtask
+created: 2026-10-07T19:32:12Z
+updated: 2026-10-07T19:32:15Z
++++
+
+Subtask of #68 (split from #72). Nearest-wins rasterization aliases: each pixel shows one arbitrary point. The paper's high-quality mode does a depth pass, then accumulates the colours of all points within a small depth range of the nearest, then resolves the average.
 
 ---
