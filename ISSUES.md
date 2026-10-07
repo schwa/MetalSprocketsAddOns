@@ -2015,15 +2015,18 @@ The compute kernel writes the stamp's pixel offsets around the projected point, 
 ## 74: Point cloud: no Morton / shuffled-Morton point ordering (#68)
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: area:rendering, area:performance, effort:m, subtask
 created: 2026-10-07T19:32:12Z
-updated: 2026-10-07T19:32:15Z
+updated: 2026-10-07T19:43:56Z
+closed: 2026-10-07T19:43:56Z
 +++
 
 Subtask of #68 (split from #72). Point order affects rasterizer speed: spatially coherent order (Morton) makes neighbouring threads hit nearby pixels; the paper's shuffled Morton order keeps coherence within a batch while spreading batches to cut atomic contention. There is no helper to reorder a point buffer, and no benchmark showing the effect.
+
+- `2026-10-07T19:43:56Z`: Benchmark (POINT_CLOUD_BENCHMARK=1, M5 Max, 8M points, 1920x1080, median/min of 60 frames): volume random 0.63/0.63, morton 0.55/0.55, shuffledMorton 0.56/0.56 ms; surface random 0.52/0.50, morton 0.53/0.52, shuffledMorton 0.59/0.51 ms. Earlier runs were noisier than these differences. No measurable benefit at this scale on this GPU; the paper measured 100M+ points on NVIDIA. Kept because #75 batch culling needs spatially coherent order. No demo picker (no visible effect).
 
 ---
 
