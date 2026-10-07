@@ -90,6 +90,30 @@ func testLighting_setLightPosition_updatesBuffer() throws {
 
 @Test
 @MainActor
+func testLighting_updatesDoNotWriteBuffersAnEarlierFrameBound() throws {
+    // Issue #63: an earlier frame may still be reading the buffers it bound, so updates must not
+    // write them in place.
+    let lighting = try Lighting(
+        ambientLightColor: [0, 0, 0],
+        lights: [([1, 2, 3], Light(type: .point, intensity: 1))]
+    )
+    let boundPositions = lighting.lightPositions
+    let boundLights = lighting.lights
+    let boundArgumentBuffer = try lighting.toArgumentBuffer()
+
+    lighting.setLightPosition([10, 20, 30], at: 0)
+    lighting.setLight(Light(type: .directional, intensity: 5), at: 0)
+
+    #expect(boundPositions.contents().assumingMemoryBound(to: SIMD3<Float>.self)[0] == SIMD3<Float>(1, 2, 3))
+    #expect(boundLights.contents().assumingMemoryBound(to: Light.self)[0].intensity == 1)
+
+    #expect(lighting.lightPositions.contents().assumingMemoryBound(to: SIMD3<Float>.self)[0] == SIMD3<Float>(10, 20, 30))
+    #expect(lighting.lights.contents().assumingMemoryBound(to: Light.self)[0].intensity == 5)
+    #expect(try lighting.toArgumentBuffer().lightPositions != boundArgumentBuffer.lightPositions)
+}
+
+@Test
+@MainActor
 func testLighting_setLight_updatesBuffer() throws {
     let lighting = try Lighting(
         ambientLightColor: [0, 0, 0],

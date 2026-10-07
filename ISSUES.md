@@ -1789,12 +1789,13 @@ The shadow-map and ray-traced shadow tests and their golden images (for example 
 ## 63: Lighting writes GPU-visible buffers in place while frames are in flight
 
 +++
-status: open
+status: closed
 priority: high
 kind: bug
 labels: area:metal4, effort:m
 created: 2026-10-02T22:34:29Z
-updated: 2026-10-07T18:59:49Z
+updated: 2026-10-07T19:06:07Z
+closed: 2026-10-07T19:06:07Z
 +++
 
 Lighting.setLightPosition(_:at:) and setLight(_:at:) write through lights.contents() and lightPositions.contents() into shared MTLBuffers. Callers animate lights every frame. Examples: RayTracedShadow, ShadowMap, BlinnPhong, and PBR via LightingAnimator. Up to maximumInFlightSubmissions (default 3) earlier frames may still read those buffers, so this is a CPU/GPU race: lights can jitter or tear. Fix options: a ring of buffers sized to frames in flight, copy-on-write per frame, or pass the light data as parameter values. Reported from MetalSprocketsExamples #439.
