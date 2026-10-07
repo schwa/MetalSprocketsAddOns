@@ -1,4 +1,5 @@
 import GeometryLite3D
+import Interaction3D
 import Metal
 import MetalKit
 import MetalSprockets
@@ -17,7 +18,7 @@ import SwiftUI
 /// single modifier each, and the lights are updated between frames (copy-on-write, so frames
 /// still on the GPU keep their own light data).
 struct BlinnPhongDemoView: View {
-    @State private var camera = OrbitCamera(pitch: -.pi / 8, distance: 6, target: [0, 0.2, 0])
+    @State private var camera = InteractionState(pitch: -.pi / 8, distance: 6, target: [0, 0.2, 0])
     @State private var lighting: Lighting?
     @State private var shininess: Float = 64
     @State private var animate = true
@@ -37,7 +38,7 @@ struct BlinnPhongDemoView: View {
                     updateLights(at: timeline.date)
                 }
             }
-            .orbitCamera($camera)
+            .demoCameraControls($camera)
         } controls: {
             Toggle("Animate Lights", isOn: $animate)
             Toggle("Grid", isOn: $showGrid)
@@ -62,7 +63,7 @@ struct BlinnPhongDemoView: View {
 private struct BlinnPhongRenderView: View {
     let scene: BlinnPhongDemoScene
     let lighting: Lighting
-    let camera: OrbitCamera
+    let camera: InteractionState
     let shininess: Float
     let showGrid: Bool
 
@@ -139,7 +140,7 @@ struct BlinnPhongDemoScene {
 
     func element(
         lighting: Lighting,
-        camera: OrbitCamera,
+        camera: InteractionState,
         projection: simd_float4x4,
         shininess: Float,
         showGrid: Bool

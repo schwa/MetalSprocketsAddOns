@@ -1,4 +1,5 @@
 import GeometryLite3D
+import Interaction3D
 import Metal
 import MetalSprockets
 import MetalSprocketsAddOns
@@ -18,7 +19,7 @@ import SwiftUI
 /// `[[visible]]` function, compiled from source at runtime, that sizes, shapes and colours each
 /// point individually.
 struct PointCloudDemoView: View {
-    @State private var camera = OrbitCamera(pitch: -.pi / 8, distance: 6, target: [0, 0.5, 0])
+    @State private var camera = InteractionState(pitch: -.pi / 8, distance: 6, target: [0, 0.5, 0])
     @State private var scene: PointCloudDemoScene?
     @State private var pointCount = PointCloudDemoScene.pointCounts[2]
     @State private var colorMode = PointCloudDemoScene.ColorMode.position
@@ -39,7 +40,7 @@ struct PointCloudDemoView: View {
                 )
             } else if let scene {
                 PointCloudRenderView(scene: scene, camera: camera, showGrid: showGrid, style: style)
-                    .orbitCamera($camera)
+                    .demoCameraControls($camera)
             } else {
                 ProgressView("Generating Points")
             }
@@ -82,7 +83,7 @@ struct PointCloudDemoView: View {
 
 private struct PointCloudRenderView: View {
     let scene: PointCloudDemoScene
-    let camera: OrbitCamera
+    let camera: InteractionState
     let showGrid: Bool
     let style: PointCloudDemoScene.Style
 
@@ -257,7 +258,7 @@ final class PointCloudDemoScene: @unchecked Sendable {
         customDescribe = PointCloudPointFunction(try library.function(type: VisibleFunction.self, named: "heightMarkers"))
     }
 
-    func element(camera: OrbitCamera, drawableSize: CGSize, showGrid: Bool, style: Style = Style()) throws -> some Element {
+    func element(camera: InteractionState, drawableSize: CGSize, showGrid: Bool, style: Style = Style()) throws -> some Element {
         let projection = camera.projectionMatrix(drawableSize: drawableSize)
         let viewportSize = SIMD2<Int>(Int(drawableSize.width), Int(drawableSize.height))
         return try MetalSprockets.Group {

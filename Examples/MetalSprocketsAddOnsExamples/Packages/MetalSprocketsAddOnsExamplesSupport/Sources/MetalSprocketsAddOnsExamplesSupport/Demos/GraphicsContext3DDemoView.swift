@@ -1,5 +1,6 @@
 import CoreGraphics
 import GeometryLite3D
+import Interaction3D
 import Metal
 import MetalSprockets
 import MetalSprocketsAddOns
@@ -13,7 +14,7 @@ import SwiftUI
 /// line width is in pixels and stays constant regardless of depth, while joins and caps are
 /// generated per segment. Fills are triangulated on the path's dominant plane.
 struct GraphicsContext3DDemoView: View {
-    @State private var camera = OrbitCamera(pitch: -.pi / 6, distance: 5)
+    @State private var camera = InteractionState(pitch: -.pi / 6, distance: 5)
     @State private var lineWidth: Float = 6
     @State private var lineCap: CGLineCap = .round
     @State private var lineJoin: CGLineJoin = .round
@@ -36,7 +37,7 @@ struct GraphicsContext3DDemoView: View {
             }
             .metalDepthStencilPixelFormat(.depth32Float)
             .metalClearColor(GraphicsContext3DDemoScene.clearColor)
-            .orbitCamera($camera)
+            .demoCameraControls($camera)
         } controls: {
             LabeledContent("Line Width") {
                 Slider(value: $lineWidth, in: 1...30)

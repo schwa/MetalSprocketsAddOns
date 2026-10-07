@@ -1,4 +1,5 @@
 import GeometryLite3D
+import Interaction3D
 import Metal
 import MetalKit
 import MetalSprockets
@@ -17,7 +18,7 @@ import SwiftUI
 /// layout and the descriptor disagree. The mesh here is built with an explicit interleaved
 /// tangent-basis layout so every attribute lands in vertex buffer 0.
 struct DebugShadingDemoView: View {
-    @State private var camera = OrbitCamera(pitch: -.pi / 8, distance: 4)
+    @State private var camera = InteractionState(pitch: -.pi / 8, distance: 4)
     @State private var debugMode: DebugShadersMode = .normal
     @State private var wireframe = false
     @State private var useSphere = true
@@ -37,7 +38,7 @@ struct DebugShadingDemoView: View {
             }
             .metalDepthStencilPixelFormat(.depth32Float)
             .metalClearColor(DebugShadingDemoScene.clearColor)
-            .orbitCamera($camera)
+            .demoCameraControls($camera)
         } controls: {
             Picker("Mode", selection: $debugMode) {
                 ForEach(DebugShadersMode.allDemoCases, id: \.rawValue) { mode in
@@ -62,7 +63,7 @@ struct DebugShadingDemoScene {
         useSphere: Bool,
         debugMode: DebugShadersMode,
         wireframe: Bool,
-        camera: OrbitCamera,
+        camera: InteractionState,
         projection: simd_float4x4
     ) throws -> some Element {
         let mesh = useSphere ? sphere : box

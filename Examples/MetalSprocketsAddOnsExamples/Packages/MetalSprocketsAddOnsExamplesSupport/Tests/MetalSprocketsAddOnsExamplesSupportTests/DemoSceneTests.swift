@@ -1,4 +1,5 @@
 import CoreGraphics
+import Interaction3D
 import Metal
 import MetalSprockets
 import MetalSprocketsAddOns
@@ -13,7 +14,7 @@ import Testing
 @MainActor
 func testShadowMapDemoScene() throws {
     let scene = ShadowMapDemoScene()
-    let camera = OrbitCamera(pitch: -.pi / 7, distance: 9, target: [0, 0.5, 0])
+    let camera = InteractionState(pitch: -.pi / 7, distance: 9, target: [0, 0.5, 0])
     // The shadow mask reads scene depth and writes colour from a compute pass.
     let renderer = try OffscreenRenderer(
         size: demoRenderSize,
@@ -42,7 +43,7 @@ func testBlinnPhongDemoScene() throws {
     for (index, position) in BlinnPhongDemoScene.lightPositions(at: 1).enumerated() {
         lighting.setLightPosition(position, at: index)
     }
-    let camera = OrbitCamera(pitch: -.pi / 8, distance: 6, target: [0, 0.2, 0])
+    let camera = InteractionState(pitch: -.pi / 8, distance: 6, target: [0, 0.2, 0])
     let renderer = try OffscreenRenderer(size: demoRenderSize)
     renderer.renderPassDescriptor.colorAttachments[0].clearColor = BlinnPhongDemoScene.clearColor
     let element = try scene.element(
@@ -60,7 +61,7 @@ func testBlinnPhongDemoScene() throws {
 @MainActor
 func testDebugShadingDemoScene() throws {
     let scene = DebugShadingDemoScene()
-    let camera = OrbitCamera(pitch: -.pi / 8, distance: 4)
+    let camera = InteractionState(pitch: -.pi / 8, distance: 4)
     let renderer = try OffscreenRenderer(size: demoRenderSize)
     renderer.renderPassDescriptor.colorAttachments[0].clearColor = DebugShadingDemoScene.clearColor
     let element = try scene.element(
@@ -77,7 +78,7 @@ func testDebugShadingDemoScene() throws {
 @Test(.requiresMetal4)
 @MainActor
 func testGraphicsContext3DDemoScene() throws {
-    let camera = OrbitCamera(pitch: -.pi / 6, distance: 5)
+    let camera = InteractionState(pitch: -.pi / 6, distance: 5)
     let renderer = try OffscreenRenderer(size: demoRenderSize)
     renderer.renderPassDescriptor.colorAttachments[0].clearColor = GraphicsContext3DDemoScene.clearColor
     let element = try RenderPass {
@@ -97,7 +98,7 @@ func testSlugTextDemoScene() throws {
     let scene = try SlugTextDemoScene.makeScene(text: "Metal\nSprockets", fontSize: 144)
     let mesh = try #require(scene.meshes.first)
     SlugTextDemoScene.setSpin(1, in: scene)
-    let camera = SlugTextDemoScene.framingCamera(for: mesh, pitch: -.pi / 12)
+    let camera = SlugTextDemoScene.framingCamera(for: mesh, rotation: InteractionState(pitch: -.pi / 12).rotation)
     let renderer = try OffscreenRenderer(size: demoRenderSize)
     renderer.renderPassDescriptor.colorAttachments[0].clearColor = SlugTextDemoScene.clearColor
     let element = try SlugTextDemoScene.element(scene: scene, camera: camera, drawableSize: demoRenderSize, wireframe: false)
@@ -110,7 +111,7 @@ func testSlugTextDemoScene() throws {
 func testRayTracedShadowsDemoScene() throws {
     let scene = try RayTracedShadowsDemoScene()
     scene.lighting.setLightPosition(RayTracedShadowsDemoScene.lightPosition(at: 1), at: 0)
-    let camera = OrbitCamera(pitch: -.pi / 7, distance: 9, target: [0, 0.5, 0])
+    let camera = InteractionState(pitch: -.pi / 7, distance: 9, target: [0, 0.5, 0])
     // The shadow pass reads scene depth and writes colour from a compute pass.
     let renderer = try OffscreenRenderer(
         size: demoRenderSize,
@@ -133,7 +134,7 @@ func testRayTracedShadowsDemoScene() throws {
 @MainActor
 func testPointCloudDemoScene() throws {
     let scene = try PointCloudDemoScene(pointCount: 100_000, colorMode: .position)
-    let camera = OrbitCamera(pitch: -.pi / 8, distance: 6, target: [0, 0.5, 0])
+    let camera = InteractionState(pitch: -.pi / 8, distance: 6, target: [0, 0.5, 0])
     let renderer = try OffscreenRenderer(size: demoRenderSize)
     renderer.renderPassDescriptor.colorAttachments[0].clearColor = PointCloudDemoScene.clearColor
     let element = try scene.element(camera: camera, drawableSize: demoRenderSize, showGrid: true)
@@ -145,7 +146,7 @@ func testPointCloudDemoScene() throws {
 @MainActor
 func testPointCloudDemoSceneWithCustomDescribe() throws {
     let scene = try PointCloudDemoScene(pointCount: 100_000, colorMode: .position)
-    let camera = OrbitCamera(pitch: -.pi / 8, distance: 6, target: [0, 0.5, 0])
+    let camera = InteractionState(pitch: -.pi / 8, distance: 6, target: [0, 0.5, 0])
     let renderer = try OffscreenRenderer(size: demoRenderSize)
     renderer.renderPassDescriptor.colorAttachments[0].clearColor = PointCloudDemoScene.clearColor
     var style = PointCloudDemoScene.Style()
@@ -159,7 +160,7 @@ func testPointCloudDemoSceneWithCustomDescribe() throws {
 @MainActor
 func testPointCloudDemoSceneWithDiscs() throws {
     let scene = try PointCloudDemoScene(pointCount: 100_000, colorMode: .height)
-    let camera = OrbitCamera(pitch: -.pi / 8, distance: 6, target: [0, 0.5, 0])
+    let camera = InteractionState(pitch: -.pi / 8, distance: 6, target: [0, 0.5, 0])
     let renderer = try OffscreenRenderer(size: demoRenderSize)
     renderer.renderPassDescriptor.colorAttachments[0].clearColor = PointCloudDemoScene.clearColor
     var style = PointCloudDemoScene.Style()

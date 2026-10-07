@@ -1,4 +1,5 @@
 import GeometryLite3D
+import Interaction3D
 import Metal
 import MetalKit
 import MetalSprockets
@@ -16,7 +17,7 @@ import SwiftUI
 /// world position from the scene depth buffer and traces a shadow ray per pixel toward
 /// each light, so shadows are decoupled from any shadow-map resolution.
 struct RayTracedShadowsDemoView: View {
-    @State private var camera = OrbitCamera(pitch: -.pi / 7, distance: 9, target: [0, 0.5, 0])
+    @State private var camera = InteractionState(pitch: -.pi / 7, distance: 9, target: [0, 0.5, 0])
     @State private var scene: RayTracedShadowsDemoScene?
     @State private var shadowIntensity: Float = 0.85
     @State private var showShadows = true
@@ -47,7 +48,7 @@ struct RayTracedShadowsDemoView: View {
                         scene?.lighting.setLightPosition(position, at: 0)
                     }
                 }
-                .orbitCamera($camera)
+                .demoCameraControls($camera)
             } else {
                 ContentUnavailableView(
                     "Ray Tracing Unavailable",
@@ -74,7 +75,7 @@ struct RayTracedShadowsDemoView: View {
 
 private struct RayTracedShadowsRenderView: View {
     let scene: RayTracedShadowsDemoScene
-    let camera: OrbitCamera
+    let camera: InteractionState
     let shadowIntensity: Float
     let showShadows: Bool
     let debugOverlay: Bool

@@ -2257,11 +2257,13 @@ Generate the torus knot in a compute kernel that writes straight into a private 
 ## 88: Examples use a hand-rolled OrbitCamera instead of Interaction3D
 
 +++
-status: new
+status: closed
 priority: medium
 kind: task
 labels: area:examples, effort:m
 created: 2026-10-07T19:50:44Z
+updated: 2026-10-07T20:37:03Z
+closed: 2026-10-07T20:37:03Z
 +++
 
 Every demo in the examples app (Blinn-Phong, Shadow Map, Ray-Traced Shadows, GraphicsContext3D, Slug Text, Point Cloud, Debug Shading) drives its camera with the local OrbitCamera modifier (MetalSprocketsAddOnsExamplesSupport/Support/OrbitCamera.swift): drag to orbit, pinch to dolly. Interaction3D (https://github.com/schwa/Interaction3D) already provides this camera interaction and is not used.

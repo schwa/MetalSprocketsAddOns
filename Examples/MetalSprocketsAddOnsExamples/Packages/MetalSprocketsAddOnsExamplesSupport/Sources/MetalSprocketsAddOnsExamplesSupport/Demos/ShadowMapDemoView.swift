@@ -1,4 +1,5 @@
 import GeometryLite3D
+import Interaction3D
 import Metal
 import MetalKit
 import MetalSprockets
@@ -20,7 +21,7 @@ import SwiftUI
 /// Step 3 is why the view asks for a readable depth attachment and a non-framebuffer-only
 /// drawable: the compute kernel needs to sample one and write the other.
 struct ShadowMapDemoView: View {
-    @State private var camera = OrbitCamera(pitch: -.pi / 7, distance: 9, target: [0, 0.5, 0])
+    @State private var camera = InteractionState(pitch: -.pi / 7, distance: 9, target: [0, 0.5, 0])
     @State private var shadowMap: ShadowMap?
     @State private var lightPosition: SIMD3<Float> = [4, 6, 3]
     @State private var shadowIntensity: Float = 0.8
@@ -53,7 +54,7 @@ struct ShadowMapDemoView: View {
                     lightPosition = ShadowMapDemoScene.lightPosition(at: timeline.date.animationTime(wrappingEvery: .pi * 4))
                 }
             }
-            .orbitCamera($camera)
+            .demoCameraControls($camera)
         } controls: {
             Toggle("Shadows", isOn: $showShadows)
             Toggle("Animate Light", isOn: $animate)
@@ -81,7 +82,7 @@ struct ShadowMapDemoView: View {
 private struct ShadowMapRenderView: View {
     let scene: ShadowMapDemoScene
     let shadowMap: ShadowMap
-    let camera: OrbitCamera
+    let camera: InteractionState
     let lightPosition: SIMD3<Float>
     let shadowIntensity: Float
     let depthBias: Float

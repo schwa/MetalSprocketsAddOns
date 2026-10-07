@@ -1,5 +1,6 @@
 import CoreText
 import GeometryLite3D
+import Interaction3D
 import Metal
 import MetalSprockets
 import MetalSprocketsAddOns
@@ -16,7 +17,7 @@ import SwiftUI
 /// atlas per font, and packs every mesh into shared vertex/index buffers. That happens once;
 /// each frame only updates the per-mesh model matrices in the scene's shared buffer.
 struct SlugTextDemoView: View {
-    @State private var camera = OrbitCamera(pitch: -.pi / 12, distance: 900, target: [0, 0, 0])
+    @State private var camera = InteractionState(pitch: -.pi / 12, distance: 900, target: [0, 0, 0])
     @State private var scene: SlugScene?
     @State private var text = "Metal\nSprockets"
     @State private var fontSize: CGFloat = 144
@@ -40,7 +41,7 @@ struct SlugTextDemoView: View {
                     }
                 }
             }
-            .orbitCamera($camera)
+            .demoCameraControls($camera)
         } controls: {
             TextField("Text", text: $text, axis: .vertical)
                 .lineLimit(1...4)
@@ -59,7 +60,7 @@ struct SlugTextDemoView: View {
 private struct SlugTextRenderView: View {
     let scene: SlugScene
     let mesh: SlugTextMesh
-    @Binding var camera: OrbitCamera
+    @Binding var camera: InteractionState
     let wireframe: Bool
 
     var body: some View {
@@ -69,7 +70,7 @@ private struct SlugTextRenderView: View {
         .id(ObjectIdentifier(scene))
         .metalClearColor(SlugTextDemoScene.clearColor)
         .onAppear {
-            camera = SlugTextDemoScene.framingCamera(for: mesh, pitch: camera.pitch)
+            camera = SlugTextDemoScene.framingCamera(for: mesh, rotation: camera.rotation)
         }
     }
 }
@@ -94,15 +95,15 @@ enum SlugTextDemoScene {
     }
 
     /// Frames the text: the mesh is laid out in CoreText points with an arbitrary origin.
-    static func framingCamera(for mesh: SlugTextMesh, pitch: Float) -> OrbitCamera {
-        OrbitCamera(
-            pitch: pitch,
+    static func framingCamera(for mesh: SlugTextMesh, rotation: simd_quatf) -> InteractionState {
+        InteractionState(
+            rotation: rotation,
             distance: Float(max(mesh.bounds.width, mesh.bounds.height)) * 2,
             target: [Float(mesh.bounds.midX), Float(mesh.bounds.midY), 0]
         )
     }
 
-    static func element(scene: SlugScene, camera: OrbitCamera, drawableSize: CGSize, wireframe: Bool) throws -> some Element {
+    static func element(scene: SlugScene, camera: InteractionState, drawableSize: CGSize, wireframe: Bool) throws -> some Element {
         // Text is laid out in points, so the camera sits hundreds of units away.
         let projection = camera.projectionMatrix(drawableSize: drawableSize, zClip: 1...(camera.distance * 4))
         let constants = SlugFrameConstants(

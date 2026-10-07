@@ -20,7 +20,8 @@ let package = Package(
         .package(url: "https://github.com/schwa/GeometryLite3D", from: "0.1.1"),
         .package(url: "https://github.com/schwa/MetalSupport", from: "1.0.6"),
         .package(url: "https://github.com/schwa/MetalSprockets", from: "0.2.1"),
-        .package(url: "https://github.com/schwa/GoldenImage", from: "0.1.5")
+        .package(url: "https://github.com/schwa/GoldenImage", from: "0.1.5"),
+        .package(url: "https://github.com/schwa/Interaction3D", from: "0.1.13")
     ],
     targets: [
         .target(
@@ -31,7 +32,8 @@ let package = Package(
                 .product(name: "GeometryLite3D", package: "GeometryLite3D"),
                 .product(name: "MetalSupport", package: "MetalSupport"),
                 .product(name: "MetalSprockets", package: "MetalSprockets"),
-                .product(name: "MetalSprocketsUI", package: "MetalSprockets")
+                .product(name: "MetalSprocketsUI", package: "MetalSprockets"),
+                .product(name: "Interaction3D", package: "Interaction3D")
             ]
         ),
         .testTarget(
@@ -39,7 +41,8 @@ let package = Package(
             dependencies: [
                 "MetalSprocketsAddOnsExamplesSupport",
                 .product(name: "GoldenImage", package: "GoldenImage"),
-                .product(name: "MetalSupport", package: "MetalSupport")
+                .product(name: "MetalSupport", package: "MetalSupport"),
+                .product(name: "Interaction3D", package: "Interaction3D")
             ],
             resources: [
                 .copy("Golden Images")
