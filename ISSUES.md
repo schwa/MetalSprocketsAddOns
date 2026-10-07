@@ -2081,14 +2081,18 @@ Subtask of #68 (split from #72). Nearest-wins rasterization aliases: each pixel 
 ## 77: TextureView can show a stale image for a new texture
 
 +++
-status: new
+status: closed
 priority: medium
 kind: bug
 labels: area:rendering, effort:s
 created: 2026-10-07T19:44:09Z
+updated: 2026-10-07T21:14:50Z
+closed: 2026-10-07T21:14:50Z
 +++
 
 TextureView (Sources/MetalSprocketsAddOnsUI/TextureView.swift) caches its CGImage keyed on ObjectIdentifier(texture). After a texture is freed, a new texture can get the same address, and TextureView then shows the old texture's image.
+
+- `2026-10-07T21:14:50Z`: Fixed: ImageCache holds a weak reference and compares identity, so a freed texture can never match. A red-first repro of the address-reuse case is not deterministic: reuse depends on the allocator (immediate with MTL_DEBUG_LAYER=1, never in 1000 tries in the test process). Tests: forgetsFreedTexture and cachesWhileTextureIsAlive (deterministic), plus a best-effort reuse test that returns early when no reuse happens.
 
 ---
 

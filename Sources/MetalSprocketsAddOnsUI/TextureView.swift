@@ -77,24 +77,25 @@ public struct TextureView: View {
 
 /// Reference-typed cache so `body` can update it without triggering
 /// "Modifying state during view update" warnings.
-private final class ImageCache {
-    private var cachedID: ObjectIdentifier?
+internal final class ImageCache {
+    // Weak, not an ObjectIdentifier: a new texture can be allocated at a freed texture's address,
+    // and an identifier would then match the stale image (#77).
+    private(set) weak var cachedTexture: MTLTexture?
     private var cachedImage: CGImage?
 
     func image(for texture: MTLTexture?) -> CGImage? {
         guard let texture else {
-            cachedID = nil
+            cachedTexture = nil
             cachedImage = nil
             return nil
         }
-        let id = ObjectIdentifier(texture)
-        if id == cachedID, let cachedImage {
+        if let cachedTexture, cachedTexture === texture, let cachedImage {
             return cachedImage
         }
         guard let image = try? texture.toCGImage() else {
             return nil
         }
-        cachedID = id
+        cachedTexture = texture
         cachedImage = image
         return image
     }

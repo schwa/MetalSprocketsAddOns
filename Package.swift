@@ -59,6 +59,7 @@ let package = Package(
             dependencies: [
                 "MetalSprocketsAddOns",
                 "MetalSprocketsAddOnsShaders",
+                "MetalSprocketsAddOnsUI",
                 .product(name: "MetalSupport", package: "MetalSupport"),
                 .product(name: "SwiftMesh", package: "SwiftMesh"),
                 .product(name: "GoldenImage", package: "GoldenImage"),
