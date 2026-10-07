@@ -140,3 +140,15 @@ func testPointCloudDemoScene() throws {
     let image = try renderer.render(element).cgImage
     #expect(try image.isEqualToGoldenImage(named: "PointCloudDemo"))
 }
+
+@Test(.requiresMetal4, .disabled(if: !supportsPointCloud, "64-bit atomics unsupported on this GPU"))
+@MainActor
+func testPointCloudDemoSceneWithCustomShader() throws {
+    let scene = try PointCloudDemoScene(pointCount: 100_000, colorMode: .position)
+    let camera = OrbitCamera(pitch: -.pi / 8, distance: 6, target: [0, 0.5, 0])
+    let renderer = try OffscreenRenderer(size: demoRenderSize)
+    renderer.renderPassDescriptor.colorAttachments[0].clearColor = PointCloudDemoScene.clearColor
+    let element = try scene.element(camera: camera, drawableSize: demoRenderSize, showGrid: true, useCustomShader: true)
+    let image = try renderer.render(element).cgImage
+    #expect(try image.isEqualToGoldenImage(named: "PointCloudDemoCustomShader"))
+}

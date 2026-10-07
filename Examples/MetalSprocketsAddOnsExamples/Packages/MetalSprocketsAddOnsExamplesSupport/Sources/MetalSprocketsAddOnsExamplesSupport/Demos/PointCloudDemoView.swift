@@ -13,12 +13,16 @@ import SwiftUI
 /// `PointCloudRasterizePass` does a 64-bit atomic min of packed depth and colour per pixel in a
 /// compute pass, then `PointCloudResolvePipeline` writes the winners into the render pass, where
 /// they depth-test against the grid like any other geometry.
+///
+/// "Custom Shader" swaps in a consumer-supplied `[[visible]]` function, compiled from source at
+/// runtime, that recolours each point.
 struct PointCloudDemoView: View {
     @State private var camera = OrbitCamera(pitch: -.pi / 8, distance: 6, target: [0, 0.5, 0])
     @State private var scene: PointCloudDemoScene?
     @State private var pointCount = PointCloudDemoScene.pointCounts[2]
     @State private var colorMode = PointCloudDemoScene.ColorMode.position
     @State private var showGrid = true
+    @State private var useCustomShader = false
 
     private var isSupported: Bool {
         PointCloudFramebuffer.isSupported(on: _MTLCreateSystemDefaultDevice())
@@ -33,7 +37,7 @@ struct PointCloudDemoView: View {
                     description: Text("Point cloud rasterization needs Apple GPU family 8 or later.")
                 )
             } else if let scene {
-                PointCloudRenderView(scene: scene, camera: camera, showGrid: showGrid)
+                PointCloudRenderView(scene: scene, camera: camera, showGrid: showGrid, useCustomShader: useCustomShader)
                     .orbitCamera($camera)
             } else {
                 ProgressView("Generating Points")
@@ -49,6 +53,7 @@ struct PointCloudDemoView: View {
                     Text(mode.name).tag(mode)
                 }
             }
+            Toggle("Custom Shader", isOn: $useCustomShader)
             Toggle("Grid", isOn: $showGrid)
         }
         .task(id: PointCloudDemoScene.Key(pointCount: pointCount, colorMode: colorMode)) {
@@ -68,10 +73,11 @@ private struct PointCloudRenderView: View {
     let scene: PointCloudDemoScene
     let camera: OrbitCamera
     let showGrid: Bool
+    let useCustomShader: Bool
 
     var body: some View {
         RenderView { _, drawableSize in
-            try scene.element(camera: camera, drawableSize: drawableSize, showGrid: showGrid)
+            try scene.element(camera: camera, drawableSize: drawableSize, showGrid: showGrid, useCustomShader: useCustomShader)
         }
         .metalDepthStencilPixelFormat(.depth32Float)
         .metalClearColor(PointCloudDemoScene.clearColor)
@@ -108,6 +114,21 @@ final class PointCloudDemoScene: @unchecked Sendable {
     let points: MTLBuffer
     let pointCount: Int
     let framebuffer = PointCloudFramebuffer()
+    let customShader: PointCloudShader
+
+    /// A consumer shader: height bands, spaced by the float in `userData`, tinting the point's colour.
+    static let customShaderSource = """
+    #include <metal_stdlib>
+    using namespace metal;
+
+    [[visible]] uint heightBands(float3 position, uint color, uint pointIndex, const device void *userData) {
+        float spacing = ((const device float *)userData)[0];
+        float band = fract(position.y / spacing);
+        float4 rgba = unpack_unorm4x8_to_float(color);
+        float3 tint = band < 0.5 ? float3(1.0, 0.45, 0.1) : float3(0.1, 0.6, 1.0);
+        return pack_float_to_unorm4x8(float4(mix(rgba.rgb, tint, 0.7), rgba.a));
+    }
+    """
 
     init(pointCount: Int, colorMode: ColorMode) throws {
         let device = _MTLCreateSystemDefaultDevice()
@@ -121,6 +142,10 @@ final class PointCloudDemoScene: @unchecked Sendable {
         }
         self.points = buffer
         self.pointCount = pointCount
+
+        let library = try ShaderLibrary(source: Self.customShaderSource)
+        let spacing = try device.makeBuffer(unsafeBytesOf: [Float(0.15)])
+        customShader = PointCloudShader(try library.function(type: VisibleFunction.self, named: "heightBands"), userData: spacing)
     }
 
     /// A point on a thick (2, 3) torus knot, jittered inside the tube.
@@ -145,7 +170,7 @@ final class PointCloudDemoScene: @unchecked Sendable {
         return PointCloudPoint(position: position, color: SIMD4<UInt8>(bytes, 255))
     }
 
-    func element(camera: OrbitCamera, drawableSize: CGSize, showGrid: Bool) throws -> some Element {
+    func element(camera: OrbitCamera, drawableSize: CGSize, showGrid: Bool, useCustomShader: Bool = false) throws -> some Element {
         let projection = camera.projectionMatrix(drawableSize: drawableSize)
         let viewportSize = SIMD2<Int>(Int(drawableSize.width), Int(drawableSize.height))
         return try MetalSprockets.Group {
@@ -154,7 +179,8 @@ final class PointCloudDemoScene: @unchecked Sendable {
                 count: pointCount,
                 viewProjection: projection * camera.viewMatrix,
                 viewportSize: viewportSize,
-                framebuffer: framebuffer
+                framebuffer: framebuffer,
+                shader: useCustomShader ? customShader : nil
             )
             try RenderPass {
                 if showGrid {

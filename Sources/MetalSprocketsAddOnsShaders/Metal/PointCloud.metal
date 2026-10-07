@@ -13,11 +13,19 @@ namespace PointCloud {
     // Empty pixel: larger than any packed value with a depth in [0, 1].
     constant ulong emptyPixel = 0xFFFFFFFFFFFFFFFF;
 
+    // True when a consumer-supplied visible function computes each point's colour.
+    constant bool HAS_SHADER [[function_constant(0)]];
+
+    // Consumer shading hook: (position, packed RGBA8 colour, point index, user data) -> packed RGBA8 colour.
+    using PointShader = uint(float3, uint, uint, const device void *);
+
     [[kernel]] void rasterize(
         uint pointIndex [[thread_position_in_grid]],
         const device PointCloudPoint *points [[buffer(0)]],
         device atomic_ulong *framebuffer [[buffer(1)]],
-        constant PointCloudParameters &params [[buffer(2)]]
+        constant PointCloudParameters &params [[buffer(2)]],
+        visible_function_table<PointShader> shaders [[buffer(3), function_constant(HAS_SHADER)]],
+        const device void *userData [[buffer(4), function_constant(HAS_SHADER)]]
     ) {
         if (pointIndex >= params.pointCount) {
             return;
@@ -38,7 +46,8 @@ namespace PointCloud {
 
         // Non-negative floats order the same as their bit patterns.
         float depth = params.reverseZ != 0 ? 1.0 - ndc.z : ndc.z;
-        ulong packed = (ulong(as_type<uint>(depth)) << 32) | ulong(point.color);
+        uint color = HAS_SHADER ? shaders[0](point.position, point.color, pointIndex, userData) : point.color;
+        ulong packed = (ulong(as_type<uint>(depth)) << 32) | ulong(color);
         atomic_min_explicit(&framebuffer[pixel.y * params.viewportSize.x + pixel.x], packed, memory_order_relaxed);
     }
 

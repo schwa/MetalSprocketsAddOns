@@ -1960,13 +1960,14 @@ Subtask of #68. The examples app has no point cloud demo. Wanted: millions of pr
 ## 71: Point cloud: consumer-supplied shading via visible functions (#68)
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: area:rendering, effort:m, subtask
 depends: 69
 created: 2026-10-07T19:20:53Z
-updated: 2026-10-07T19:20:56Z
+updated: 2026-10-07T19:31:02Z
+closed: 2026-10-07T19:31:02Z
 +++
 
 Subtask of #68. Consumers cannot customize per-point shading without forking the pass. Proposed (per schwa): a visible function such as `float4 shadePoint(PointData, ...)` linked into the rasterizer kernel. Alternatives: MTLDynamicLibrary, function stitching. Include a sample custom shader in the demo.

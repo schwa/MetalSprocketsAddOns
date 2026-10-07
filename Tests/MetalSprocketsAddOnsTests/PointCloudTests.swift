@@ -22,13 +22,13 @@ private func makePointBuffer(_ points: [PointCloudPoint]) throws -> MTLBuffer {
 
 /// Renders `points` (and optionally an occluding quad) and returns BGRA8 pixels, top row first.
 @MainActor
-private func render(_ points: [PointCloudPoint], occluder: Bool = false) throws -> [SIMD4<UInt8>] {
+private func render(_ points: [PointCloudPoint], occluder: Bool = false, shader: PointCloudShader? = nil) throws -> [SIMD4<UInt8>] {
     let buffer = try makePointBuffer(points)
     let framebuffer = PointCloudFramebuffer()
     let viewProjection = viewProjection()
     let quad = MTKMesh.plane(width: 1, height: 2)
     let element = try MetalSprockets.Group {
-        try PointCloudRasterizePass(points: buffer, count: points.count, viewProjection: viewProjection, viewportSize: size, framebuffer: framebuffer)
+        try PointCloudRasterizePass(points: buffer, count: points.count, viewProjection: viewProjection, viewportSize: size, framebuffer: framebuffer, shader: shader)
         try RenderPass {
             if occluder {
                 // Covers the left half of the view at z = 0.5.
@@ -109,6 +109,44 @@ func testPointCloud_goldenImage() throws {
     }
     let image = try OffscreenRenderer(size: defaultRenderSize).render(element).cgImage
     #expect(try image.isEqualToGoldenImage(named: "PointCloudHelix"))
+}
+
+// A consumer shader compiled from source at runtime, in its own library.
+private let consumerShaderSource = """
+#include <metal_stdlib>
+using namespace metal;
+
+[[visible]] uint shadeGreen(float3 position, uint color, uint pointIndex, const device void *userData) {
+    return 0xFF00FF00;
+}
+
+[[visible]] uint shadeFromUserData(float3 position, uint color, uint pointIndex, const device void *userData) {
+    return ((const device uint *)userData)[0];
+}
+"""
+
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_consumerShaderReplacesColor() throws {
+    let library = try ShaderLibrary(source: consumerShaderSource)
+    let shader = PointCloudShader(try library.function(type: VisibleFunction.self, named: "shadeGreen"))
+    let position = SIMD3<Float>(0.3, 0.2, 0)
+    let pixels = try render([PointCloudPoint(position: position, color: [255, 0, 0, 255])], shader: shader)
+    let bgra = pixels[pixel(of: position)]
+    #expect(bgra.y > 200 && bgra.z < 50)
+}
+
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_consumerShaderReadsUserData() throws {
+    let library = try ShaderLibrary(source: consumerShaderSource)
+    let userData = try _MTLCreateSystemDefaultDevice().makeBuffer(unsafeBytesOf: [UInt32(0xFFFF_0000)])
+    let shader = PointCloudShader(try library.function(type: VisibleFunction.self, named: "shadeFromUserData"), userData: userData)
+    let position = SIMD3<Float>(-0.3, -0.2, 0)
+    let pixels = try render([PointCloudPoint(position: position, color: [255, 0, 0, 255])], shader: shader)
+    // 0xFFFF0000 is blue (third byte) at full alpha.
+    let bgra = pixels[pixel(of: position)]
+    #expect(bgra.x > 200 && bgra.z < 50)
 }
 
 @Test
