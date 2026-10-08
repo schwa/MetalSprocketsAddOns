@@ -98,7 +98,7 @@ private func render(
                 .vertexDescriptor(MTLVertexDescriptor(quad.vertexDescriptor))
                 .depthCompare(function: reverseZ ? .greater : .less, enabled: true)
             }
-            try PointCloudResolvePipeline(framebuffer: framebuffer)
+            PointCloudResolvePipeline(framebuffer: framebuffer)
         }
     }
     let rendering = try OffscreenRenderer(size: defaultRenderSize, clearDepth: reverseZ ? 0 : 1).render(element)
@@ -199,7 +199,7 @@ func testPointCloud_goldenImage() throws {
     let element = try MetalSprockets.Group {
         try PointCloudRasterizePass(points: buffer, count: count, viewProjection: viewProjection(), viewportSize: size, framebuffer: framebuffer)
         try RenderPass {
-            try PointCloudResolvePipeline(framebuffer: framebuffer)
+            PointCloudResolvePipeline(framebuffer: framebuffer)
         }
     }
     let image = try OffscreenRenderer(size: defaultRenderSize).render(element).cgImage
@@ -278,7 +278,7 @@ func testPointCloud_framebufferHasOneBufferPerFrameInFlight() throws {
         let element = try MetalSprockets.Group {
             try PointCloudRasterizePass(points: buffer, count: 1, viewProjection: viewProjection(), viewportSize: size, framebuffer: framebuffer)
             try RenderPass {
-                try PointCloudResolvePipeline(framebuffer: framebuffer)
+                PointCloudResolvePipeline(framebuffer: framebuffer)
             }
         }
         _ = try renderer.render(element)
@@ -486,7 +486,7 @@ func testPointCloud_describeFunctionUserValueChangesPerFrame() throws {
                 describe: PointCloudPointFunction(function, userValue: colour)
             )
             try RenderPass {
-                try PointCloudResolvePipeline(framebuffer: framebuffer)
+                PointCloudResolvePipeline(framebuffer: framebuffer)
             }
         }
         let rendering = try renderer.render(element)

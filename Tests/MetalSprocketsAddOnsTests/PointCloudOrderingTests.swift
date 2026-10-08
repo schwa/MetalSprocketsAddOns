@@ -96,7 +96,7 @@ func benchmarkPointCloudOrders() throws {
                         }
                     }
                 try RenderPass {
-                    try PointCloudResolvePipeline(framebuffer: framebuffer)
+                    PointCloudResolvePipeline(framebuffer: framebuffer)
                 }
             }
             _ = try renderer.render(element)
@@ -150,7 +150,7 @@ func benchmarkPointCloudScaling() throws {
                         }
                     }
                 try RenderPass {
-                    try PointCloudResolvePipeline(framebuffer: framebuffer)
+                    PointCloudResolvePipeline(framebuffer: framebuffer)
                 }
             }
             _ = try renderer.render(element)
