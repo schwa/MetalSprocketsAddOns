@@ -184,7 +184,7 @@ func testShadowPipelines_depthPassThenMaskPass_darkensScene() throws {
     #expect(shadowedLuminance < litLuminance * 0.97)
 }
 
-@Test
+@Test(.requiresMetal4)
 @MainActor
 func testShadowTestScene_groundIsHorizontal() throws {
     // Issue #62: MTKMesh.plane lies in the XY plane, so translating it alone gives a wall.
