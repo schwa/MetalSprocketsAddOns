@@ -2330,11 +2330,12 @@ PointCloudRasterizePass clears and rewrites one shared per-pixel buffer each fra
 ## 90: Point cloud: large points flicker between full size and clamped
 
 +++
-status: new
+status: open
 priority: medium
 kind: bug
 labels: area:rendering, effort:m
 created: 2026-10-07T23:15:51Z
+updated: 2026-10-12T15:38:19Z
 +++
 
 With `sizeUnits: .world` and a large size (or zoomed in close), points render at seemingly random sizes, and the set changes every frame even with a still camera and unchanged scene.
@@ -2346,6 +2347,8 @@ Cause: points above `maximumPointSize` (#86) claim a slot in the per-frame large
 ## Proposed fixes
 1. Size the list to the point count (capped by memory; 24 bytes per entry), and when it still overflows, run a counting pass first and clamp every oversized point that frame, so the result is deterministic. Costs an extra pass in world mode.
 2. Clamp world-size pixel diameters to `maximumPointSize` and drop the hardware path for them. Simple and deterministic, but near points stop growing past the limit.
+
+- `2026-10-12T15:44:23Z`: Auto-fixer: read the rasterize kernel and the large-splat path. Punting: the issue lists two fixes with different trade-offs (1: size the list to the point count plus a counting pass when it still overflows, extra pass in world mode; 2: always clamp world-size points, near points stop growing). I also looked at a cheaper variant of 1: always stamp oversized points clamped, and skip the whole hardware draw when the counter exceeds the capacity. It does not work for Ring shapes, because the clamped ring shows inside the hole of the full-size ring. Unblocker: pick option 1 or 2.
 
 ---
 
@@ -2395,11 +2398,12 @@ Needed by MetalSprocketsSceneGraph #32 (e.g. 15 identical crates in its physics 
 ## 93: RayTracedShadows: honor directional and spot lights
 
 +++
-status: new
+status: open
 priority: medium
 kind: enhancement
 labels: effort:s, area:rendering
 created: 2026-10-12T15:36:01Z
+updated: 2026-10-12T15:38:19Z
 +++
 
 RayTracedShadows.metal treats every light as a point light. It reads only lighting.lightPositions and uses inverse-square attenuation. Since #91, Lighting carries lightDirections and Light has type and cone angles, so the shadow pass and the Blinn-Phong pass disagree for non-point lights.
@@ -2415,11 +2419,12 @@ Want:
 ## 94: BlinnPhongShader instanced: per-instance materials
 
 +++
-status: new
+status: open
 priority: low
 kind: enhancement
-labels: effort:s, area:rendering
+labels: area:rendering, effort:m
 created: 2026-10-12T15:36:02Z
+updated: 2026-10-12T15:38:22Z
 +++
 
 The instanced path from #92 (vertex_instanced) sets materialIndex to 0, so all instances share one material. The non-instanced path indexes material by instance_id.
@@ -2431,11 +2436,12 @@ Want an option to index the material argument buffer by instance_id in the insta
 ## 95: BlinnPhong instanced test: compare pixels, not mean luminance
 
 +++
-status: new
+status: open
 priority: low
 kind: task
-labels: effort:xs
+labels: effort:xs, area:testing
 created: 2026-10-12T15:36:02Z
+updated: 2026-10-12T15:38:22Z
 +++
 
 testBlinnPhongShader_instancedMatchesSeparateDraws checks only that mean luminance matches between the instanced render and separate draws. A mirrored or reordered layout would still pass. Compare the images pixel by pixel (or add a golden image).
