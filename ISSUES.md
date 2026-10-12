@@ -2422,12 +2422,13 @@ Want:
 ## 94: BlinnPhongShader instanced: per-instance materials
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: area:rendering, effort:m
 created: 2026-10-12T15:36:02Z
-updated: 2026-10-12T15:38:22Z
+updated: 2026-10-12T15:48:21Z
+closed: 2026-10-12T15:48:21Z
 +++
 
 The instanced path from #92 (vertex_instanced) sets materialIndex to 0, so all instances share one material. The non-instanced path indexes material by instance_id.

@@ -199,3 +199,37 @@ func testBlinnPhongShader_instancedMatchesSeparateDraws() throws {
     #expect(try instanced.fractionOfBlackPixels() < 0.95)
     #expect(abs(try instanced.meanLuminance() - separate.meanLuminance()) < 0.001)
 }
+
+@Test(.requiresMetal4)
+@MainActor
+func testBlinnPhongShader_instancedPerInstanceMaterials() throws {
+    // #94: each instance reads its own material.
+    let mesh = try makeBoxMeshWithTangents()
+    let viewTransforms = ViewTransforms(projectionMatrix: perspectiveProjection(), cameraMatrix: float4x4(translation: [0, 0, 6]))
+    let modelMatrices = (-1...1).map { float4x4(translation: [Float($0) * 1.5, 0, 0]) }
+    let lighting = try Lighting(ambientLightColor: [1, 1, 1], lights: [([0, 0, 4], Light(type: .point, intensity: 0))])
+    let materials: [BlinnPhongMaterial] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]].map {
+        BlinnPhongMaterial(ambient: .color($0), diffuse: .color([0, 0, 0]), specular: .color([0, 0, 0]), shininess: 1)
+    }
+
+    let renderPass = try RenderPass {
+        try BlinnPhongShader(instanced: true, perInstanceMaterials: true) {
+            try Draw(mesh: mesh, instanceCount: modelMatrices.count)
+            .vertexBuffers(of: mesh)
+            .blinnPhongMaterials(materials)
+            .blinnPhongInstancedMatrices(viewTransforms, modelMatrices: modelMatrices)
+            .lighting(lighting)
+        }
+        .vertexDescriptor(mesh.vertexDescriptor)
+        .depthCompare(function: .less, enabled: true)
+    }
+    let image = try OffscreenRenderer(size: defaultRenderSize).render(renderPass).cgImage
+
+    let centreY = image.height / 2
+    let left = try image.pixel(atX: image.width / 2 - image.width * 15 / 100, y: centreY)
+    let middle = try image.pixel(atX: image.width / 2, y: centreY)
+    let right = try image.pixel(atX: image.width / 2 + image.width * 15 / 100, y: centreY)
+    #expect(left.x > 200 && left.y < 50 && left.z < 50)
+    #expect(middle.y > 200 && middle.x < 50 && middle.z < 50)
+    #expect(right.z > 200 && right.x < 50 && right.y < 50)
+}

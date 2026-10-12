@@ -37,6 +37,13 @@ public extension Element {
         try argumentBuffer("material", value: material)
     }
 
+    /// One material per instance, for `BlinnPhongShader(instanced: true, perInstanceMaterials: true)`.
+    func blinnPhongMaterials(_ materials: [BlinnPhongMaterial]) throws -> some Element {
+        self
+            .parameter("material", values: try materials.map { try $0.toArgumentBuffer() })
+            .useResources(materials.flatMap(\.argumentBufferResources), usage: .read, stages: .fragment)
+    }
+
     /// Binds the standard Blinn-Phong matrix parameters, derived from shared ``Transforms``.
     func blinnPhongMatrices(_ transforms: Transforms) -> some Element {
         // Matrix products are derived once on the CPU to avoid per-vertex computation.

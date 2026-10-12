@@ -6,6 +6,9 @@ using namespace metal;
 
 namespace BlinnPhong {
 
+    // Instanced path: index the material array by instance_id instead of using material 0.
+    constant bool PER_INSTANCE_MATERIALS [[function_constant(0)]];
+
     struct Vertex {
         simd_float3 position ATTRIBUTE(0);
         simd_float3 normal ATTRIBUTE(1);
@@ -56,7 +59,7 @@ namespace BlinnPhong {
         return out;
     }
 
-    // One draw call for N copies of a mesh; all instances share material 0.
+    // One draw call for N copies of a mesh. Instances share material 0 unless PER_INSTANCE_MATERIALS.
     [[vertex]] Fragment vertex_instanced(
         uint instance_id [[instance_id]],
         Vertex in [[stage_in]],
@@ -72,7 +75,7 @@ namespace BlinnPhong {
         out.worldPosition = float3(worldVertex) / worldVertex.w;
         out.normal = normalize(normalMatrices[instance_id] * in.normal);
         out.textureCoordinate = in.textureCoordinate;
-        out.materialIndex = 0;
+        out.materialIndex = is_function_constant_defined(PER_INSTANCE_MATERIALS) && PER_INSTANCE_MATERIALS ? instance_id : 0;
         return out;
     }
 

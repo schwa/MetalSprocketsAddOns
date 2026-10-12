@@ -14,11 +14,18 @@ public struct BlinnPhongShader<Content>: Element where Content: Element {
     /// Creates a Blinn-Phong shader pipeline.
     ///
     /// With `instanced`, bind per-instance matrices with `blinnPhongInstancedMatrices` and draw with an instance count.
-    public init(instanced: Bool = false, @ElementBuilder content: () throws -> Content) throws {
+    /// With `perInstanceMaterials` too, bind one material per instance with `blinnPhongMaterials`.
+    public init(instanced: Bool = false, perInstanceMaterials: Bool = false, @ElementBuilder content: () throws -> Content) throws {
         let device = _MTLCreateSystemDefaultDevice()
         assert(device.argumentBuffersSupport == .tier2)
         let shaderLibrary = ShaderLibrary.module.namespaced("BlinnPhong")
-        vertexShader = try instanced ? shaderLibrary.vertex_instanced : shaderLibrary.vertex_main
+        if instanced {
+            var constants = FunctionConstants()
+            constants["PER_INSTANCE_MATERIALS"] = .bool(perInstanceMaterials)
+            vertexShader = try shaderLibrary.function(named: "vertex_instanced", type: VertexShader.self, constants: constants)
+        } else {
+            vertexShader = try shaderLibrary.vertex_main
+        }
         fragmentShader = try shaderLibrary.fragment_main
         label = instanced ? "BlinnPhong Instanced" : "BlinnPhong"
 
