@@ -32,7 +32,7 @@ namespace BlinnPhong {
         float3 worldPosition;
         float3 normal;
         float2 textureCoordinate;
-        uint instance_id;
+        uint materialIndex;
     };
 
     // MARK: Shaders
@@ -52,7 +52,27 @@ namespace BlinnPhong {
         out.worldPosition = float3(worldVertex) / worldVertex.w;
         out.normal = normalize(extractNormalMatrix(modelMatrix) * in.normal);
         out.textureCoordinate = in.textureCoordinate;
-        out.instance_id = instance_id;
+        out.materialIndex = instance_id;
+        return out;
+    }
+
+    // One draw call for N copies of a mesh; all instances share material 0.
+    [[vertex]] Fragment vertex_instanced(
+        uint instance_id [[instance_id]],
+        Vertex in [[stage_in]],
+        constant float4x4 *modelViewProjectionMatrices [[buffer(1)]],
+        constant float4x4 *modelMatrices [[buffer(2)]],
+        constant float3x3 *normalMatrices [[buffer(3)]]
+    ) {
+        Fragment out;
+        const float4 position = float4(in.position, 1.0);
+
+        const float4 worldVertex = modelMatrices[instance_id] * position;
+        out.position = modelViewProjectionMatrices[instance_id] * position;
+        out.worldPosition = float3(worldVertex) / worldVertex.w;
+        out.normal = normalize(normalMatrices[instance_id] * in.normal);
+        out.textureCoordinate = in.textureCoordinate;
+        out.materialIndex = 0;
         return out;
     }
 
@@ -62,7 +82,7 @@ namespace BlinnPhong {
         constant BlinnPhongMaterialArgumentBuffer *material [[buffer(2)]],
         constant float4x4 &cameraMatrix [[buffer(3)]]
     ) {
-        uint instance_id = in.instance_id;
+        uint instance_id = in.materialIndex;
 
         float3 ambientColor = material[instance_id].ambient.resolve(in.textureCoordinate).xyz;
         float3 diffuseColor = material[instance_id].diffuse.resolve(in.textureCoordinate).xyz;
@@ -99,22 +119,34 @@ namespace BlinnPhong {
 
         for (int index = 0; index < lighting.lightCount; ++index) {
             const auto light = lighting.lights[index];
-            const float3 lightPosition = lighting.lightPositions[index];
+            const float3 lightPointing = lighting.lightDirections[index];
 
-            float3 lightDirection = lightPosition - modelPosition;
-            const float distanceSquared = length_squared(lightDirection);
-            lightDirection = normalize(lightDirection);
+            // `lightDirection` points from the surface toward the light.
+            float3 lightDirection;
+            float attenuation = 1.0;
+            if (light.type == kLightTypeDirectional) {
+                lightDirection = -lightPointing;
+            } else {
+                lightDirection = lighting.lightPositions[index] - modelPosition;
+                const float distanceSquared = length_squared(lightDirection);
+                lightDirection = normalize(lightDirection);
 
-            const float lambertian = max(dot(lightDirection, normal), 0.0);
-            if (lambertian == 0.0) {
-                continue;
+                // Unreal-style inverse-square attenuation with smooth range falloff
+                const float distance = sqrt(distanceSquared);
+                const float rangeRatio = distance / light.range;
+                const float rangeFalloff = saturate(1.0 - rangeRatio * rangeRatio * rangeRatio * rangeRatio);
+                attenuation = (rangeFalloff * rangeFalloff) / (distanceSquared + 1.0);
+
+                if (light.type == kLightTypeSpot) {
+                    const float cosAngle = dot(-lightDirection, lightPointing);
+                    attenuation *= smoothstep(cos(light.outerConeAngle), cos(light.innerConeAngle), cosAngle);
+                }
             }
 
-            // Unreal-style inverse-square attenuation with smooth range falloff
-            const float distance = sqrt(distanceSquared);
-            const float rangeRatio = distance / light.range;
-            const float rangeFalloff = saturate(1.0 - rangeRatio * rangeRatio * rangeRatio * rangeRatio);
-            const float attenuation = (rangeFalloff * rangeFalloff) / (distanceSquared + 1.0);
+            const float lambertian = max(dot(lightDirection, normal), 0.0);
+            if (lambertian == 0.0 || attenuation == 0.0) {
+                continue;
+            }
 
             float specular = 0.0;
 

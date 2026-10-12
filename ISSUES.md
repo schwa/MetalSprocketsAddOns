@@ -2352,12 +2352,13 @@ Cause: points above `maximumPointSize` (#86) claim a slot in the per-frame large
 ## 91: Blinn-Phong: directional and spot lights
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: effort:m, area:rendering
 created: 2026-10-12T15:22:43Z
-updated: 2026-10-12T15:22:46Z
+updated: 2026-10-12T15:36:18Z
+closed: 2026-10-12T15:36:18Z
 +++
 
 BlinnPhongShaders.metal treats every light as a point light: it reads only lighting.lightPositions and ignores Light.type, and Lighting carries no directions.
@@ -2374,12 +2375,13 @@ Needed by MetalSprocketsSceneGraph #24 (lights placed by node orientation).
 ## 92: BlinnPhongShader: instanced drawing
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: effort:m, area:performance
 created: 2026-10-12T15:22:43Z
-updated: 2026-10-12T15:22:46Z
+updated: 2026-10-12T15:36:18Z
+closed: 2026-10-12T15:36:18Z
 +++
 
 BlinnPhongShader takes one model matrix per draw (blinnPhongMatrices), so repeated meshes need one draw call each.
@@ -2387,5 +2389,55 @@ BlinnPhongShader takes one model matrix per draw (blinnPhongMatrices), so repeat
 Want: an instanced path with per-instance model (and normal) matrices read by instance_id, so N copies of a mesh+material draw in one call.
 
 Needed by MetalSprocketsSceneGraph #32 (e.g. 15 identical crates in its physics demo).
+
+---
+
+## 93: RayTracedShadows: honor directional and spot lights
+
++++
+status: new
+priority: medium
+kind: enhancement
+labels: effort:s, area:rendering
+created: 2026-10-12T15:36:01Z
++++
+
+RayTracedShadows.metal treats every light as a point light. It reads only lighting.lightPositions and uses inverse-square attenuation. Since #91, Lighting carries lightDirections and Light has type and cone angles, so the shadow pass and the Blinn-Phong pass disagree for non-point lights.
+
+Want:
+- Directional: cast rays along -lightDirections[i], with no max distance from a position and no attenuation.
+- Spot: apply the same cone falloff as BlinnPhongShaders.metal.
+- Point: unchanged.
+- Tests for a directional and a spot light.
+
+---
+
+## 94: BlinnPhongShader instanced: per-instance materials
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: effort:s, area:rendering
+created: 2026-10-12T15:36:02Z
++++
+
+The instanced path from #92 (vertex_instanced) sets materialIndex to 0, so all instances share one material. The non-instanced path indexes material by instance_id.
+
+Want an option to index the material argument buffer by instance_id in the instanced path, so N instances can each have their own material in one draw call. Needs a way to bind an array of BlinnPhongMaterial argument buffers.
+
+---
+
+## 95: BlinnPhong instanced test: compare pixels, not mean luminance
+
++++
+status: new
+priority: low
+kind: task
+labels: effort:xs
+created: 2026-10-12T15:36:02Z
++++
+
+testBlinnPhongShader_instancedMatchesSeparateDraws checks only that mean luminance matches between the instanced render and separate draws. A mirrored or reordered layout would still pass. Compare the images pixel by pixel (or add a golden image).
 
 ---

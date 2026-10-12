@@ -72,7 +72,8 @@ func testLighting_argumentBufferResources_areTheBuffersTheArgumentBufferPointsAt
     )
 
     let buffers = lighting.argumentBufferResources.compactMap { $0 as? any MTLBuffer }
-    #expect(buffers.count == 2)
+    #expect(buffers.count == 3)
     #expect(buffers.contains { $0 === lighting.lights })
     #expect(buffers.contains { $0 === lighting.lightPositions })
+    #expect(buffers.contains { $0 === lighting.lightDirections })
 }

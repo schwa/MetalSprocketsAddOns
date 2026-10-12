@@ -47,6 +47,16 @@ public extension Element {
             .parameter("cameraMatrix", functionType: .fragment, value: transforms.cameraMatrix)
     }
 
+    /// Binds per-instance matrices for `BlinnPhongShader(instanced: true)`. Draw with `instanceCount: modelMatrices.count`.
+    func blinnPhongInstancedMatrices(_ viewTransforms: ViewTransforms, modelMatrices: [float4x4]) -> some Element {
+        let instanceTransforms = modelMatrices.map(viewTransforms.transforms(modelMatrix:))
+        return self
+            .parameter("modelViewProjectionMatrices", functionType: .vertex, values: instanceTransforms.map(\.modelViewProjectionMatrix))
+            .parameter("modelMatrices", functionType: .vertex, values: modelMatrices)
+            .parameter("normalMatrices", functionType: .vertex, values: instanceTransforms.map(\.normalMatrix))
+            .parameter("cameraMatrix", functionType: .fragment, value: viewTransforms.cameraMatrix)
+    }
+
     func blinnPhongMatrices(projectionMatrix: simd_float4x4, viewMatrix: simd_float4x4, modelMatrix: simd_float4x4, cameraMatrix: simd_float4x4) -> some Element {
         // `viewMatrix` and `cameraMatrix` are passed separately by legacy callers; the shared
         // type derives one from the other, so the camera matrix wins and the view matrix is

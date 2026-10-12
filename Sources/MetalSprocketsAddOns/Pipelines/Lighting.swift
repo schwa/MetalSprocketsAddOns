@@ -6,7 +6,12 @@ import MetalSupport
 
 public extension Light {
     init(type: LightType, color: SIMD3<Float> = [1, 1, 1], intensity: Float = 1.0) {
-        self.init(type: type, color: color, intensity: intensity, range: .infinity)
+        self.init(type: type, color: color, intensity: intensity, range: .infinity, innerConeAngle: .pi / 8, outerConeAngle: .pi / 6)
+    }
+
+    /// A spot light. Cone angles are half-angles in radians.
+    static func spot(color: SIMD3<Float> = [1, 1, 1], intensity: Float = 1.0, range: Float = .infinity, innerConeAngle: Float = .pi / 8, outerConeAngle: Float = .pi / 6) -> Light {
+        Light(type: .spot, color: color, intensity: intensity, range: range, innerConeAngle: innerConeAngle, outerConeAngle: outerConeAngle)
     }
 }
 
@@ -15,12 +20,16 @@ public struct Lighting {
     private final class Storage {
         var lights: MTLBuffer
         var lightPositions: MTLBuffer
+        var lightDirections: MTLBuffer
 
-        init(lights: MTLBuffer, lightPositions: MTLBuffer) {
+        init(lights: MTLBuffer, lightPositions: MTLBuffer, lightDirections: MTLBuffer) {
             self.lights = lights
             self.lightPositions = lightPositions
+            self.lightDirections = lightDirections
         }
     }
+
+    public static let defaultLightDirection: SIMD3<Float> = [0, 0, -1]
 
     public var ambientLightColor: simd_float3
     public var count: Int
@@ -35,24 +44,36 @@ public struct Lighting {
         get { storage.lightPositions }
         set { storage.lightPositions = newValue }
     }
+
+    public var lightDirections: MTLBuffer {
+        get { storage.lightDirections }
+        set { storage.lightDirections = newValue }
+    }
 }
 
 public extension Lighting {
+    /// Lights with a position only. Directional and spot lights get `defaultLightDirection`.
     init(ambientLightColor: SIMD3<Float>, lights: [(SIMD3<Float>, Light)], capacity: Int? = nil) throws {
+        try self.init(ambientLightColor: ambientLightColor, orientedLights: lights.map { (position: $0.0, direction: Self.defaultLightDirection, light: $0.1) })
+    }
+
+    /// `direction` is the way the light points. Point lights ignore it; directional lights ignore `position`.
+    init(ambientLightColor: SIMD3<Float>, orientedLights lights: [(position: SIMD3<Float>, direction: SIMD3<Float>, light: Light)]) throws {
         assert(!lights.isEmpty)
         let device = _MTLCreateSystemDefaultDevice()
         self.ambientLightColor = ambientLightColor
         self.count = lights.count
         self.storage = Storage(
-            lights: try device.makeBuffer(unsafeBytesOf: lights.map(\.1)),
-            lightPositions: try device.makeBuffer(unsafeBytesOf: lights.map(\.0))
+            lights: try device.makeBuffer(unsafeBytesOf: lights.map(\.light)),
+            lightPositions: try device.makeBuffer(unsafeBytesOf: lights.map(\.position)),
+            lightDirections: try device.makeBuffer(unsafeBytesOf: lights.map { simd_normalize($0.direction) })
         )
     }
 }
 
 extension Lighting: ArgumentBufferRepresentable {
     public var argumentBufferResources: [any MTLResource] {
-        [lights, lightPositions]
+        [lights, lightPositions, lightDirections]
     }
 
     public func toArgumentBuffer() throws -> LightingArgumentBuffer {
@@ -60,7 +81,8 @@ extension Lighting: ArgumentBufferRepresentable {
             ambientLightColor: ambientLightColor,
             lightCount: Int32(count),
             lights: lights.gpuAddressAsUnsafeMutablePointer(type: Light.self).orFatalError("Failed to get GPU address for lights buffer"),
-            lightPositions: lightPositions.gpuAddressAsUnsafeMutablePointer(type: SIMD3<Float>.self).orFatalError("Failed to get GPU address for lightPositions buffer")
+            lightPositions: lightPositions.gpuAddressAsUnsafeMutablePointer(type: SIMD3<Float>.self).orFatalError("Failed to get GPU address for lightPositions buffer"),
+            lightDirections: lightDirections.gpuAddressAsUnsafeMutablePointer(type: SIMD3<Float>.self).orFatalError("Failed to get GPU address for lightDirections buffer")
         )
     }
 }
@@ -70,28 +92,27 @@ extension Lighting: ArgumentBufferRepresentable {
 public extension Lighting {
     /// Update the position of a light at the given index.
     func setLightPosition(_ position: SIMD3<Float>, at index: Int) {
-        let buffer = Self.copy(storage.lightPositions)
-        buffer.contents()
-            .advanced(by: index * MemoryLayout<SIMD3<Float>>.stride)
-            .assumingMemoryBound(to: SIMD3<Float>.self)
-            .pointee = position
-        storage.lightPositions = buffer
+        storage.lightPositions = Self.copy(storage.lightPositions, replacing: position, at: index)
+    }
+
+    /// Update the direction of a light at the given index.
+    func setLightDirection(_ direction: SIMD3<Float>, at index: Int) {
+        storage.lightDirections = Self.copy(storage.lightDirections, replacing: simd_normalize(direction), at: index)
     }
 
     /// Update the light value at the given index.
     func setLight(_ light: Light, at index: Int) {
-        let buffer = Self.copy(storage.lights)
-        buffer.contents()
-            .advanced(by: index * MemoryLayout<Light>.stride)
-            .assumingMemoryBound(to: Light.self)
-            .pointee = light
-        storage.lights = buffer
+        storage.lights = Self.copy(storage.lights, replacing: light, at: index)
     }
 
-    private static func copy(_ buffer: MTLBuffer) -> MTLBuffer {
+    private static func copy<Value>(_ buffer: MTLBuffer, replacing value: Value, at index: Int) -> MTLBuffer {
         let copy = buffer.device.makeBuffer(bytes: buffer.contents(), length: buffer.length, options: buffer.resourceOptions)
             .orFatalError("Failed to copy lighting buffer")
         copy.label = buffer.label
+        copy.contents()
+            .advanced(by: index * MemoryLayout<Value>.stride)
+            .assumingMemoryBound(to: Value.self)
+            .pointee = value
         return copy
     }
 }
