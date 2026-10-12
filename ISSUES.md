@@ -2348,3 +2348,44 @@ Cause: points above `maximumPointSize` (#86) claim a slot in the per-frame large
 2. Clamp world-size pixel diameters to `maximumPointSize` and drop the hardware path for them. Simple and deterministic, but near points stop growing past the limit.
 
 ---
+
+## 91: Blinn-Phong: directional and spot lights
+
++++
+status: open
+priority: medium
+kind: feature
+labels: effort:m, area:rendering
+created: 2026-10-12T15:22:43Z
+updated: 2026-10-12T15:22:46Z
++++
+
+BlinnPhongShaders.metal treats every light as a point light: it reads only lighting.lightPositions and ignores Light.type, and Lighting carries no directions.
+
+Want:
+- Lighting stores a direction per light (and spot cone angles), e.g. Lighting(ambientLightColor:lights: [(position, direction, Light)]) or extra fields on Light.
+- The shader handles kLightTypeDirectional (constant direction, no attenuation) and kLightTypeSpot (cone falloff) as well as point.
+- Keep the existing position-only initializer working (point lights).
+
+Needed by MetalSprocketsSceneGraph #24 (lights placed by node orientation).
+
+---
+
+## 92: BlinnPhongShader: instanced drawing
+
++++
+status: open
+priority: low
+kind: feature
+labels: effort:m, area:performance
+created: 2026-10-12T15:22:43Z
+updated: 2026-10-12T15:22:46Z
++++
+
+BlinnPhongShader takes one model matrix per draw (blinnPhongMatrices), so repeated meshes need one draw call each.
+
+Want: an instanced path with per-instance model (and normal) matrices read by instance_id, so N copies of a mesh+material draw in one call.
+
+Needed by MetalSprocketsSceneGraph #32 (e.g. 15 identical crates in its physics demo).
+
+---
