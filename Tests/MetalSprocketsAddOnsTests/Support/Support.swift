@@ -114,6 +114,37 @@ extension CGImage {
         return total / Double(width * height) / 255.0
     }
 
+    /// Largest per-channel difference between two same-sized images, plus how many pixels differ at all.
+    func pixelDifference(from other: CGImage) throws -> (maximumChannelDifference: Int, differingPixelCount: Int) {
+        precondition(width == other.width && height == other.height, "Images differ in size")
+        let lhs = try rgbaBytes()
+        let rhs = try other.rgbaBytes()
+        var maximum = 0
+        var differing = 0
+        for pixel in stride(from: 0, to: lhs.count, by: 4) {
+            var pixelDiffers = false
+            for channel in pixel..<(pixel + 4) {
+                let difference = abs(Int(lhs[channel]) - Int(rhs[channel]))
+                maximum = max(maximum, difference)
+                pixelDiffers = pixelDiffers || difference > 0
+            }
+            if pixelDiffers {
+                differing += 1
+            }
+        }
+        return (maximum, differing)
+    }
+
+    private func rgbaBytes() throws -> [UInt8] {
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
+        guard let context = CGContext(data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: bitmapInfo) else {
+            throw MetalSprocketsError.resourceCreationFailure("Failed to create bitmap context")
+        }
+        context.draw(self, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return pixels
+    }
+
     func write(to url: URL) throws {
         guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
             throw MetalSprocketsError.resourceCreationFailure("Failed to create image destination")

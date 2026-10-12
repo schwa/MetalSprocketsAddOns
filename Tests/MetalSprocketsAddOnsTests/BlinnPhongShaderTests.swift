@@ -197,7 +197,9 @@ func testBlinnPhongShader_instancedMatchesSeparateDraws() throws {
     let instanced = try renderer.render(instancedPass).cgImage
     let separate = try renderer.render(separatePass).cgImage
     #expect(try instanced.fractionOfBlackPixels() < 0.95)
-    #expect(abs(try instanced.meanLuminance() - separate.meanLuminance()) < 0.001)
+    // #95: compare pixels, so a mirrored or reordered layout fails.
+    let difference = try instanced.pixelDifference(from: separate)
+    #expect(difference.maximumChannelDifference <= 1)
 }
 
 @Test(.requiresMetal4)

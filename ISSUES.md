@@ -2440,12 +2440,13 @@ Want an option to index the material argument buffer by instance_id in the insta
 ## 95: BlinnPhong instanced test: compare pixels, not mean luminance
 
 +++
-status: open
+status: closed
 priority: low
 kind: task
 labels: effort:xs, area:testing
 created: 2026-10-12T15:36:02Z
-updated: 2026-10-12T15:38:22Z
+updated: 2026-10-12T15:49:16Z
+closed: 2026-10-12T15:49:16Z
 +++
 
 testBlinnPhongShader_instancedMatchesSeparateDraws checks only that mean luminance matches between the instanced render and separate draws. A mirrored or reordered layout would still pass. Compare the images pixel by pixel (or add a golden image).
