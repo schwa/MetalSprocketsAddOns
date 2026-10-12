@@ -512,3 +512,47 @@ func testPointCloudPoint_packsColorRedInLowestByte() {
 func testPointCloudPoint_isPacked() {
     #expect(MemoryLayout<PointCloudPoint>.stride == 16)
 }
+
+// Issue #90: when more points are oversized than fit, every oversized point is clamped, so which
+// points are drawn full size does not depend on GPU thread order.
+@Test(.requiresMetal4, arguments: [PointCloudQuality.fast, .blended()])
+@MainActor
+func testPointCloud_largePointOverflowClampsEveryOversizedPoint(quality: PointCloudQuality) throws {
+    let left = SIMD3<Float>(-0.5, 0, 0)
+    let right = SIMD3<Float>(0.5, 0, 0)
+    let pixels = try render(
+        [PointCloudPoint(position: left, color: white), PointCloudPoint(position: right, color: white)],
+        pointSize: 81,
+        shape: .square,
+        maximumPointSize: 16,
+        quality: quality,
+        largePointCapacity: 1
+    )
+    for point in [left, right] {
+        #expect(isLit(pixels, at: point, offset: [6, 0]))
+        #expect(!isLit(pixels, at: point, offset: [30, 0]))
+    }
+}
+
+@Test(.requiresMetal4)
+@MainActor
+func testPointCloud_largePointOverflowIsDeterministic() throws {
+    var generator = SystemRandomNumberGenerator()
+    let points = (0..<20_000).map { index in
+        PointCloudPoint(
+            position: [Float.random(in: -1...1, using: &generator), Float.random(in: -1...1, using: &generator), Float.random(in: -0.5...0.5, using: &generator)],
+            color: UInt32(truncatingIfNeeded: index &* 2_654_435_761) | 0xFF00_0000
+        )
+    }
+    let buffer = try makePointBuffer(points)
+    let first = try render(buffer: buffer, count: points.count, pointSize: 40, shape: .ring, maximumPointSize: 16, largePointCapacity: 1_000)
+    let second = try render(buffer: buffer, count: points.count, pointSize: 40, shape: .ring, maximumPointSize: 16, largePointCapacity: 1_000)
+    #expect(first == second)
+}
+
+@Test
+func testPointCloud_largePointCapacityDefaultsToPointCount() throws {
+    let buffer = try makePointBuffer(Array(repeating: PointCloudPoint(position: .zero, color: white), count: 10))
+    let pass = try PointCloudRasterizePass(points: buffer, count: 10, viewProjection: viewProjection(), viewportSize: size, framebuffer: PointCloudFramebuffer())
+    #expect(pass.parameters.largeSplatCapacity == 10)
+}

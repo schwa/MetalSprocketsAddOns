@@ -59,11 +59,14 @@ public final class PointCloudFramebuffer {
     /// Points too large for the compute stamp, and the indirect draw arguments that count them.
     private(set) var largeSplats: MTLBuffer?
     private(set) var largeSplatArguments: MTLBuffer?
+    /// How many points were too large this frame, from the counting pass.
+    private(set) var largeSplatCount: MTLBuffer?
 
     private struct Slot {
         var buffer: MTLBuffer
         var largeSplats: MTLBuffer
         var largeSplatArguments: MTLBuffer
+        var largeSplatCount: MTLBuffer
     }
 
     // One set of buffers per frame in flight, so a frame never touches buffers an earlier frame still reads.
@@ -101,7 +104,8 @@ public final class PointCloudFramebuffer {
             slot = Slot(
                 buffer: try Self.makeBuffer(device: device, length: length, options: .storageModePrivate, label: "PointCloud Framebuffer \(index)"),
                 largeSplats: try Self.makeBuffer(device: device, length: largeSplatsLength, options: .storageModePrivate, label: "PointCloud Large Splats \(index)"),
-                largeSplatArguments: try Self.makeBuffer(device: device, length: MemoryLayout<MTLDrawPrimitivesIndirectArguments>.stride, options: .storageModeShared, label: "PointCloud Large Splat Arguments \(index)")
+                largeSplatArguments: try Self.makeBuffer(device: device, length: MemoryLayout<MTLDrawPrimitivesIndirectArguments>.stride, options: .storageModeShared, label: "PointCloud Large Splat Arguments \(index)"),
+                largeSplatCount: try Self.makeBuffer(device: device, length: MemoryLayout<UInt32>.stride, options: .storageModeShared, label: "PointCloud Large Splat Count \(index)")
             )
             slots[index] = slot
         }
@@ -110,9 +114,11 @@ public final class PointCloudFramebuffer {
             of: MTLDrawPrimitivesIndirectArguments(vertexCount: 6, instanceCount: 0, vertexStart: 0, baseInstance: 0),
             as: MTLDrawPrimitivesIndirectArguments.self
         )
+        slot.largeSplatCount.contents().storeBytes(of: UInt32(0), as: UInt32.self)
         buffer = slot.buffer
         largeSplats = slot.largeSplats
         largeSplatArguments = slot.largeSplatArguments
+        largeSplatCount = slot.largeSplatCount
         self.parameters = parameters
         return slot.buffer
     }
@@ -239,8 +245,11 @@ public struct PointCloudRasterizePass: Element {
     ///   - colorSpace: How the points' packed colours are encoded. Most 8-bit colour data is sRGB.
     ///   - quality: Nearest point per pixel, or a blend of the nearest points.
     ///   - sizeUnits: Whether sizes are in pixels or world units (diameter).
-    ///   - largePointCapacity: How many points larger than `maximumPointSize` per frame are drawn
-    ///     by the hardware rasterizer at full size. Beyond that, or when 0, they are clamped.
+    ///   - largePointCapacity: How many points larger than `maximumPointSize` per frame can be drawn
+    ///     by the hardware rasterizer at full size (24 bytes each per frame in flight). Defaults to
+    ///     the point count, up to ``defaultMaximumLargePointCapacity``. If more points than this are
+    ///     too large in a frame, or when 0, every one of them is clamped. That check needs an extra
+    ///     counting pass in fast mode, which only runs when the capacity is below the point count.
     ///   - describe: Optional consumer function that describes each point.
     public init(
         points: MTLBuffer,
@@ -255,7 +264,7 @@ public struct PointCloudRasterizePass: Element {
         colorSpace: PointCloudColorSpace = .sRGB,
         quality: PointCloudQuality = .fast,
         sizeUnits: PointCloudSizeUnits = .pixels,
-        largePointCapacity: Int = 16_384,
+        largePointCapacity: Int? = nil,
         describe: PointCloudPointFunction? = nil
     ) throws {
         guard PointCloudFramebuffer.isSupported(on: points.device) else {
@@ -282,8 +291,13 @@ public struct PointCloudRasterizePass: Element {
             depthTolerance: 0,
             sizeUnits: sizeUnits.rawValue,
             projectionScale: Self.projectionScale(viewProjection: viewProjection, viewportHeight: viewportSize.y),
-            largeSplatCapacity: UInt32(max(largePointCapacity, 0))
+            largeSplatCapacity: UInt32(Self.largeSplatCapacity(requested: largePointCapacity, pointCount: count)),
+            largeSplatsCounted: 0
         )
+        // Fewer slots than points: the list can overflow, so count first and clamp all on overflow (#90).
+        if parameters.largeSplatCapacity > 0, Int(parameters.largeSplatCapacity) < count {
+            parameters.largeSplatsCounted = 1
+        }
         if case let .blended(depthTolerance) = quality {
             // The framebuffer and resolve see the accumulate pass; the depth pass is a variant.
             parameters.pass = PointCloudRasterPass.blendedAccumulate.rawValue
@@ -292,6 +306,13 @@ public struct PointCloudRasterizePass: Element {
         self.parameters = parameters
         self.framebuffer = framebuffer
         self.describe = describe
+    }
+
+    /// Default upper bound for `largePointCapacity`: 24 MB of large-point entries per frame in flight.
+    public static let defaultMaximumLargePointCapacity = 1 << 20
+
+    static func largeSplatCapacity(requested: Int?, pointCount: Int) -> Int {
+        max(min(requested ?? defaultMaximumLargePointCapacity, pointCount), 0)
     }
 
     /// Pixels per world unit at view depth 1. For a perspective projection the length of the
@@ -362,6 +383,10 @@ public struct PointCloudRasterizePass: Element {
     @ElementBuilder
     private func dispatches(framebuffer: MTLBuffer, parameters: PointCloudParameters) throws -> some Element {
         if parameters.pass == PointCloudRasterPass.nearest.rawValue {
+            if parameters.largeSplatsCounted != 0 {
+                try dispatch(framebuffer: framebuffer, parameters: parameters.with(pass: .countLarge))
+                EncoderBarrier(after: .dispatch, before: .dispatch)
+            }
             try dispatch(framebuffer: framebuffer, parameters: parameters)
         } else {
             try dispatch(framebuffer: framebuffer, parameters: parameters.with(pass: .blendedDepth))
@@ -380,6 +405,7 @@ public struct PointCloudRasterizePass: Element {
         .parameter("params", value: parameters)
         .parameter("largeSplats", buffer: self.framebuffer.largeSplats.orFatalError("prepare sets largeSplats"))
         .parameter("largeSplatArguments", buffer: self.framebuffer.largeSplatArguments.orFatalError("prepare sets largeSplatArguments"))
+        .parameter("largeSplatCount", buffer: self.framebuffer.largeSplatCount.orFatalError("prepare sets largeSplatCount"))
     }
 
     private func emptyUserDataBuffer() throws -> MTLBuffer {

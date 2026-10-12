@@ -31,6 +31,8 @@ typedef MS_ENUM(uint32_t, PointCloudRasterPass) {
     PointCloudRasterPassBlendedDepth = 1,
     /// Blended, second pass: sum the colours of points near that depth.
     PointCloudRasterPassBlendedAccumulate = 2,
+    /// Fast mode, before the nearest pass when large points can overflow: count them only.
+    PointCloudRasterPassCountLarge = 3,
 };
 
 /// What a point's size is measured in.
@@ -102,5 +104,9 @@ struct PointCloudParameters {
     /// How many points larger than `maximumPointSize` can go to the hardware path per frame.
     /// Beyond that (or when 0) they are clamped to `maximumPointSize`.
     uint32_t largeSplatCapacity;
+    /// 1 when an earlier pass this frame counted the large points (count pass, or the blended
+    /// depth pass). If the count exceeds the capacity, every large point is clamped, so the result
+    /// does not depend on thread order.
+    uint32_t largeSplatsCounted;
 };
 typedef struct PointCloudParameters PointCloudParameters;

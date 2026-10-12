@@ -103,7 +103,8 @@ namespace PointCloud {
         const device void *userData [[buffer(4), function_constant(HAS_DESCRIBE)]],
         device PointCloudLargeSplat *largeSplats [[buffer(5)]],
         // MTLDrawPrimitivesIndirectArguments: vertexCount, instanceCount, vertexStart, baseInstance.
-        device atomic_uint *largeSplatArguments [[buffer(6)]]
+        device atomic_uint *largeSplatArguments [[buffer(6)]],
+        device atomic_uint *largeSplatCount [[buffer(7)]]
     ) {
         if (pointIndex >= params.pointCount) {
             return;
@@ -138,7 +139,16 @@ namespace PointCloud {
             if (any(centre + halfSize < 0.0) || any(centre - halfSize >= viewport)) {
                 return;
             }
-            if (params.pass != PointCloudRasterPassBlendedDepth && params.largeSplatCapacity > 0) {
+            const bool countingPass = params.pass == PointCloudRasterPassCountLarge || params.pass == PointCloudRasterPassBlendedDepth;
+            if (countingPass && params.largeSplatsCounted != 0) {
+                atomic_fetch_add_explicit(largeSplatCount, 1, memory_order_relaxed);
+            }
+            if (params.pass == PointCloudRasterPassCountLarge) {
+                return;
+            }
+            const bool overflowed = params.largeSplatsCounted != 0
+                && atomic_load_explicit(largeSplatCount, memory_order_relaxed) > params.largeSplatCapacity;
+            if (params.pass != PointCloudRasterPassBlendedDepth && params.largeSplatCapacity > 0 && !overflowed) {
                 uint slot = atomic_fetch_add_explicit(largeSplatArguments + 1, 1, memory_order_relaxed);
                 if (slot < params.largeSplatCapacity) {
                     largeSplats[slot] = { centre, depth, splat.color, size, splat.shape };
@@ -146,6 +156,9 @@ namespace PointCloud {
                 }
             }
             size = params.maximumPointSize;
+        }
+        if (params.pass == PointCloudRasterPassCountLarge) {
+            return;
         }
 
         float radius = max(size, 1.0) * 0.5;

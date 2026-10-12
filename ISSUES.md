@@ -2332,12 +2332,13 @@ PointCloudRasterizePass clears and rewrites one shared per-pixel buffer each fra
 ## 90: Point cloud: large points flicker between full size and clamped
 
 +++
-status: open
+status: closed
 priority: medium
 kind: bug
 labels: area:rendering, effort:m
 created: 2026-10-07T23:15:51Z
-updated: 2026-10-12T15:38:19Z
+updated: 2026-10-12T15:52:48Z
+closed: 2026-10-12T15:52:48Z
 +++
 
 With `sizeUnits: .world` and a large size (or zoomed in close), points render at seemingly random sizes, and the set changes every frame even with a still camera and unchanged scene.
