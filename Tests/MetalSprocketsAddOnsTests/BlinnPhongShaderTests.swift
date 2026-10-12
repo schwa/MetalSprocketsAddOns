@@ -181,7 +181,7 @@ func testBlinnPhongShader_instancedMatchesSeparateDraws() throws {
     }
     let separatePass = try RenderPass {
         try BlinnPhongShader {
-            try ForEach(Array(modelMatrices.enumerated()), id: \.offset) { _, modelMatrix in
+            ForEach(Array(modelMatrices.enumerated()), id: \.offset) { _, modelMatrix in
                 try Draw(mesh: mesh)
                 .vertexBuffers(of: mesh)
                 .blinnPhongMaterial(material)
@@ -210,8 +210,8 @@ func testBlinnPhongShader_instancedPerInstanceMaterials() throws {
     let viewTransforms = ViewTransforms(projectionMatrix: perspectiveProjection(), cameraMatrix: float4x4(translation: [0, 0, 6]))
     let modelMatrices = (-1...1).map { float4x4(translation: [Float($0) * 1.5, 0, 0]) }
     let lighting = try Lighting(ambientLightColor: [1, 1, 1], lights: [([0, 0, 4], Light(type: .point, intensity: 0))])
-    let materials: [BlinnPhongMaterial] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]].map {
-        BlinnPhongMaterial(ambient: .color($0), diffuse: .color([0, 0, 0]), specular: .color([0, 0, 0]), shininess: 1)
+    let materials: [BlinnPhongMaterial] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]].map { color in
+        BlinnPhongMaterial(ambient: .color(color), diffuse: .color([0, 0, 0]), specular: .color([0, 0, 0]), shininess: 1)
     }
 
     let renderPass = try RenderPass {
