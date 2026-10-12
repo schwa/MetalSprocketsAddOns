@@ -24,10 +24,10 @@ func testShadowMap_init_defaults() throws {
     #expect(shadowMap.lightCount == 1)
     #expect(shadowMap.useInverseZ == true)
     #expect(shadowMap.lightViewProjectionMatrices.count == 1)
-    #expect(shadowMap.depthTexture.textureType == .type2DArray)
-    #expect(shadowMap.depthTexture.pixelFormat == .depth32Float)
-    #expect(shadowMap.depthTexture.width == 2_048)
-    #expect(shadowMap.depthTexture.arrayLength == 1)
+    #expect(shadowMap.depthTextures[0].textureType == .type2DArray)
+    #expect(shadowMap.depthTextures[0].pixelFormat == .depth32Float)
+    #expect(shadowMap.depthTextures[0].width == 2_048)
+    #expect(shadowMap.depthTextures[0].arrayLength == 1)
 }
 
 @Test
@@ -40,7 +40,7 @@ func testShadowMap_init_customResolutionAndLightCount() throws {
     #expect(shadowMap.depthBias == 1.5)
     #expect(shadowMap.slopeScale == 1.5)
     #expect(shadowMap.lightViewProjectionMatrices.count == 3)
-    #expect(shadowMap.depthTexture.arrayLength == 3)
+    #expect(shadowMap.depthTextures[0].arrayLength == 3)
 }
 
 @Test
@@ -110,8 +110,8 @@ func testShadowMap_renderPassDescriptor_targetsOneSlicePerLight() throws {
     let shadowMap = try ShadowMap(resolution: 64, lightCount: 3, useInverseZ: true)
     for lightIndex in 0..<3 {
         let descriptor = MTL4RenderPassDescriptor()
-        shadowMap.configureRenderPassDescriptor(descriptor, lightIndex: lightIndex)
-        #expect(descriptor.depthAttachment.texture === shadowMap.depthTexture)
+        shadowMap.configureRenderPassDescriptor(descriptor, lightIndex: lightIndex, submissionIndex: 0)
+        #expect(descriptor.depthAttachment.texture === shadowMap.depthTextures[0])
         #expect(descriptor.depthAttachment.slice == lightIndex)
         #expect(descriptor.depthAttachment.loadAction == .clear)
         #expect(descriptor.depthAttachment.storeAction == .store)
@@ -127,7 +127,7 @@ func testShadowMap_renderPassDescriptor_targetsOneSlicePerLight() throws {
 func testShadowMap_renderPassDescriptor_standardZClearsToOne() throws {
     let shadowMap = try ShadowMap(resolution: 64, useInverseZ: false)
     let descriptor = MTL4RenderPassDescriptor()
-    shadowMap.configureRenderPassDescriptor(descriptor, lightIndex: 0)
+    shadowMap.configureRenderPassDescriptor(descriptor, lightIndex: 0, submissionIndex: 0)
     #expect(descriptor.depthAttachment.clearDepth == 1.0)
 }
 
@@ -292,4 +292,28 @@ private func renderShadowScene(applyShadowMask: Bool, shadowIntensity: Float = 1
         try scene.scenePass
     }
     return try scene.renderer.render(content).cgImage
+}
+
+@Test
+@MainActor
+func testShadowMap_consecutiveSubmissionsUseDifferentSlots() throws {
+    // #78: a frame must not clear the shadow map an earlier in-flight frame still samples.
+    let shadowMap = try ShadowMap(resolution: 64, slotCount: 3)
+    #expect(shadowMap.depthTextures.count == 3)
+    let textures = try (UInt64(0)..<4).map { submission in
+        let descriptor = MTL4RenderPassDescriptor()
+        shadowMap.configureRenderPassDescriptor(descriptor, lightIndex: 0, submissionIndex: submission)
+        return try #require(descriptor.depthAttachment.texture)
+    }
+    #expect(textures[0] !== textures[1])
+    #expect(textures[1] !== textures[2])
+    #expect(textures[0] !== textures[2])
+    #expect(textures[3] === textures[0])
+    #expect(shadowMap.depthTexture(forSubmission: 4) === textures[1])
+}
+
+@Test
+@MainActor
+func testShadowMap_zeroSlotsThrows() {
+    #expect(throws: (any Error).self) { try ShadowMap(resolution: 64, slotCount: 0) }
 }

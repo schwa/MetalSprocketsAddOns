@@ -11,8 +11,10 @@ import simd
 
 /// Manages shadow map array texture and light matrix computation for multiple shadow-casting lights.
 public struct ShadowMap {
-    /// The depth array texture — one slice per shadow-casting light.
-    public let depthTexture: MTLTexture
+    /// A ring of depth array textures, each with one slice per shadow-casting light. Each submission
+    /// renders and samples its own slot (see ``depthTexture(forSubmission:)``), so a frame never
+    /// clears a shadow map an earlier in-flight frame still samples (#78).
+    public let depthTextures: [MTLTexture]
 
     /// The sampler used for shadow map lookups (comparison sampler).
     public let sampler: MTLSamplerState
@@ -43,7 +45,12 @@ public struct ShadowMap {
     ///   - depthBias: Constant depth bias to prevent shadow acne.
     ///   - slopeScale: Slope-scale depth bias.
     ///   - useInverseZ: Use inverse Z (reversed depth) for better precision (default true).
-    public init(resolution: Int = 2_048, lightCount: Int = 1, depthBias: Float = 2.0, slopeScale: Float = 2.0, useInverseZ: Bool = true) throws {
+    ///   - slotCount: Number of depth textures in the ring. Must be at least the renderer's
+    ///     `maximumInFlightSubmissions` (default 3).
+    public init(resolution: Int = 2_048, lightCount: Int = 1, depthBias: Float = 2.0, slopeScale: Float = 2.0, useInverseZ: Bool = true, slotCount: Int = 3) throws {
+        guard slotCount > 0 else {
+            throw MetalSprocketsError.configurationError("ShadowMap slotCount must be positive.")
+        }
         self.resolution = resolution
         self.lightCount = lightCount
         self.depthBias = depthBias
@@ -62,9 +69,12 @@ public struct ShadowMap {
         descriptor.arrayLength = lightCount
         descriptor.usage = [.renderTarget, .shaderRead]
         descriptor.storageMode = .private
-        depthTexture = try device.makeTexture(descriptor: descriptor)
-            .orThrow(.resourceCreationFailure("Failed to create shadow map depth array texture"))
-        depthTexture.label = "Shadow Map Depth Array"
+        depthTextures = try (0..<slotCount).map { slot in
+            let texture = try device.makeTexture(descriptor: descriptor)
+                .orThrow(.resourceCreationFailure("Failed to create shadow map depth array texture"))
+            texture.label = "Shadow Map Depth Array [\(slot)]"
+            return texture
+        }
 
         // Create comparison sampler for PCF
         let samplerDescriptor = MTLSamplerDescriptor()
@@ -77,6 +87,11 @@ public struct ShadowMap {
         samplerDescriptor.supportArgumentBuffers = true
         sampler = try device.makeSamplerState(descriptor: samplerDescriptor)
             .orThrow(.resourceCreationFailure("Failed to create shadow map sampler"))
+    }
+
+    /// The ring slot for a submission. Callers pass `MSEnvironmentValues.submissionIndex`.
+    public func depthTexture(forSubmission submissionIndex: UInt64) -> MTLTexture {
+        depthTextures[Int(submissionIndex % UInt64(depthTextures.count))]
     }
 
     /// Updates the view-projection matrix for a specific light.
@@ -154,11 +169,11 @@ public struct ShadowMap {
     ///
     /// The depth pass renders one light per pass into a single array slice, so there is no colour
     /// attachment and the render target array length is 1.
-    func configureRenderPassDescriptor(_ descriptor: MTL4RenderPassDescriptor, lightIndex: Int) {
+    func configureRenderPassDescriptor(_ descriptor: MTL4RenderPassDescriptor, lightIndex: Int, submissionIndex: UInt64) {
         descriptor.colorAttachments[0].texture = nil
         descriptor.colorAttachments[0].loadAction = .dontCare
         descriptor.colorAttachments[0].storeAction = .dontCare
-        descriptor.depthAttachment.texture = depthTexture
+        descriptor.depthAttachment.texture = depthTexture(forSubmission: submissionIndex)
         descriptor.depthAttachment.slice = lightIndex
         descriptor.depthAttachment.loadAction = .clear
         descriptor.depthAttachment.clearDepth = clearDepth
@@ -217,6 +232,12 @@ public struct ShadowMapDepthPass<Content>: Element where Content: Element {
     @MSState
     var fragmentShader: FragmentShader
 
+    @MSEnvironment(\.submissionIndex)
+    var submissionIndex
+
+    @MSEnvironment(\.maximumInFlightSubmissions)
+    var maximumInFlightSubmissions
+
     public init(shadowMap: ShadowMap, vertexDescriptor: MDLVertexDescriptor, @ElementBuilder content: () throws -> Content) throws {
         self.shadowMap = shadowMap
         guard let metalDescriptor = MTKMetalVertexDescriptorFromModelIO(vertexDescriptor) else {
@@ -231,18 +252,24 @@ public struct ShadowMapDepthPass<Content>: Element where Content: Element {
         fragmentShader = try shaderLibrary.fragment_depth
     }
 
+    private func checkedSubmissionIndex() throws -> UInt64 {
+        guard shadowMap.depthTextures.count >= maximumInFlightSubmissions else {
+            throw MetalSprocketsError.configurationError("ShadowMap has \(shadowMap.depthTextures.count) slots but \(maximumInFlightSubmissions) submissions can be in flight; raise slotCount.")
+        }
+        return submissionIndex
+    }
+
     public var body: some Element {
         get throws {
             let depthBias = shadowMap.appliedDepthBias
             let slopeScale = shadowMap.appliedSlopeScale
+            let submissionIndex = try checkedSubmissionIndex()
 
             // One render pass per light, each targeting a different array slice
             ForEach(Array(0..<shadowMap.lightCount), id: \.self) { lightIndex in
                 let lightVP = shadowMap.lightViewProjectionMatrices[lightIndex]
+                // No write-after-read barrier: earlier in-flight frames sample other ring slots.
                 try RenderPass(label: "Shadow Map Depth [\(lightIndex)]") {
-                    // Earlier frames may still sample the shadow map (main pass fragment, ShadowMaskPass
-                    // dispatch); wait for them before overwriting it.
-                    QueueBarrier(after: [.dispatch, .fragment], before: .fragment)
                     try RenderPipeline(label: "Shadow Map Depth [\(lightIndex)]", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                         content
                             .parameter("lightViewProjectionMatrix", functionType: .vertex, value: lightVP)
@@ -256,7 +283,7 @@ public struct ShadowMapDepthPass<Content>: Element where Content: Element {
                     }
                 }
                 .renderPassDescriptorModifier { descriptor in
-                    shadowMap.configureRenderPassDescriptor(descriptor, lightIndex: lightIndex)
+                    shadowMap.configureRenderPassDescriptor(descriptor, lightIndex: lightIndex, submissionIndex: submissionIndex)
                 }
                 // Later passes sample the shadow map.
                 .barrierAfterPass(after: .fragment, beforeQueueStages: [.vertex, .fragment, .dispatch])

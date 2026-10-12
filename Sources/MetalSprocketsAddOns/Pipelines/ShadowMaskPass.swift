@@ -35,6 +35,9 @@ public struct ShadowMaskPass: Element {
     @MSState
     var computeKernel: ComputeKernel
 
+    @MSEnvironment(\.submissionIndex)
+    var submissionIndex
+
     /// Creates a shadow mask compute pass.
     ///
     /// - Parameters:
@@ -102,7 +105,7 @@ public struct ShadowMaskPass: Element {
                         threadsPerThreadgroup: MTLSize(width: 8, height: 8, depth: 1)
                     )
                     .parameter("sceneDepth", texture: sceneDepthTexture)
-                    .parameter("shadowMapTexture", texture: shadowMap.depthTexture)
+                    .parameter("shadowMapTexture", texture: shadowMap.depthTexture(forSubmission: submissionIndex))
                     .parameter("outputTexture", texture: outputTexture)
                     .parameter("shadowMapSampler", samplerState: shadowMap.sampler)
                     .parameter("params", value: maskParams)

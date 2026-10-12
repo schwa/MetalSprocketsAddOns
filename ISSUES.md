@@ -2105,18 +2105,20 @@ TextureView (Sources/MetalSprocketsAddOnsUI/TextureView.swift) caches its CGImag
 ## 78: #65 fix may not cover the shadow map depth clear
 
 +++
-status: open
+status: closed
 priority: medium
 kind: task
 labels: area:metal4, effort:m
 created: 2026-10-07T19:44:09Z
-updated: 2026-10-07T21:44:20Z
+updated: 2026-10-12T15:47:17Z
+closed: 2026-10-12T15:47:17Z
 +++
 
 The #65 fix puts QueueBarrier(after: [.dispatch, .fragment], before: .fragment) inside each ShadowMapDepthPass render pass. It is not verified that a queue barrier encoded inside the pass also orders the depth attachment load action (clear), which runs at pass start. If not, the next frame can still clear the shadow map while the previous frame samples it. Needs confirmation (Metal docs or a GPU capture); a fix may need a pass-level consumer barrier in MetalSprockets.
 
 - `2026-10-07T21:19:16Z`: Investigation: MTL4CommandEncoder.barrier(afterQueueStages:beforeStages:) docs say it gates 'subsequent work you encode in the current command encoder' for beforeStages; MTLStages.fragment is 'all fragment shader stage work'. The Resource synchronization article lists render pass attachments' implicit load/store operations as conflict sources but does not say which stage they belong to or whether consumer barriers order them. WWDC 2025 'Explore Metal 4 games' (wwdc2025-254) only covers fragment stage work. So: unverifiable from docs, and a cross-frame race cannot be tested deterministically. Fix that does not depend on the answer: a ring of shadow maps, one per frame in flight. Blocked: MetalSprockets exposes no per-frame/submission index that sibling passes (depth pass and ShadowMaskPass) can share, and advancing a counter in body is unreliable. Filed MetalSprockets#485.
 - `2026-10-07T21:44:20Z`: Unblocked: MetalSprockets#485 added MSEnvironmentValues.submissionIndex and maximumInFlightSubmissions (MetalSprockets main 33ffbd8). AddOns now depends on MetalSprockets main until it is tagged.
+- `2026-10-12T15:47:17Z`: Fixed with a ring of shadow maps (ShadowMap.depthTextures, slotCount default 3), indexed by MSEnvironmentValues.submissionIndex in both ShadowMapDepthPass and ShadowMaskPass. The depth pass throws if slotCount < maximumInFlightSubmissions. The in-pass QueueBarrier is removed: a frame never clears a slot an in-flight frame samples, so the question about load-action ordering no longer matters. Test: consecutive submissions get distinct slots. The cross-frame race itself is not unit-testable. Breaking: ShadowMap.depthTexture is replaced by depthTextures / depthTexture(forSubmission:).
 
 ---
 
