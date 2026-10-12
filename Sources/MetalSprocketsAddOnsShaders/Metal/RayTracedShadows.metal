@@ -63,14 +63,29 @@ namespace RayTracedShadow {
         float blockedContribution = 0.0;
 
         for (int lightIndex = 0; lightIndex < lightCount; lightIndex++) {
-            float3 lightPos = params.lighting.lightPositions[lightIndex];
-            float3 toLight = lightPos - origin;
-            float distanceToLight = length(toLight);
-            float3 direction = toLight / distanceToLight;
-
-            // Inverse-square attenuation (matching Blinn-Phong)
             auto light = params.lighting.lights[lightIndex];
-            float attenuation = light.intensity / (distanceToLight * distanceToLight + 1.0);
+            float3 lightPointing = params.lighting.lightDirections[lightIndex];
+
+            float3 direction;
+            float distanceToLight;
+            float attenuation;
+            if (light.type == kLightTypeDirectional) {
+                direction = -lightPointing;
+                distanceToLight = INFINITY;
+                attenuation = light.intensity;
+            } else {
+                float3 toLight = params.lighting.lightPositions[lightIndex] - origin;
+                distanceToLight = length(toLight);
+                direction = toLight / distanceToLight;
+                // Inverse-square attenuation (matching Blinn-Phong)
+                attenuation = light.intensity / (distanceToLight * distanceToLight + 1.0);
+                if (light.type == kLightTypeSpot) {
+                    attenuation *= smoothstep(cos(light.outerConeAngle), cos(light.innerConeAngle), dot(-direction, lightPointing));
+                }
+            }
+            if (attenuation <= 0.0) {
+                continue;
+            }
             totalContribution += attenuation;
 
             float maxDistance = params.maxRayDistance > 0.0 ? min(params.maxRayDistance, distanceToLight) : distanceToLight;

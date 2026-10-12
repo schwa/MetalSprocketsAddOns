@@ -63,3 +63,55 @@ func testRayTracedShadowComputePass_endToEnd() throws {
     let image = try rendering.cgImage
     #expect(try image.isEqualToGoldenImage(named: "RayTracedShadowSphere"))
 }
+
+// MARK: - Light types (#93)
+
+@MainActor
+private func renderRayTracedShadows(scene: ShadowTestScene, lighting: Lighting) throws -> CGImage {
+    let technique = try RayTracedShadowTechnique(
+        meshes: [scene.sphere, scene.plane],
+        instances: [
+            AccelerationStructureManager.Instance(meshIndex: 0, transform: scene.sphereTransform),
+            AccelerationStructureManager.Instance(meshIndex: 1, transform: scene.planeTransform)
+        ],
+        lighting: lighting
+    )
+    let context = try ShadowContext(viewTransforms: scene.viewTransforms, colorTexture: scene.renderer.colorTexture, depthTexture: scene.renderer.depthTexture)
+    let combined = try ShadowedScene(technique: technique, context: context) {
+        try scene.scenePass
+    }
+    return try scene.renderer.render(combined).cgImage
+}
+
+@MainActor
+private func shadowContrast(scene: ShadowTestScene, image: CGImage) throws -> Double {
+    let shadow = scene.pixelPosition(of: scene.groundShadowCentre)
+    let lit = scene.pixelPosition(of: scene.groundLitPoint)
+    return try image.luminance(atX: lit.x, y: lit.y) - image.luminance(atX: shadow.x, y: shadow.y)
+}
+
+@Test(.requiresMetal4, .disabled(if: !supportsRaytracing, "Ray tracing unsupported on this GPU — see issue #29"))
+@MainActor
+func testRayTracedShadows_directionalLightUsesDirectionNotPosition() throws {
+    let scene = try ShadowTestScene()
+    // Position is below the floor; only the direction (toward the origin from `lightPosition`) should matter.
+    let lighting = try Lighting(
+        ambientLightColor: [0, 0, 0],
+        orientedLights: [(position: [0, -10, 0], direction: -scene.lightPosition, light: Light(type: .directional, intensity: 1))]
+    )
+    let image = try renderRayTracedShadows(scene: scene, lighting: lighting)
+    #expect(try shadowContrast(scene: scene, image: image) > 0.1)
+}
+
+@Test(.requiresMetal4, .disabled(if: !supportsRaytracing, "Ray tracing unsupported on this GPU — see issue #29"))
+@MainActor
+func testRayTracedShadows_spotLightOutsideConeCastsNoShadow() throws {
+    let scene = try ShadowTestScene()
+    // Same place as the point light in the end-to-end test, but pointing up, away from the scene.
+    let lighting = try Lighting(
+        ambientLightColor: [0, 0, 0],
+        orientedLights: [(position: scene.lightPosition, direction: [0, 1, 0], light: Light.spot(intensity: 30))]
+    )
+    let image = try renderRayTracedShadows(scene: scene, lighting: lighting)
+    #expect(abs(try shadowContrast(scene: scene, image: image)) < 0.02)
+}

@@ -2398,12 +2398,13 @@ Needed by MetalSprocketsSceneGraph #32 (e.g. 15 identical crates in its physics 
 ## 93: RayTracedShadows: honor directional and spot lights
 
 +++
-status: open
+status: closed
 priority: medium
 kind: enhancement
 labels: effort:s, area:rendering
 created: 2026-10-12T15:36:01Z
-updated: 2026-10-12T15:38:19Z
+updated: 2026-10-12T15:45:17Z
+closed: 2026-10-12T15:45:17Z
 +++
 
 RayTracedShadows.metal treats every light as a point light. It reads only lighting.lightPositions and uses inverse-square attenuation. Since #91, Lighting carries lightDirections and Light has type and cone angles, so the shadow pass and the Blinn-Phong pass disagree for non-point lights.
