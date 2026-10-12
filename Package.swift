@@ -24,6 +24,7 @@ let package = Package(
         .package(url: "https://github.com/schwa/SwiftMesh", from: "0.0.4"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.7.2"),
         .package(url: "https://github.com/schwa/GoldenImage", from: "0.1.5"),
+        .package(url: "https://github.com/schwa/SwiftEarcut", from: "0.0.1"),
     ],
     targets: [
         .target(
@@ -34,6 +35,7 @@ let package = Package(
                 .product(name: "MetalSprockets", package: "MetalSprockets"),
                 .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
                 .product(name: "SwiftMesh", package: "SwiftMesh"),
+                .product(name: "SwiftEarcut", package: "SwiftEarcut"),
                 "MetalSprocketsAddOnsShaders",
             ],
         ),
