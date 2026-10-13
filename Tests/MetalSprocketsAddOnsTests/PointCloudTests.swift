@@ -550,7 +550,7 @@ func testPointCloud_largePointOverflowIsDeterministic() throws {
     #expect(first == second)
 }
 
-@Test
+@Test(.requiresMetal4)
 func testPointCloud_largePointCapacityDefaultsToPointCount() throws {
     let buffer = try makePointBuffer(Array(repeating: PointCloudPoint(position: .zero, color: white), count: 10))
     let pass = try PointCloudRasterizePass(points: buffer, count: 10, viewProjection: viewProjection(), viewportSize: size, framebuffer: PointCloudFramebuffer())
