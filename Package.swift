@@ -21,7 +21,7 @@ let package = Package(
         .package(url: "https://github.com/schwa/MetalSupport", from: "1.0.6"),
         // Temporarily on main for submissionIndex (MetalSprockets #485); go back to a version once it is tagged.
         .package(url: "https://github.com/schwa/MetalSprockets", branch: "main"),
-        .package(url: "https://github.com/schwa/SwiftMesh", from: "0.0.4"),
+        .package(url: "https://github.com/schwa/SwiftMesh", branch: "main"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.7.2"),
         .package(url: "https://github.com/schwa/GoldenImage", from: "0.1.5"),
         .package(url: "https://github.com/schwa/SwiftEarcut", from: "0.0.1"),
