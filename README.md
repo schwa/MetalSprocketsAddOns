@@ -142,7 +142,7 @@ The `Demo/` directory contains a macOS/iOS/visionOS demo app built with [DemoKit
 - [MetalSprockets](https://github.com/schwa/MetalSprockets) — declarative Metal rendering framework
 - [MetalCompilerPlugin](https://github.com/schwa/MetalCompilerPlugin) — Swift Package Manager plugin for compiling Metal shaders
 - [GeometryLite3D](https://github.com/schwa/GeometryLite3D) — lightweight 3D geometry types
-- [SwiftEarcut](https://github.com/schwa/SwiftEarcut) — polygon triangulation (earcut algorithm)
+- [SwiftMesh](https://github.com/schwa/SwiftMesh) — mesh processing and polygon triangulation
 - [swift-collections](https://github.com/apple/swift-collections) — Swift Collections
 
 ## Overlap with MetalSprockets

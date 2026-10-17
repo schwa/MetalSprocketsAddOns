@@ -1,7 +1,7 @@
 import CoreGraphics
 import MetalSprocketsAddOnsShaders
 import simd
-import SwiftEarcut
+import SwiftMesh
 
 internal struct Vertex {
     // periphery:ignore - used in Metal shader
@@ -104,56 +104,11 @@ internal struct GeometryGenerator {
             fatalError("Fill requires at least 3 points, got \(points.count)")
         }
 
-        let projectedPoints = Self.projectToDominantPlane(points)
-        let indices = earcut(polygon: [projectedPoints])
-
-        var vertices: [Vertex] = []
-        for i in stride(from: 0, to: indices.count, by: 3) {
-            let idx0 = Int(indices[i])
-            let idx1 = Int(indices[i + 1])
-            let idx2 = Int(indices[i + 2])
-
-            // World space; the vertex shader projects so the GPU clips against the near plane.
-            vertices.append(Vertex(position: points[idx0], color: color))
-            vertices.append(Vertex(position: points[idx1], color: color))
-            vertices.append(Vertex(position: points[idx2], color: color))
+        // SwiftMesh projects onto the plane closest to the polygon's normal, so XZ/YZ paths work.
+        // Positions stay in world space; the vertex shader projects so the GPU clips against the near plane.
+        return triangulatePolygon(outer: points).flatMap { triangle in
+            [triangle.x, triangle.y, triangle.z].map { Vertex(position: points[$0], color: color) }
         }
-
-        return vertices
-    }
-
-    /// The normal of the plane a polygon most closely lies in, via Newell's method.
-    ///
-    /// Returns a zero vector for degenerate (collinear or empty) input.
-    internal static func polygonNormal(_ points: [SIMD3<Float>]) -> SIMD3<Float> {
-        guard points.count >= 3 else {
-            return .zero
-        }
-        var normal = SIMD3<Float>.zero
-        for i in points.indices {
-            let current = points[i]
-            let next = points[(i + 1) % points.count]
-            normal.x += (current.y - next.y) * (current.z + next.z)
-            normal.y += (current.z - next.z) * (current.x + next.x)
-            normal.z += (current.x - next.x) * (current.y + next.y)
-        }
-        return normal
-    }
-
-    /// Flatten 3D polygon points to 2D for triangulation, dropping the axis the
-    /// polygon's plane is most perpendicular to.
-    ///
-    /// Always dropping Z would collapse paths drawn on the XZ or YZ planes into a
-    /// line, producing no triangles at all.
-    internal static func projectToDominantPlane(_ points: [SIMD3<Float>]) -> [SIMD2<Float>] {
-        let normal = abs(polygonNormal(points))
-        if normal.x > normal.y, normal.x > normal.z {
-            return points.map { SIMD2<Float>($0.y, $0.z) }
-        }
-        if normal.y > normal.z {
-            return points.map { SIMD2<Float>($0.z, $0.x) }
-        }
-        return points.map { SIMD2<Float>($0.x, $0.y) }
     }
 
     internal func extractPoints(from path: Path3D) -> [SIMD3<Float>] {

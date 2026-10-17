@@ -2472,10 +2472,12 @@ The MTKMesh path in the same file (line ~107) already uses submesh.indexBuffer.o
 ## 97: Replace SwiftEarcut with SwiftMesh triangulation
 
 +++
-status: new
+status: closed
 priority: low
 kind: task
 created: 2026-10-16T19:36:47Z
+updated: 2026-10-17T03:52:23Z
+closed: 2026-10-17T03:52:23Z
 +++
 
 GeometryGenerator.generateFillGeometry() uses SwiftEarcut's earcut() for fills. SwiftMesh is already a dependency and has a robust ear-clipper (Manifold port) with hole support, exposed publicly via Mesh.triangulate() / triangulatedCorners(of:). It also projects onto the axis plane closest to the face normal, which covers our projectToDominantPlane logic.

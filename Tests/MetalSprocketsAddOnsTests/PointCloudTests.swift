@@ -14,7 +14,7 @@ private let size = SIMD2<Int>(Int(defaultRenderSize.width), Int(defaultRenderSiz
 
 private func viewProjection(reverseZ: Bool = false) -> float4x4 {
     let projection = reverseZ
-        ? PerspectiveProjection(verticalAngleOfView: .degrees(60), depthMode: .reversed(zMin: 0.1)).projectionMatrix(aspectRatio: 1)
+        ? PerspectiveProjection(verticalAngleOfView: .degrees(60), depthMode: .reversedInfinite(zNear: 0.1)).projectionMatrix(aspectRatio: 1)
         : perspectiveProjection()
     return projection * float4x4(translation: SIMD3<Float>(0, 0, 3)).inverse
 }

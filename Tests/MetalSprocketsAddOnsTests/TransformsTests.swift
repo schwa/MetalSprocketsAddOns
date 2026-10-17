@@ -14,7 +14,7 @@ private func expectClose(_ lhs: float4x4, _ rhs: float4x4, tolerance: Float = 1e
     }
 }
 
-private let sampleProjection = float4x4.perspective(aspectRatio: 1.5, fovy: .pi / 3, near: 0.1, far: 100)
+private let sampleProjection = PerspectiveProjection(verticalAngleOfView: .radians(.pi / 3), depthMode: .standard(zClip: 0.1 ... 100)).projectionMatrix(aspectRatio: 1.5)
 private let sampleCamera = LookAt(position: [1, 2, 5], target: [0, 1, 0], up: [0, 1, 0]).cameraMatrix
 private let sampleModel = float4x4(translation: [3, -1, 2]) * float4x4(simd_quatf(angle: 0.7, axis: normalize([1, 2, 3])))
 
