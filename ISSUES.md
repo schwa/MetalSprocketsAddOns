@@ -2468,3 +2468,20 @@ RayTracedShadows.swift (about line 136) builds one acceleration-structure geomet
 The MTKMesh path in the same file (line ~107) already uses submesh.indexBuffer.offset.
 
 ---
+
+## 97: Replace SwiftEarcut with SwiftMesh triangulation
+
++++
+status: new
+priority: low
+kind: task
+created: 2026-10-16T19:36:47Z
++++
+
+GeometryGenerator.generateFillGeometry() uses SwiftEarcut's earcut() for fills. SwiftMesh is already a dependency and has a robust ear-clipper (Manifold port) with hole support, exposed publicly via Mesh.triangulate() / triangulatedCorners(of:). It also projects onto the axis plane closest to the face normal, which covers our projectToDominantPlane logic.
+
+The low-level triangulate([[PolyVert]], epsilon:) is package-only, so build a single-face Mesh from the path points and call triangulate(), or ask SwiftMesh to make a polygon triangulation API public.
+
+Done when: SwiftEarcut is removed from Package.swift and README, fills render the same, and tests pass.
+
+---
