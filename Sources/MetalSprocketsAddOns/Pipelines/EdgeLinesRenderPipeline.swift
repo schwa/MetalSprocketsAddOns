@@ -108,7 +108,7 @@ public struct EdgeLinesRenderPipeline: Element {
                         .parameter("vertexDescriptor", functionType: .mesh, value: bufferDescriptor)
                         .parameter("uniforms", functionType: .mesh, value: uniforms)
                     }
-                    .depthCompare(function: .less, enabled: true)
+                    .depthCompare(function: .less, writes: true)
                 }
             }
         }

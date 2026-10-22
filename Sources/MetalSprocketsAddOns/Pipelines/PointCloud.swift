@@ -453,7 +453,7 @@ public struct PointCloudResolvePipeline: Element {
                 .parameter("framebuffer", functionType: .fragment, buffer: buffer)
                 .parameter("params", functionType: .fragment, value: parameters)
             }
-            .depthCompare(function: parameters.reverseZ != 0 ? .greater : .less, enabled: true)
+            .depthCompare(function: parameters.reverseZ != 0 ? .greater : .less, writes: true)
 
             if parameters.largeSplatCapacity > 0, let largeSplats = framebuffer.largeSplats, let arguments = framebuffer.largeSplatArguments {
                 // Points too large for the compute stamp; the compute pass wrote the instance count.
@@ -466,7 +466,7 @@ public struct PointCloudResolvePipeline: Element {
                     .parameter("params", functionType: .fragment, value: parameters)
                     .useResource(arguments, usage: .read, stages: .vertex)
                 }
-                .depthCompare(function: parameters.reverseZ != 0 ? .greater : .less, enabled: true)
+                .depthCompare(function: parameters.reverseZ != 0 ? .greater : .less, writes: true)
             }
         }
     }

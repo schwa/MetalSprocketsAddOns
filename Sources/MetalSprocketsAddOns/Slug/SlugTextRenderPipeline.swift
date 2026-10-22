@@ -130,7 +130,7 @@ public struct SlugTextRenderPipeline: Element {
                 }
             }
             .vertexDescriptor(GlyphVertex.descriptor)
-            .depthCompare(function: reverseZ ? .greater : .always, enabled: reverseZ)
+            .depthCompare(function: reverseZ ? .greater : .always, writes: reverseZ)
             .renderPipelineDescriptorTransformer { desc in
                 desc.maxVertexAmplificationCount = amplificationCount
                 if let colorPixelFormat {

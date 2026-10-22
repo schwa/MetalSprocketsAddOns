@@ -276,7 +276,7 @@ public struct ShadowMapDepthPass<Content>: Element where Content: Element {
                     }
                     .depthBias(depthBias, slopeScale: slopeScale)
                     .vertexDescriptor(vertexDescriptor)
-                    .depthCompare(function: shadowMap.depthCompareFunction, enabled: true)
+                    .depthCompare(function: shadowMap.depthCompareFunction, writes: true)
                     .renderPipelineDescriptorTransformer { descriptor in
                         descriptor.colorAttachments[0].pixelFormat = .invalid
                         descriptor.inputPrimitiveTopology = .triangle

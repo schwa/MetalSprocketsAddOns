@@ -143,7 +143,7 @@ public struct GridShader: Element {
                 .parameter("backfaceColor", value: backfaceColor)
             }
             .vertexDescriptor(vertexShader.inferredVertexDescriptor())
-            .depthCompare(function: .less, enabled: true)
+            .depthCompare(function: .less, writes: true)
         }
     }
 
