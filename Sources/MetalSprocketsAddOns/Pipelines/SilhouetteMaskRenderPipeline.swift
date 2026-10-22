@@ -9,9 +9,16 @@ import SwiftMesh
 /// Draws meshes as solid white (1.0) into the current color attachment, to make a silhouette mask.
 ///
 /// Put it in a `RenderPass` that targets the mask texture (for example `.r8Unorm`) and clears it to 0.
-/// Use the mask as the input to `JumpFloodOutlinePipeline`.
+/// Use the mask as the input to ``JumpFloodPipeline``.
 ///
-/// The depth test is off by default, so parts hidden behind other geometry still appear in the mask.
+/// There are two outline modes:
+///
+/// - X-ray (default): the depth test is off, so parts hidden behind other geometry are in the mask. The outline
+///   goes around the whole object and draws over the objects in front of it.
+/// - Visible-only: draw the scene first and store its depth (`depthAttachment.storeAction = .store`). Then attach
+///   that depth texture to the mask pass with `loadAction = .load`, and pass `depthCompareFunction: .lessEqual`
+///   (`.greaterEqual` with reverse Z) and `writesDepth: false`. Only the visible parts are in the mask. An
+///   object in front that cuts across the outlined object also gets an outline along that edge.
 public struct SilhouetteMaskRenderPipeline: Element {
     public struct Instance {
         public var mesh: MetalMesh

@@ -101,7 +101,8 @@ public struct JumpFloodPipeline: Element {
 /// Draws an anti-aliased outline of `width` pixels around the mask, using seeds from ``JumpFloodPipeline``.
 ///
 /// Put it in a `RenderPass` whose color attachment is the same size as `mask`. It alpha-blends over the target and
-/// leaves pixels inside the mask unchanged.
+/// leaves pixels inside the mask unchanged. It ignores depth, so whether the outline is x-ray or visible-only
+/// depends on how the mask was drawn. See ``SilhouetteMaskRenderPipeline``.
 public struct JumpFloodOutlineRenderPipeline: Element {
     let mask: MTLTexture
     let seeds: MTLTexture

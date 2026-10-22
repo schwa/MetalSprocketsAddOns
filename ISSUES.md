@@ -2703,12 +2703,13 @@ Add a scene test for the visible-only mode.
 ## 106: Document x-ray vs visible-only outlines on SilhouetteMaskRenderPipeline / JumpFloodOutlineRenderPipeline
 
 +++
-status: open
+status: closed
 priority: low
 kind: documentation
 labels: effort:xs, area:rendering
 created: 2026-10-22T21:05:40Z
-updated: 2026-10-22T21:07:45Z
+updated: 2026-10-22T21:10:09Z
+closed: 2026-10-22T21:10:09Z
 +++
 
 The doc comments don't explain the two outline modes:
@@ -2717,5 +2718,7 @@ The doc comments don't explain the two outline modes:
 - Visible-only: draw the mask with the scene depth buffer attached and `depthCompareFunction: .lessEqual`, `writesDepth: false`. The scene pass must store depth.
 
 Add this to the `SilhouetteMaskRenderPipeline` doc comment, with a short note on `JumpFloodOutlineRenderPipeline`. Mention that the reverse-Z equivalent is `.greaterEqual`.
+
+- `2026-10-22T21:10:09Z`: Documented both modes on SilhouetteMaskRenderPipeline, with a cross-reference from JumpFloodOutlineRenderPipeline.
 
 ---
