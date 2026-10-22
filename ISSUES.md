@@ -1313,12 +1313,12 @@ Suggested direction:
 ## 44: Texture sampling returns constant values on GitHub Actions paravirt GPU
 
 +++
-status: blocked
+status: open
 priority: medium
 kind: bug
-labels: testing, ci, effort:m, blocked, upstream
+labels: testing, ci, effort:m, upstream
 created: 2026-08-09T00:39:50Z
-updated: 2026-08-09T02:35:54Z
+updated: 2026-10-22T21:26:52Z
 +++
 
 Five golden-image tests are gated off on GitHub Actions runners because `texture.sample(...)` returns a constant instead of texel data (plain rgba8Unorm -> white, YCbCr two-plane -> green). Geometry renders correctly; only sampling is wrong. Local Apple silicon and a local VirtualBuddy paravirt VM both sample correctly, so this looks specific to the GitHub Actions runner image's paravirt driver.
@@ -1548,12 +1548,12 @@ Same applies to AccelerationStructureManagerTests.testAccelerationStructureManag
 ## 53: Release builds can embed development-only Metal shader source
 
 +++
-status: blocked
+status: open
 priority: high
 kind: bug
-labels: area:build, effort:s, blocked
+labels: area:build, effort:s
 created: 2026-08-25T22:10:26Z
-updated: 2026-09-30T18:44:18Z
+updated: 2026-10-22T21:26:52Z
 +++
 
 The MetalCompilerPlugin is attached to the MetalSprocketsAddOnsShaders target, but the manifest does not provide a configuration-dependent compilation condition to the plugin. MetalCompilerPlugin cannot read SwiftPM's active debug or release configuration directly. As a result, its debug metallib behavior cannot differ safely between configurations, and release products can contain development-only embedded Metal shader source. App Store validation reports ITMS-91306 for affected archives.
@@ -1698,9 +1698,9 @@ Screenshot: ~/Library/Application Support/CleanShot/media/media_gHZg8nSrZ1/Scree
 status: open
 priority: low
 kind: bug
-labels: area:rendering, effort:m, deferred
+labels: area:rendering, effort:m
 created: 2026-09-30T16:34:13Z
-updated: 2026-10-22T20:31:51Z
+updated: 2026-10-22T21:26:52Z
 +++
 
 With RayTracedShadowComputePass, the shadow a sphere casts on itself has a blocky, stair-stepped edge instead of following the curve. The shadow cast onto the ground looks correct.
@@ -2460,9 +2460,9 @@ testBlinnPhongShader_instancedMatchesSeparateDraws checks only that mean luminan
 status: open
 priority: medium
 kind: bug
-labels: deferred, effort:s, area:rendering
+labels: effort:s, area:rendering
 created: 2026-10-13T17:08:06Z
-updated: 2026-10-22T20:31:59Z
+updated: 2026-10-22T21:26:52Z
 +++
 
 RayTracedShadows.swift (about line 136) builds one acceleration-structure geometry per MetalMesh submesh and sets geometryDescriptor.indexBufferOffset = 0. The comment says 'MetalMesh always packs triangle indices as UInt32, one index buffer per submesh'. That is not always true: SwiftMesh's MetalMesh direct inits (MetalMesh(device:attributes:submeshes:...)) put all submeshes in one index buffer and set MetalMesh.Submesh.indexBufferOffset. For such a mesh with more than one submesh, every geometry after the first reads the first submesh's indices, so the acceleration structure (and the shadows) are wrong, with no error.
