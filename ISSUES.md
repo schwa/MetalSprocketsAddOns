@@ -2667,3 +2667,31 @@ Reference: https://bgolus.medium.com/the-quest-for-very-wide-outlines-ba82ed442c
 - `2026-10-22T20:41:14Z`: Added the Jump Flood Outlines demo (per-model outline toggles, width slider 0–300 px, color picker) with a golden-image scene test. Pipeline unit tests landed with #102. Also added a barrier after JumpFloodPipeline's compute pass so the outline render pass sees the seeds within one frame.
 
 ---
+
+## 105: Jump Flood Outlines demo: X-ray toggle (outline through occluders vs visible-only)
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: effort:s,area:examples
+created: 2026-10-22T21:05:40Z
++++
+
+The demo only shows the x-ray behaviour: the outline draws over occluding objects (e.g. the sphere's outline draws over the box in front of it).
+
+This happens because:
+- `SilhouetteMaskRenderPipeline` defaults to `.always` with no depth writes, so hidden parts are in the mask.
+- `JumpFloodOutlineRenderPipeline` composites with `.always`.
+- The demo's mask pass has no depth attachment and runs before the scene.
+
+Add an "X-ray" toggle. When off:
+- Draw the scene first and keep its depth (`storeAction = .store`).
+- Draw the mask with the scene depth attached and `depthCompareFunction: .lessEqual`, `writesDepth: false`, so only visible parts are masked.
+- Run the flood and composite as now.
+
+Note: visible-only also outlines where an occluder cuts through the object (e.g. along the box edge across the sphere). Check that this looks acceptable.
+
+Add a scene test for the visible-only mode.
+
+---
