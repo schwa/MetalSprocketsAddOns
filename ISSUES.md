@@ -2487,3 +2487,16 @@ The low-level triangulate([[PolyVert]], epsilon:) is package-only, so build a si
 Done when: SwiftEarcut is removed from Package.swift and README, fills render the same, and tests pass.
 
 ---
+
+## 98: GraphicsContext3DRenderPipeline: configurable depth compare (reversed depth)
+
++++
+status: new
+priority: low
+kind: enhancement
+created: 2026-10-22T18:04:10Z
++++
+
+GraphicsContext3DRenderPipeline hard-codes .depthCompare(function: .less), so it only works with standard depth (near 0, far 1). Apps that render with reversed depth (near 1, far 0, .greater), such as SceneSprockets, have to draw it in a separate pass that clears depth to 1 and pass a standard-depth projection. Let callers choose the depth compare function and whether to write depth, or follow a reversed-depth flag, so lines can depth-test against a reversed-depth scene. Found while building the SceneSprockets transform gizmo (SceneSprockets #154).
+
+---
