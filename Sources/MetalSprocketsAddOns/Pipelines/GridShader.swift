@@ -69,6 +69,9 @@ public struct GridShader: Element {
     var highlightedLines: [HighlightedLine]
     var majorDivision: MajorDivision?
     var backfaceColor: SIMD4<Float>
+    var depthCompareFunction: MTLCompareFunction
+    var writesDepth: Bool
+    var blendsWithBackground: Bool
 
     public init(
         viewTransforms: ViewTransforms,
@@ -78,8 +81,14 @@ public struct GridShader: Element {
         gridScale: SIMD2<Float> = SIMD2<Float>(1, 1),
         highlightedLines: [HighlightedLine] = [],
         majorDivision: MajorDivision? = nil,
-        backfaceColor: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 0)
+        backfaceColor: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 0),
+        depthCompareFunction: MTLCompareFunction = .less,
+        writesDepth: Bool = true,
+        blendsWithBackground: Bool = false
     ) {
+        self.depthCompareFunction = depthCompareFunction
+        self.writesDepth = writesDepth
+        self.blendsWithBackground = blendsWithBackground
         self.viewTransforms = viewTransforms
         self.lineWidth = lineWidth
         self.gridColor = gridColor
@@ -99,7 +108,10 @@ public struct GridShader: Element {
         gridScale: SIMD2<Float> = SIMD2<Float>(1, 1),
         highlightedLines: [HighlightedLine] = [],
         majorDivision: MajorDivision? = nil,
-        backfaceColor: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 0)
+        backfaceColor: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 0),
+        depthCompareFunction: MTLCompareFunction = .less,
+        writesDepth: Bool = true,
+        blendsWithBackground: Bool = false
     ) {
         self.init(
             viewTransforms: ViewTransforms(projectionMatrix: projectionMatrix, cameraMatrix: cameraMatrix),
@@ -109,7 +121,10 @@ public struct GridShader: Element {
             gridScale: gridScale,
             highlightedLines: highlightedLines,
             majorDivision: majorDivision,
-            backfaceColor: backfaceColor
+            backfaceColor: backfaceColor,
+            depthCompareFunction: depthCompareFunction,
+            writesDepth: writesDepth,
+            blendsWithBackground: blendsWithBackground
         )
     }
 
@@ -143,7 +158,21 @@ public struct GridShader: Element {
                 .parameter("backfaceColor", value: backfaceColor)
             }
             .vertexDescriptor(vertexShader.inferredVertexDescriptor())
-            .depthCompare(function: .less, writes: true)
+            // The defaults suit standard depth. Over an existing scene with reversed depth, use `.greater`, no depth
+            // writes, and a transparent `backgroundColor` with `blendsWithBackground`.
+            .depthCompare(function: depthCompareFunction, writes: writesDepth)
+            .renderPipelineDescriptorTransformer { descriptor in
+                guard blendsWithBackground, let attachment = descriptor.colorAttachments[0] else {
+                    return
+                }
+                attachment.blendingState = .enabled
+                attachment.rgbBlendOperation = .add
+                attachment.alphaBlendOperation = .add
+                attachment.sourceRGBBlendFactor = .sourceAlpha
+                attachment.sourceAlphaBlendFactor = .sourceAlpha
+                attachment.destinationRGBBlendFactor = .oneMinusSourceAlpha
+                attachment.destinationAlphaBlendFactor = .oneMinusSourceAlpha
+            }
         }
     }
 
