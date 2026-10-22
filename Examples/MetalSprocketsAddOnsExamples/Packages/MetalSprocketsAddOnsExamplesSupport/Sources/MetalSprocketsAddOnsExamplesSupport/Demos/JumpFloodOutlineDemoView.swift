@@ -41,6 +41,8 @@ struct JumpFloodOutlineDemoView: View {
                 )
             }
             .metalDepthStencilPixelFormat(.depth32Float)
+            // Later passes load the scene depth, so it can't be memoryless.
+            .metalDepthStencilStorageMode(.private)
             .metalClearColor(JumpFloodOutlineDemoScene.clearColor)
             .demoCameraControls($camera)
         } controls: {
