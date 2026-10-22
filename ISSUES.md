@@ -2671,11 +2671,12 @@ Reference: https://bgolus.medium.com/the-quest-for-very-wide-outlines-ba82ed442c
 ## 105: Jump Flood Outlines demo: X-ray toggle (outline through occluders vs visible-only)
 
 +++
-status: new
+status: open
 priority: low
 kind: enhancement
 labels: effort:s, area:examples
 created: 2026-10-22T21:05:40Z
+updated: 2026-10-22T21:07:45Z
 +++
 
 The demo only shows the x-ray behaviour: the outline draws over occluding objects (e.g. the sphere's outline draws over the box in front of it).
@@ -2699,11 +2700,12 @@ Add a scene test for the visible-only mode.
 ## 106: Document x-ray vs visible-only outlines on SilhouetteMaskRenderPipeline / JumpFloodOutlineRenderPipeline
 
 +++
-status: new
+status: open
 priority: low
 kind: documentation
-labels: effort:xs,area:rendering
+labels: effort:xs, area:rendering
 created: 2026-10-22T21:05:40Z
+updated: 2026-10-22T21:07:45Z
 +++
 
 The doc comments don't explain the two outline modes:
