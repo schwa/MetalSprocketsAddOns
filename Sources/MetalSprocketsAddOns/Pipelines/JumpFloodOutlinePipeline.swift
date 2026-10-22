@@ -101,13 +101,18 @@ public struct JumpFloodPipeline: Element {
 /// Draws an anti-aliased outline of `width` pixels around the mask, using seeds from ``JumpFloodPipeline``.
 ///
 /// Put it in a `RenderPass` whose color attachment is the same size as `mask`. It alpha-blends over the target and
-/// leaves pixels inside the mask unchanged. It ignores depth, so whether the outline is x-ray or visible-only
-/// depends on how the mask was drawn. See ``SilhouetteMaskRenderPipeline``.
+/// leaves pixels inside the mask unchanged.
+///
+/// Each outline pixel gets the depth of the nearest masked pixel, read from the mask's green channel (see
+/// ``SilhouetteMaskRenderPipeline``). With the default `.always`, the outline draws over everything (x-ray). Pass
+/// `.lessEqual` (`.greaterEqual` with reverse Z) and attach the scene depth to hide the outline behind objects in
+/// front of the masked object.
 public struct JumpFloodOutlineRenderPipeline: Element {
     let mask: MTLTexture
     let seeds: MTLTexture
     let color: SIMD4<Float>
     let width: Float
+    let depthCompareFunction: MTLCompareFunction
 
     @MSState
     private var vertexShader = ShaderLibrary.module.namespaced("JumpFlood").requiredFunction(named: "outline_vertex", type: VertexShader.self)
@@ -115,11 +120,12 @@ public struct JumpFloodOutlineRenderPipeline: Element {
     @MSState
     private var fragmentShader = ShaderLibrary.module.namespaced("JumpFlood").requiredFunction(named: "outline_fragment", type: FragmentShader.self)
 
-    public init(mask: MTLTexture, seeds: MTLTexture, color: SIMD4<Float>, width: Float) {
+    public init(mask: MTLTexture, seeds: MTLTexture, color: SIMD4<Float>, width: Float, depthCompareFunction: MTLCompareFunction = .always) {
         self.mask = mask
         self.seeds = seeds
         self.color = color
         self.width = width
+        self.depthCompareFunction = depthCompareFunction
     }
 
     public var body: some Element {
@@ -134,7 +140,7 @@ public struct JumpFloodOutlineRenderPipeline: Element {
                 .parameter("seeds", texture: seeds)
                 .parameter("params", functionType: .fragment, value: parameters)
             }
-            .depthCompare(function: .always, writes: false)
+            .depthCompare(function: depthCompareFunction, writes: false)
             .renderPipelineDescriptorTransformer { descriptor in
                 guard let attachment = descriptor.colorAttachments[0] else {
                     return

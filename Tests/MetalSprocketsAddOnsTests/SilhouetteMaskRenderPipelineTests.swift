@@ -37,18 +37,18 @@ func testSilhouetteMask_coversAllSubmeshes() throws {
     let renderer = try OffscreenRenderer(size: CGSize(width: size, height: size))
     let image = try renderer.render(renderPass).cgImage
 
-    // Quad centres: x = -0.5 and 0.5 in NDC → pixel 25 and 75.
-    #expect(try image.luminance(atX: 25, y: 50) > 0.99)
-    #expect(try image.luminance(atX: 75, y: 50) > 0.99)
-    #expect(try image.luminance(atX: 50, y: 50) < 0.01)
-    #expect(try image.luminance(atX: 25, y: 5) < 0.01)
+    // Red is coverage. Quad centres: x = -0.5 and 0.5 in NDC → pixel 25 and 75.
+    #expect(try image.pixel(atX: 25, y: 50).x == 255)
+    #expect(try image.pixel(atX: 75, y: 50).x == 255)
+    #expect(try image.pixel(atX: 50, y: 50).x == 0)
+    #expect(try image.pixel(atX: 25, y: 5).x == 0)
 }
 
 @Test(.requiresMetal4)
 @MainActor
 func testSilhouetteMask_appliesInstanceTransform() throws {
     let mesh = makeTwoQuadMesh()
-    let shiftUp = float4x4(translation: [0, 0.5, 0])
+    let shiftUp = float4x4(translation: [0, 0.5, 0.5])
 
     let renderPass = try RenderPass {
         SilhouetteMaskRenderPipeline(instances: [.init(mesh: mesh, transform: shiftUp)], viewProjection: matrix_identity_float4x4)
@@ -58,6 +58,10 @@ func testSilhouetteMask_appliesInstanceTransform() throws {
     let image = try renderer.render(renderPass).cgImage
 
     // Shifted up by 0.5 NDC: quad now spans y 0.1...0.9 → top half of the image.
-    #expect(try image.luminance(atX: 25, y: 20) > 0.99)
-    #expect(try image.luminance(atX: 25, y: 80) < 0.01)
+    let inside = try image.pixel(atX: 25, y: 20)
+    #expect(inside.x == 255)
+    #expect(try image.pixel(atX: 25, y: 80).x == 0)
+    // Green is depth (z = 0.5).
+    // The target may be sRGB-encoded, so only check that the depth is between 0 and 1.
+    #expect(inside.y > 0 && inside.y < 255)
 }

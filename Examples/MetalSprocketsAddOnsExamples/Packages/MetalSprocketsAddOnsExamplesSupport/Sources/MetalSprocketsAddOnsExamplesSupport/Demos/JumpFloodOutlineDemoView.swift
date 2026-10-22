@@ -129,8 +129,8 @@ struct JumpFloodOutlineDemoScene {
     }
 }
 
-/// Scene, then mask, flood and outline. The mask pass reuses the scene's depth when `xray` is off, so only the
-/// visible parts of the models are outlined.
+/// Scene, then mask, flood and outline. With `xray` off, the outline is depth-tested against the scene, so objects
+/// in front of an outlined model hide its outline.
 private struct JumpFloodOutlineScene: Element {
     typealias Model = (mesh: MTKMesh, transform: simd_float4x4, color: SIMD3<Float>)
 
@@ -143,13 +143,9 @@ private struct JumpFloodOutlineScene: Element {
     var outlineWidth: Float
     var xray: Bool
 
-    @MSEnvironment(\.renderPassDescriptor)
-    private var renderPassDescriptor
-
     var body: some Element {
         get throws {
             let showOutline = !instances.isEmpty && outlineWidth > 0
-            let sceneDepth = renderPassDescriptor?.depthAttachment.texture
 
             try RenderPass(label: "Scene") {
                 ForEach(Array(models.enumerated()), id: \.offset) { _, model in
@@ -162,37 +158,32 @@ private struct JumpFloodOutlineScene: Element {
                 }
             }
             .renderPassDescriptorModifier { descriptor in
-                // The visible-only mask depth-tests against this.
+                // The outline pass depth-tests against this.
                 descriptor.depthAttachment.storeAction = .store
             }
-            .barrierAfterPass(after: .fragment, beforeQueueStages: [.vertex, .fragment])
 
             if showOutline {
                 try RenderPass(label: "Silhouette Mask") {
-                    SilhouetteMaskRenderPipeline(
-                        instances: instances,
-                        viewProjection: viewProjection,
-                        depthCompareFunction: xray ? .always : .lessEqual
-                    )
+                    SilhouetteMaskRenderPipeline(instances: instances, viewProjection: viewProjection)
                 }
-                .renderPassDescriptorModifier { [xray] descriptor in
+                .renderPassDescriptorModifier { descriptor in
                     descriptor.colorAttachments[0].texture = mask
                     descriptor.colorAttachments[0].loadAction = .clear
                     descriptor.colorAttachments[0].storeAction = .store
                     descriptor.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
+                    descriptor.depthAttachment.texture = nil
                     descriptor.stencilAttachment.texture = nil
-                    if xray {
-                        descriptor.depthAttachment.texture = nil
-                    } else {
-                        descriptor.depthAttachment.texture = sceneDepth
-                        descriptor.depthAttachment.loadAction = .load
-                        descriptor.depthAttachment.storeAction = .dontCare
-                    }
                 }
                 JumpFloodPipeline(mask: mask, seeds: seeds, maximumDistance: outlineWidth)
 
                 try RenderPass(label: "Outline") {
-                    JumpFloodOutlineRenderPipeline(mask: mask, seeds: seeds, color: outlineColor, width: outlineWidth)
+                    JumpFloodOutlineRenderPipeline(
+                        mask: mask,
+                        seeds: seeds,
+                        color: outlineColor,
+                        width: outlineWidth,
+                        depthCompareFunction: xray ? .always : .lessEqual
+                    )
                 }
                 .renderPassDescriptorModifier { descriptor in
                     descriptor.colorAttachments[0].loadAction = .load
@@ -215,7 +206,7 @@ private final class JumpFloodDemoTextures {
             return (mask, seeds)
         }
         let device = _MTLCreateSystemDefaultDevice()
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r8Unorm, width: width, height: height, mipmapped: false)
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rg32Float, width: width, height: height, mipmapped: false)
         descriptor.usage = [.renderTarget, .shaderRead]
         descriptor.storageMode = .private
         let mask = try device.makeTexture(descriptor: descriptor).orThrow(.resourceCreationFailure("Failed to create outline mask"))

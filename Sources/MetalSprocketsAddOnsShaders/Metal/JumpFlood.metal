@@ -64,7 +64,14 @@ namespace JumpFlood {
         return out;
     }
 
-    [[fragment]] float4 outline_fragment(
+    struct OutlineOut {
+        float4 color [[color(0)]];
+        float depth [[depth(any)]];
+    };
+
+    // The outline takes the depth of the nearest masked pixel, so depth testing against the scene hides it behind
+    // whatever is in front of the masked object.
+    [[fragment]] OutlineOut outline_fragment(
         VertexOut in [[stage_in]],
         texture2d<float, access::read> mask [[texture(0)]],
         texture2d<float, access::read> seeds [[texture(1)]],
@@ -84,7 +91,7 @@ namespace JumpFlood {
         if (coverage <= 0) {
             discard_fragment();
         }
-        return float4(params.color.rgb, params.color.a * coverage);
+        return { float4(params.color.rgb, params.color.a * coverage), mask.read(uint2(seed)).g };
     }
 
 } // namespace JumpFlood

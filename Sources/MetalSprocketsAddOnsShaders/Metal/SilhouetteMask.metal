@@ -21,8 +21,9 @@ namespace SilhouetteMask {
         return out;
     }
 
+    // Red is coverage. Green is depth, which depth-tested outlines read; single-channel masks drop it.
     [[fragment]] float4 fragment_main(VertexOut in [[stage_in]]) {
-        return float4(1.0);
+        return float4(1.0, in.position.z, 0.0, 1.0);
     }
 
 } // namespace SilhouetteMask
