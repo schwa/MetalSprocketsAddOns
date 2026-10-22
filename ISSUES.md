@@ -2528,3 +2528,49 @@ Next: draw the same context with only fills, then only strokes, and diff frames;
 - `2026-10-22T19:00:42Z`: Not a GraphicsContext3D bug. SceneSprockets' manipulator overlay pass had no barrier after the scene pass (Metal 4 does not order passes), so blending read unfinished drawable tiles. Fixed in SceneSprockets with a QueueBarrier at the start of ManipulatorOverlayPass.
 
 ---
+
+## 100: Unify depth compare API across pipelines (EdgeLines, PointCloud, Slug)
+
++++
+status: new
+priority: low
+kind: enhancement
+created: 2026-10-22T19:52:48Z
++++
+
+GridShader and GraphicsContext3DRenderPipeline now take `depthCompareFunction` + `writesDepth`. Other pipelines differ:
+
+- `EdgeLinesRenderPipeline` hardcodes `.depthCompare(function: .less, writes: true)`. It breaks with reversed depth.
+- `PointCloud` uses `parameters.reverseZ` to pick `.greater`/`.less`.
+- `SlugTextRenderPipeline` uses a `reverseZ` flag (`.greater` with writes, or `.always` without).
+
+Fix: add `depthCompareFunction`/`writesDepth` to EdgeLines (defaults `.less`/`true`). Move PointCloud and Slug to the same parameters. Keep the shader-side `reverseZ` if the shader needs it. Leave pipelines that set no depth state alone.
+
+---
+
+## 101: Standardise reverse-Z handling across the package
+
++++
+status: new
+priority: low
+kind: enhancement
+depends: 100
+created: 2026-10-22T19:53:09Z
++++
+
+Reversed depth uses different names and mechanisms across the package:
+
+- `Transforms.swift`: projection takes `inverseZ`.
+- `ShadowMapRenderPipeline`: `useInverseZ` plus `depthCompareFunction`.
+- `PointCloud`: `reverseZ` Bool, stored as `uint32_t reverseZ` in `PointCloud.h`, and used in `PointCloud.metal` to flip depth.
+- `SlugTextRenderPipeline`: `reverseZ` Bool. It also changes the compare function in a different way (`.always` without writes when false).
+- `GridShader` / `GraphicsContext3DRenderPipeline`: raw `depthCompareFunction`/`writesDepth`.
+
+Fix:
+- Use one term (`reverseZ` or `inverseZ`) everywhere.
+- Consider one shared type (e.g. a `DepthConvention` enum with `.standard`/`.reversed`) that supplies the compare function, the clear depth, and the projection flag. Pipelines and helpers use it instead of separate Bools.
+- Document the convention once.
+
+Related: #100.
+
+---
