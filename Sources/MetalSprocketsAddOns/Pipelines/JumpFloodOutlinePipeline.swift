@@ -92,6 +92,8 @@ public struct JumpFloodPipeline: Element {
                     }
                 }
             }
+            // The outline render pass reads `seeds`.
+            .barrierAfterPass(after: .dispatch, beforeQueueStages: [.fragment])
         }
     }
 }

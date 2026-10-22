@@ -203,3 +203,21 @@ func testPointCloudDemoSceneWorldSized() throws {
     let image = try renderer.render(element).cgImage
     #expect(try image.isEqualToGoldenImage(named: "PointCloudDemoWorldSized"))
 }
+
+@Test(.requiresMetal4)
+@MainActor
+func testJumpFloodOutlineDemoScene() throws {
+    let scene = JumpFloodOutlineDemoScene()
+    let camera = InteractionState(pitch: -.pi / 7, distance: 8, target: [0, 0.5, 0])
+    let renderer = try OffscreenRenderer(size: demoRenderSize)
+    renderer.renderPassDescriptor.colorAttachments[0].clearColor = JumpFloodOutlineDemoScene.clearColor
+    let element = try scene.element(
+        viewProjection: camera.projectionMatrix(drawableSize: demoRenderSize) * camera.viewMatrix,
+        drawableSize: demoRenderSize,
+        outlined: [.sphere, .box],
+        outlineColor: [1, 0.6, 0, 1],
+        outlineWidth: 12
+    )
+    let image = try renderer.render(element).cgImage
+    #expect(try image.isEqualToGoldenImage(named: "JumpFloodOutlineDemo"))
+}

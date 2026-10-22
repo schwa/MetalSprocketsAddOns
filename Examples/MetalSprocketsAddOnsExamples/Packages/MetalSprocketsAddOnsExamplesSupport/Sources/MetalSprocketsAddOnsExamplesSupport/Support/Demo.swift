@@ -9,6 +9,7 @@ public enum Demo: String, CaseIterable, Identifiable, Sendable {
     case slugText
     case pointCloud
     case debugShading
+    case jumpFloodOutline
 
     public var id: Self { self }
 
@@ -24,6 +25,7 @@ public enum Demo: String, CaseIterable, Identifiable, Sendable {
         case .slugText: "Slug Text"
         case .pointCloud: "Point Cloud"
         case .debugShading: "Debug Shading"
+        case .jumpFloodOutline: "Jump Flood Outlines"
         }
     }
 
@@ -36,6 +38,7 @@ public enum Demo: String, CaseIterable, Identifiable, Sendable {
         case .slugText: "textformat"
         case .pointCloud: "circle.dotted"
         case .debugShading: "square.3.layers.3d"
+        case .jumpFloodOutline: "square.dashed"
         }
     }
 
@@ -48,6 +51,7 @@ public enum Demo: String, CaseIterable, Identifiable, Sendable {
         case .slugText: "Resolution-independent glyph rendering from a CoreText attributed string."
         case .pointCloud: "Millions of points rasterized in a compute shader with 64-bit atomics."
         case .debugShading: "Per-attribute debug visualisations for diagnosing vertex-layout problems."
+        case .jumpFloodOutline: "Very wide screen-space outlines from a silhouette mask and jump flooding."
         }
     }
 }
@@ -65,6 +69,7 @@ struct DemoView: View {
         case .slugText: SlugTextDemoView()
         case .pointCloud: PointCloudDemoView()
         case .debugShading: DebugShadingDemoView()
+        case .jumpFloodOutline: JumpFloodOutlineDemoView()
         }
     }
 }

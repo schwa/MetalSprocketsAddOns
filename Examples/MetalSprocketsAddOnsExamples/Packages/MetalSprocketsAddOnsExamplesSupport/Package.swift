@@ -22,7 +22,8 @@ let package = Package(
         // Temporarily on main for submissionIndex (MetalSprockets #485); go back to a version once it is tagged.
         .package(url: "https://github.com/schwa/MetalSprockets", branch: "main"),
         .package(url: "https://github.com/schwa/GoldenImage", .upToNextMinor(from: "0.1.6")),
-        .package(url: "https://github.com/schwa/Interaction3D", .upToNextMinor(from: "0.1.15"))
+        .package(url: "https://github.com/schwa/Interaction3D", .upToNextMinor(from: "0.1.15")),
+        .package(url: "https://github.com/schwa/SwiftMesh", .upToNextMinor(from: "0.0.10"))
     ],
     targets: [
         .target(
@@ -34,7 +35,8 @@ let package = Package(
                 .product(name: "MetalSupport", package: "MetalSupport"),
                 .product(name: "MetalSprockets", package: "MetalSprockets"),
                 .product(name: "MetalSprocketsUI", package: "MetalSprockets"),
-                .product(name: "Interaction3D", package: "Interaction3D")
+                .product(name: "Interaction3D", package: "Interaction3D"),
+                .product(name: "SwiftMesh", package: "SwiftMesh")
             ]
         ),
         .testTarget(

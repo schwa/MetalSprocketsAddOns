@@ -2645,13 +2645,14 @@ Reference: https://bgolus.medium.com/the-quest-for-very-wide-outlines-ba82ed442c
 ## 104: Demo and test for jump flood outlines
 
 +++
-status: open
+status: closed
 priority: low
 kind: task
 labels: effort:s, area:examples
 depends: 102, 103
 created: 2026-10-22T20:21:13Z
-updated: 2026-10-22T20:32:00Z
+updated: 2026-10-22T20:41:14Z
+closed: 2026-10-22T20:41:14Z
 +++
 
 Depends on #102 and #103.
@@ -2660,5 +2661,7 @@ Depends on #102 and #103.
 - Add a test: render a known mask (e.g. a square), run the pipeline, and check pixel coverage at distances below and above the width.
 
 Reference: https://bgolus.medium.com/the-quest-for-very-wide-outlines-ba82ed442cd9 and gist https://gist.github.com/bgolus/a18c1a3fc9af2d73cc19169a809eb195
+
+- `2026-10-22T20:41:14Z`: Added the Jump Flood Outlines demo (per-model outline toggles, width slider 0–300 px, color picker) with a golden-image scene test. Pipeline unit tests landed with #102. Also added a barrier after JumpFloodPipeline's compute pass so the outline render pass sees the seeds within one frame.
 
 ---
