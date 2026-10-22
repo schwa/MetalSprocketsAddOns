@@ -2674,7 +2674,7 @@ Reference: https://bgolus.medium.com/the-quest-for-very-wide-outlines-ba82ed442c
 status: new
 priority: low
 kind: enhancement
-labels: effort:s,area:examples
+labels: effort:s, area:examples
 created: 2026-10-22T21:05:40Z
 +++
 
@@ -2693,5 +2693,24 @@ Add an "X-ray" toggle. When off:
 Note: visible-only also outlines where an occluder cuts through the object (e.g. along the box edge across the sphere). Check that this looks acceptable.
 
 Add a scene test for the visible-only mode.
+
+---
+
+## 106: Document x-ray vs visible-only outlines on SilhouetteMaskRenderPipeline / JumpFloodOutlineRenderPipeline
+
++++
+status: new
+priority: low
+kind: documentation
+labels: effort:xs,area:rendering
+created: 2026-10-22T21:05:40Z
++++
+
+The doc comments don't explain the two outline modes:
+
+- X-ray (default): the mask ignores depth, so the outline covers the whole object, including parts behind occluders, and draws over them.
+- Visible-only: draw the mask with the scene depth buffer attached and `depthCompareFunction: .lessEqual`, `writesDepth: false`. The scene pass must store depth.
+
+Add this to the `SilhouetteMaskRenderPipeline` doc comment, with a short note on `JumpFloodOutlineRenderPipeline`. Mention that the reverse-Z equivalent is `.greaterEqual`.
 
 ---
