@@ -23,6 +23,7 @@ struct JumpFloodOutlineDemoView: View {
     @State private var outlineColor = Color.orange
     @State private var outlineSphere = true
     @State private var outlineBox = true
+    @State private var xray = true
 
     private let scene = JumpFloodOutlineDemoScene()
 
@@ -35,7 +36,8 @@ struct JumpFloodOutlineDemoView: View {
                     drawableSize: drawableSize,
                     outlined: outlinedModels,
                     outlineColor: outlineColor.demoSIMD4,
-                    outlineWidth: outlineWidth
+                    outlineWidth: outlineWidth,
+                    xray: xray
                 )
             }
             .metalDepthStencilPixelFormat(.depth32Float)
@@ -44,6 +46,7 @@ struct JumpFloodOutlineDemoView: View {
         } controls: {
             Toggle("Outline Sphere", isOn: $outlineSphere)
             Toggle("Outline Box", isOn: $outlineBox)
+            Toggle("X-ray", isOn: $xray)
             LabeledContent("Width \(Int(outlineWidth)) px") {
                 Slider(value: $outlineWidth, in: 0...300)
             }
@@ -101,7 +104,8 @@ struct JumpFloodOutlineDemoScene {
         drawableSize: CGSize,
         outlined: Set<Model>,
         outlineColor: SIMD4<Float>,
-        outlineWidth: Float
+        outlineWidth: Float,
+        xray: Bool = true
     ) throws -> some Element {
         let (mask, seeds) = try textures.textures(width: Int(drawableSize.width), height: Int(drawableSize.height))
         let instances = Model.allCases.filter(outlined.contains).compactMap { model in
@@ -110,23 +114,40 @@ struct JumpFloodOutlineDemoScene {
         let models = Model.allCases.compactMap { model in
             meshes[model].map { (mesh: $0, transform: transforms[model] ?? matrix_identity_float4x4, color: colors[model] ?? [1, 1, 1]) }
         }
-        let showOutline = !instances.isEmpty && outlineWidth > 0
+        return JumpFloodOutlineScene(
+            models: models,
+            instances: instances,
+            viewProjection: viewProjection,
+            mask: mask,
+            seeds: seeds,
+            outlineColor: outlineColor,
+            outlineWidth: outlineWidth,
+            xray: xray
+        )
+    }
+}
 
-        return try MetalSprockets.Group {
-            if showOutline {
-                try RenderPass(label: "Silhouette Mask") {
-                    SilhouetteMaskRenderPipeline(instances: instances, viewProjection: viewProjection)
-                }
-                .renderPassDescriptorModifier { descriptor in
-                    descriptor.colorAttachments[0].texture = mask
-                    descriptor.colorAttachments[0].loadAction = .clear
-                    descriptor.colorAttachments[0].storeAction = .store
-                    descriptor.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
-                    descriptor.depthAttachment.texture = nil
-                    descriptor.stencilAttachment.texture = nil
-                }
-                JumpFloodPipeline(mask: mask, seeds: seeds, maximumDistance: outlineWidth)
-            }
+/// Scene, then mask, flood and outline. The mask pass reuses the scene's depth when `xray` is off, so only the
+/// visible parts of the models are outlined.
+private struct JumpFloodOutlineScene: Element {
+    typealias Model = (mesh: MTKMesh, transform: simd_float4x4, color: SIMD3<Float>)
+
+    var models: [Model]
+    var instances: [SilhouetteMaskRenderPipeline.Instance]
+    var viewProjection: simd_float4x4
+    var mask: MTLTexture
+    var seeds: MTLTexture
+    var outlineColor: SIMD4<Float>
+    var outlineWidth: Float
+    var xray: Bool
+
+    @MSEnvironment(\.renderPassDescriptor)
+    private var renderPassDescriptor
+
+    var body: some Element {
+        get throws {
+            let showOutline = !instances.isEmpty && outlineWidth > 0
+            let sceneDepth = renderPassDescriptor?.depthAttachment.texture
 
             try RenderPass(label: "Scene") {
                 ForEach(Array(models.enumerated()), id: \.offset) { _, model in
@@ -137,8 +158,43 @@ struct JumpFloodOutlineDemoScene {
                     .vertexDescriptor(MTLVertexDescriptor(model.mesh.vertexDescriptor))
                     .depthCompare(function: .less, writes: true)
                 }
-                if showOutline {
+            }
+            .renderPassDescriptorModifier { descriptor in
+                // The visible-only mask depth-tests against this.
+                descriptor.depthAttachment.storeAction = .store
+            }
+            .barrierAfterPass(after: .fragment, beforeQueueStages: [.vertex, .fragment])
+
+            if showOutline {
+                try RenderPass(label: "Silhouette Mask") {
+                    SilhouetteMaskRenderPipeline(
+                        instances: instances,
+                        viewProjection: viewProjection,
+                        depthCompareFunction: xray ? .always : .lessEqual
+                    )
+                }
+                .renderPassDescriptorModifier { [xray] descriptor in
+                    descriptor.colorAttachments[0].texture = mask
+                    descriptor.colorAttachments[0].loadAction = .clear
+                    descriptor.colorAttachments[0].storeAction = .store
+                    descriptor.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
+                    descriptor.stencilAttachment.texture = nil
+                    if xray {
+                        descriptor.depthAttachment.texture = nil
+                    } else {
+                        descriptor.depthAttachment.texture = sceneDepth
+                        descriptor.depthAttachment.loadAction = .load
+                        descriptor.depthAttachment.storeAction = .dontCare
+                    }
+                }
+                JumpFloodPipeline(mask: mask, seeds: seeds, maximumDistance: outlineWidth)
+
+                try RenderPass(label: "Outline") {
                     JumpFloodOutlineRenderPipeline(mask: mask, seeds: seeds, color: outlineColor, width: outlineWidth)
+                }
+                .renderPassDescriptorModifier { descriptor in
+                    descriptor.colorAttachments[0].loadAction = .load
+                    descriptor.depthAttachment.loadAction = .load
                 }
             }
         }

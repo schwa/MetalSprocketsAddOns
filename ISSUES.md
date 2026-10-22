@@ -2671,12 +2671,13 @@ Reference: https://bgolus.medium.com/the-quest-for-very-wide-outlines-ba82ed442c
 ## 105: Jump Flood Outlines demo: X-ray toggle (outline through occluders vs visible-only)
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: effort:s, area:examples
 created: 2026-10-22T21:05:40Z
-updated: 2026-10-22T21:07:45Z
+updated: 2026-10-22T21:09:53Z
+closed: 2026-10-22T21:09:53Z
 +++
 
 The demo only shows the x-ray behaviour: the outline draws over occluding objects (e.g. the sphere's outline draws over the box in front of it).
@@ -2694,6 +2695,8 @@ Add an "X-ray" toggle. When off:
 Note: visible-only also outlines where an occluder cuts through the object (e.g. along the box edge across the sphere). Check that this looks acceptable.
 
 Add a scene test for the visible-only mode.
+
+- `2026-10-22T21:09:53Z`: Added an X-ray toggle. The demo now draws scene → mask → flood → outline pass. With X-ray off, the mask reuses the scene depth with .lessEqual. The edge where the box cuts across the sphere gets outlined, which looks fine. Added a golden test for visible-only; the x-ray golden is unchanged.
 
 ---
 

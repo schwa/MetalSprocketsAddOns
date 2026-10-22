@@ -221,3 +221,23 @@ func testJumpFloodOutlineDemoScene() throws {
     let image = try renderer.render(element).cgImage
     #expect(try image.isEqualToGoldenImage(named: "JumpFloodOutlineDemo"))
 }
+
+@Test(.requiresMetal4)
+@MainActor
+func testJumpFloodOutlineDemoSceneVisibleOnly() throws {
+    let scene = JumpFloodOutlineDemoScene()
+    // From the box's side, so the box hides part of the sphere.
+    let camera = InteractionState(yaw: .pi / 2.6, pitch: -.pi / 10, distance: 8, target: [0, 0.8, 0])
+    let renderer = try OffscreenRenderer(size: demoRenderSize)
+    renderer.renderPassDescriptor.colorAttachments[0].clearColor = JumpFloodOutlineDemoScene.clearColor
+    let element = try scene.element(
+        viewProjection: camera.projectionMatrix(drawableSize: demoRenderSize) * camera.viewMatrix,
+        drawableSize: demoRenderSize,
+        outlined: [.sphere],
+        outlineColor: [0, 1, 0, 1],
+        outlineWidth: 12,
+        xray: false
+    )
+    let image = try renderer.render(element).cgImage
+    #expect(try image.isEqualToGoldenImage(named: "JumpFloodOutlineDemoVisibleOnly"))
+}
