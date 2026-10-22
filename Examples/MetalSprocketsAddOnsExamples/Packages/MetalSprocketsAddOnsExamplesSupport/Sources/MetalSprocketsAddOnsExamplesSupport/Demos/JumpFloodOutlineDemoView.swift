@@ -23,7 +23,7 @@ struct JumpFloodOutlineDemoView: View {
     @State private var outlineColor = Color.orange
     @State private var outlineSphere = true
     @State private var outlineBox = true
-    @State private var xray = true
+    @State private var xray = false
 
     private let scene = JumpFloodOutlineDemoScene()
 
