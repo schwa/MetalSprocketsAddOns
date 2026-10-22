@@ -34,8 +34,11 @@ public struct ShadowMap {
     /// Maximum number of shadow-casting lights.
     public let lightCount: Int
 
-    /// Whether to use inverse Z (reversed depth buffer) for better precision.
-    public let useInverseZ: Bool
+    /// Whether the shadow map uses reverse Z (near 1, far 0) for better precision.
+    public let reverseZ: Bool
+
+    @available(*, deprecated, renamed: "reverseZ")
+    public var useInverseZ: Bool { reverseZ }
 
     /// Creates a new shadow map array with the given resolution and light count.
     ///
@@ -44,10 +47,10 @@ public struct ShadowMap {
     ///   - lightCount: Number of shadow-casting lights (default 1).
     ///   - depthBias: Constant depth bias to prevent shadow acne.
     ///   - slopeScale: Slope-scale depth bias.
-    ///   - useInverseZ: Use inverse Z (reversed depth) for better precision (default true).
+    ///   - reverseZ: Use reverse Z (near 1, far 0) for better precision (default true).
     ///   - slotCount: Number of depth textures in the ring. Must be at least the renderer's
     ///     `maximumInFlightSubmissions` (default 3).
-    public init(resolution: Int = 2_048, lightCount: Int = 1, depthBias: Float = 2.0, slopeScale: Float = 2.0, useInverseZ: Bool = true, slotCount: Int = 3) throws {
+    public init(resolution: Int = 2_048, lightCount: Int = 1, depthBias: Float = 2.0, slopeScale: Float = 2.0, reverseZ: Bool = true, slotCount: Int = 3) throws {
         guard slotCount > 0 else {
             throw MetalSprocketsError.configurationError("ShadowMap slotCount must be positive.")
         }
@@ -55,7 +58,7 @@ public struct ShadowMap {
         self.lightCount = lightCount
         self.depthBias = depthBias
         self.slopeScale = slopeScale
-        self.useInverseZ = useInverseZ
+        self.reverseZ = reverseZ
         self.lightViewProjectionMatrices = Array(repeating: .identity, count: lightCount)
 
         let device = _MTLCreateSystemDefaultDevice()
@@ -80,13 +83,18 @@ public struct ShadowMap {
         let samplerDescriptor = MTLSamplerDescriptor()
         samplerDescriptor.minFilter = .linear
         samplerDescriptor.magFilter = .linear
-        samplerDescriptor.compareFunction = Self.depthCompareFunction(useInverseZ: useInverseZ)
+        samplerDescriptor.compareFunction = Self.depthCompareFunction(reverseZ: reverseZ)
         samplerDescriptor.sAddressMode = .clampToBorderColor
         samplerDescriptor.tAddressMode = .clampToBorderColor
-        samplerDescriptor.borderColor = Self.samplerBorderColor(useInverseZ: useInverseZ)
+        samplerDescriptor.borderColor = Self.samplerBorderColor(reverseZ: reverseZ)
         samplerDescriptor.supportArgumentBuffers = true
         sampler = try device.makeSamplerState(descriptor: samplerDescriptor)
             .orThrow(.resourceCreationFailure("Failed to create shadow map sampler"))
+    }
+
+    @available(*, deprecated, renamed: "init(resolution:lightCount:depthBias:slopeScale:reverseZ:slotCount:)")
+    public init(resolution: Int = 2_048, lightCount: Int = 1, depthBias: Float = 2.0, slopeScale: Float = 2.0, useInverseZ: Bool, slotCount: Int = 3) throws {
+        try self.init(resolution: resolution, lightCount: lightCount, depthBias: depthBias, slopeScale: slopeScale, reverseZ: useInverseZ, slotCount: slotCount)
     }
 
     /// The ring slot for a submission. Callers pass `MSEnvironmentValues.submissionIndex`.
@@ -121,48 +129,48 @@ public struct ShadowMap {
             top: orthoSize,
             near: near,
             far: far,
-            inverseZ: useInverseZ
+            reverseZ: reverseZ
         )
         lightViewProjectionMatrices[index] = lightProjection * lightView
     }
 
     // MARK: Depth convention
     //
-    // Every decision that depends on `useInverseZ` lives here so the depth pass, the sampler and
+    // Every decision that depends on `reverseZ` lives here so the depth pass, the sampler and
     // the tests all agree on one set of answers.
 
-    static func depthCompareFunction(useInverseZ: Bool) -> MTLCompareFunction {
-        useInverseZ ? .greaterEqual : .lessEqual
+    static func depthCompareFunction(reverseZ: Bool) -> MTLCompareFunction {
+        reverseZ ? .greaterEqual : .lessEqual
     }
 
-    static func samplerBorderColor(useInverseZ: Bool) -> MTLSamplerBorderColor {
-        useInverseZ ? .opaqueBlack : .opaqueWhite
+    static func samplerBorderColor(reverseZ: Bool) -> MTLSamplerBorderColor {
+        reverseZ ? .opaqueBlack : .opaqueWhite
     }
 
     /// Depth comparison used both by the depth pass's depth test and by the shadow sampler.
     var depthCompareFunction: MTLCompareFunction {
-        Self.depthCompareFunction(useInverseZ: useInverseZ)
+        Self.depthCompareFunction(reverseZ: reverseZ)
     }
 
     /// Border colour for shadow lookups outside the light's frustum — the "unshadowed" depth value.
     var samplerBorderColor: MTLSamplerBorderColor {
-        Self.samplerBorderColor(useInverseZ: useInverseZ)
+        Self.samplerBorderColor(reverseZ: reverseZ)
     }
 
     /// Depth value the shadow map is cleared to: the far plane for the depth convention in use.
     var clearDepth: Double {
-        useInverseZ ? 0.0 : 1.0
+        reverseZ ? 0.0 : 1.0
     }
 
-    /// ``depthBias`` with the sign the depth convention requires — inverse Z counts the other way,
+    /// ``depthBias`` with the sign the depth convention requires — reverse Z counts the other way,
     /// so the bias has to be negated to still push samples away from the light.
     var appliedDepthBias: Float {
-        useInverseZ ? -depthBias : depthBias
+        reverseZ ? -depthBias : depthBias
     }
 
     /// ``slopeScale`` with the sign the depth convention requires. See ``appliedDepthBias``.
     var appliedSlopeScale: Float {
-        useInverseZ ? -slopeScale : slopeScale
+        reverseZ ? -slopeScale : slopeScale
     }
 
     /// Points `descriptor` at the shadow map slice belonging to `lightIndex`.

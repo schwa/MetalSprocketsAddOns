@@ -22,7 +22,7 @@ func testShadowMap_init_defaults() throws {
     let shadowMap = try ShadowMap()
     #expect(shadowMap.resolution == 2_048)
     #expect(shadowMap.lightCount == 1)
-    #expect(shadowMap.useInverseZ == true)
+    #expect(shadowMap.reverseZ == true)
     #expect(shadowMap.lightViewProjectionMatrices.count == 1)
     #expect(shadowMap.depthTextures[0].textureType == .type2DArray)
     #expect(shadowMap.depthTextures[0].pixelFormat == .depth32Float)
@@ -33,10 +33,10 @@ func testShadowMap_init_defaults() throws {
 @Test
 @MainActor
 func testShadowMap_init_customResolutionAndLightCount() throws {
-    let shadowMap = try ShadowMap(resolution: 256, lightCount: 3, depthBias: 1.5, slopeScale: 1.5, useInverseZ: false)
+    let shadowMap = try ShadowMap(resolution: 256, lightCount: 3, depthBias: 1.5, slopeScale: 1.5, reverseZ: false)
     #expect(shadowMap.resolution == 256)
     #expect(shadowMap.lightCount == 3)
-    #expect(shadowMap.useInverseZ == false)
+    #expect(shadowMap.reverseZ == false)
     #expect(shadowMap.depthBias == 1.5)
     #expect(shadowMap.slopeScale == 1.5)
     #expect(shadowMap.lightViewProjectionMatrices.count == 3)
@@ -71,43 +71,43 @@ func testShadowMap_toParameters_capturesLightCountAndMatrices() throws {
     #expect(params.mapSize == 128)
 }
 
-// MARK: - Inverse Z contract
+// MARK: - Reverse Z contract
 
 @Test
 @MainActor
-func testShadowMap_inverseZ_negatesDepthBiasAndSlopeScale() throws {
-    let inverseZ = try ShadowMap(resolution: 64, depthBias: 2.0, slopeScale: 3.0, useInverseZ: true)
-    #expect(inverseZ.appliedDepthBias == -2.0)
-    #expect(inverseZ.appliedSlopeScale == -3.0)
+func testShadowMap_reverseZ_negatesDepthBiasAndSlopeScale() throws {
+    let reverseZ = try ShadowMap(resolution: 64, depthBias: 2.0, slopeScale: 3.0, reverseZ: true)
+    #expect(reverseZ.appliedDepthBias == -2.0)
+    #expect(reverseZ.appliedSlopeScale == -3.0)
 
-    let standardZ = try ShadowMap(resolution: 64, depthBias: 2.0, slopeScale: 3.0, useInverseZ: false)
+    let standardZ = try ShadowMap(resolution: 64, depthBias: 2.0, slopeScale: 3.0, reverseZ: false)
     #expect(standardZ.appliedDepthBias == 2.0)
     #expect(standardZ.appliedSlopeScale == 3.0)
 }
 
 @Test
 @MainActor
-func testShadowMap_inverseZ_flipsCompareFunctionAndBorderColor() throws {
-    let inverseZ = try ShadowMap(resolution: 64, useInverseZ: true)
-    #expect(inverseZ.depthCompareFunction == .greaterEqual)
-    #expect(inverseZ.samplerBorderColor == .opaqueBlack)
+func testShadowMap_reverseZ_flipsCompareFunctionAndBorderColor() throws {
+    let reverseZ = try ShadowMap(resolution: 64, reverseZ: true)
+    #expect(reverseZ.depthCompareFunction == .greaterEqual)
+    #expect(reverseZ.samplerBorderColor == .opaqueBlack)
 
-    let standardZ = try ShadowMap(resolution: 64, useInverseZ: false)
+    let standardZ = try ShadowMap(resolution: 64, reverseZ: false)
     #expect(standardZ.depthCompareFunction == .lessEqual)
     #expect(standardZ.samplerBorderColor == .opaqueWhite)
 }
 
 @Test
 @MainActor
-func testShadowMap_inverseZ_clearsToFarPlane() throws {
-    #expect(try ShadowMap(resolution: 64, useInverseZ: true).clearDepth == 0.0)
-    #expect(try ShadowMap(resolution: 64, useInverseZ: false).clearDepth == 1.0)
+func testShadowMap_reverseZ_clearsToFarPlane() throws {
+    #expect(try ShadowMap(resolution: 64, reverseZ: true).clearDepth == 0.0)
+    #expect(try ShadowMap(resolution: 64, reverseZ: false).clearDepth == 1.0)
 }
 
 @Test
 @MainActor
 func testShadowMap_renderPassDescriptor_targetsOneSlicePerLight() throws {
-    let shadowMap = try ShadowMap(resolution: 64, lightCount: 3, useInverseZ: true)
+    let shadowMap = try ShadowMap(resolution: 64, lightCount: 3, reverseZ: true)
     for lightIndex in 0..<3 {
         let descriptor = MTL4RenderPassDescriptor()
         shadowMap.configureRenderPassDescriptor(descriptor, lightIndex: lightIndex, submissionIndex: 0)
@@ -125,7 +125,7 @@ func testShadowMap_renderPassDescriptor_targetsOneSlicePerLight() throws {
 @Test
 @MainActor
 func testShadowMap_renderPassDescriptor_standardZClearsToOne() throws {
-    let shadowMap = try ShadowMap(resolution: 64, useInverseZ: false)
+    let shadowMap = try ShadowMap(resolution: 64, reverseZ: false)
     let descriptor = MTL4RenderPassDescriptor()
     shadowMap.configureRenderPassDescriptor(descriptor, lightIndex: 0, submissionIndex: 0)
     #expect(descriptor.depthAttachment.clearDepth == 1.0)
@@ -145,8 +145,8 @@ func testFloat4x4_lookAt_buildsValidViewMatrix() {
 }
 
 @Test
-func testFloat4x4_orthographic_inverseZ_mapsNearAndFar() {
-    let proj = float4x4.orthographic(left: -1, right: 1, bottom: -1, top: 1, near: 0.1, far: 10, inverseZ: true)
+func testFloat4x4_orthographic_reverseZ_mapsNearAndFar() {
+    let proj = float4x4.orthographic(left: -1, right: 1, bottom: -1, top: 1, near: 0.1, far: 10, reverseZ: true)
     // Point at near plane (-near in view space → z = -0.1) should map to z = 1.
     let nearPoint = SIMD4<Float>(0, 0, -0.1, 1)
     let projected = proj * nearPoint
@@ -159,7 +159,7 @@ func testFloat4x4_orthographic_inverseZ_mapsNearAndFar() {
 
 @Test
 func testFloat4x4_orthographic_standardZ_mapsNearAndFar() {
-    let proj = float4x4.orthographic(left: -1, right: 1, bottom: -1, top: 1, near: 0.1, far: 10, inverseZ: false)
+    let proj = float4x4.orthographic(left: -1, right: 1, bottom: -1, top: 1, near: 0.1, far: 10, reverseZ: false)
     // Standard depth: near → 0, far → 1.
     let nearPoint = SIMD4<Float>(0, 0, -0.1, 1)
     let projected = proj * nearPoint

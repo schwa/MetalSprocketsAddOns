@@ -158,7 +158,7 @@ public struct GridShader: Element {
                 .parameter("backfaceColor", value: backfaceColor)
             }
             .vertexDescriptor(vertexShader.inferredVertexDescriptor())
-            // The defaults suit standard depth. Over an existing scene with reversed depth, use `.greater`, no depth
+            // The defaults suit standard depth. Over an existing scene with reverse Z, use `.greater`, no depth
             // writes, and a transparent `backgroundColor` with `blendsWithBackground`.
             .depthCompare(function: depthCompareFunction, writes: writesDepth)
             .renderPipelineDescriptorTransformer { descriptor in

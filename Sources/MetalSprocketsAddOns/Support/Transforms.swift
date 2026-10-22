@@ -132,13 +132,13 @@ public extension float4x4 {
     }
 
     /// Creates an orthographic projection matrix.
-    /// - Parameter inverseZ: When true, near maps to 1.0 and far maps to 0.0 (reversed depth).
-    static func orthographic(left: Float, right: Float, bottom: Float, top: Float, near: Float, far: Float, inverseZ: Bool = true) -> float4x4 {
+    /// - Parameter reverseZ: When true, near maps to 1.0 and far maps to 0.0.
+    static func orthographic(left: Float, right: Float, bottom: Float, top: Float, near: Float, far: Float, reverseZ: Bool = true) -> float4x4 {
         let sx = 2.0 / (right - left)
         let sy = 2.0 / (top - bottom)
         let sz: Float
         let tz: Float
-        if inverseZ {
+        if reverseZ {
             sz = 1.0 / (far - near)
             tz = far / (far - near)
         } else {
@@ -154,5 +154,10 @@ public extension float4x4 {
             SIMD4(0, 0, sz, 0),
             SIMD4(tx, ty, tz, 1)
         ))
+    }
+
+    @available(*, deprecated, renamed: "orthographic(left:right:bottom:top:near:far:reverseZ:)")
+    static func orthographic(left: Float, right: Float, bottom: Float, top: Float, near: Float, far: Float, inverseZ: Bool) -> float4x4 {
+        orthographic(left: left, right: right, bottom: bottom, top: top, near: near, far: far, reverseZ: inverseZ)
     }
 }
