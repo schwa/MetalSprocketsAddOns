@@ -1698,9 +1698,9 @@ Screenshot: ~/Library/Application Support/CleanShot/media/media_gHZg8nSrZ1/Scree
 status: open
 priority: low
 kind: bug
-labels: area:rendering, effort:m
+labels: area:rendering, effort:m, deferred
 created: 2026-09-30T16:34:13Z
-updated: 2026-10-07T19:07:58Z
+updated: 2026-10-22T20:31:51Z
 +++
 
 With RayTracedShadowComputePass, the shadow a sphere casts on itself has a blocky, stair-stepped edge instead of following the curve. The shadow cast onto the ground looks correct.
@@ -2457,10 +2457,12 @@ testBlinnPhongShader_instancedMatchesSeparateDraws checks only that mean luminan
 ## 96: RayTracedShadows ignores MetalMesh submesh index buffer offsets
 
 +++
-status: new
+status: open
 priority: medium
 kind: bug
+labels: deferred, effort:s, area:rendering
 created: 2026-10-13T17:08:06Z
+updated: 2026-10-22T20:31:59Z
 +++
 
 RayTracedShadows.swift (about line 136) builds one acceleration-structure geometry per MetalMesh submesh and sets geometryDescriptor.indexBufferOffset = 0. The comment says 'MetalMesh always packs triangle indices as UInt32, one index buffer per submesh'. That is not always true: SwiftMesh's MetalMesh direct inits (MetalMesh(device:attributes:submeshes:...)) put all submeshes in one index buffer and set MetalMesh.Submesh.indexBufferOffset. For such a mesh with more than one submesh, every geometry after the first reads the first submesh's indices, so the acceleration structure (and the shadows) are wrong, with no error.
@@ -2491,13 +2493,17 @@ Done when: SwiftEarcut is removed from Package.swift and README, fills render th
 ## 98: GraphicsContext3DRenderPipeline: configurable depth compare (reversed depth)
 
 +++
-status: new
+status: closed
 priority: low
 kind: enhancement
 created: 2026-10-22T18:04:10Z
+updated: 2026-10-22T20:31:57Z
+closed: 2026-10-22T20:31:57Z
 +++
 
 GraphicsContext3DRenderPipeline hard-codes .depthCompare(function: .less), so it only works with standard depth (near 0, far 1). Apps that render with reversed depth (near 1, far 0, .greater), such as SceneSprockets, have to draw it in a separate pass that clears depth to 1 and pass a standard-depth projection. Let callers choose the depth compare function and whether to write depth, or follow a reversed-depth flag, so lines can depth-test against a reversed-depth scene. Found while building the SceneSprockets transform gizmo (SceneSprockets #154).
+
+- `2026-10-22T20:31:57Z`: Implemented in 70a0e738 (depthCompareFunction + writesDepth).
 
 ---
 
@@ -2532,10 +2538,12 @@ Next: draw the same context with only fills, then only strokes, and diff frames;
 ## 100: Unify depth compare API across pipelines (EdgeLines, PointCloud, Slug)
 
 +++
-status: new
+status: open
 priority: low
 kind: enhancement
+labels: effort:s, area:rendering
 created: 2026-10-22T19:52:48Z
+updated: 2026-10-22T20:32:00Z
 +++
 
 GridShader and GraphicsContext3DRenderPipeline now take `depthCompareFunction` + `writesDepth`. Other pipelines differ:
@@ -2551,11 +2559,13 @@ Fix: add `depthCompareFunction`/`writesDepth` to EdgeLines (defaults `.less`/`tr
 ## 101: Standardise reverse-Z handling across the package
 
 +++
-status: new
+status: open
 priority: low
 kind: enhancement
+labels: effort:m, area:rendering
 depends: 100
 created: 2026-10-22T19:53:09Z
+updated: 2026-10-22T20:32:00Z
 +++
 
 Reversed depth uses different names and mechanisms across the package:
@@ -2572,5 +2582,72 @@ Fix:
 - Document the convention once.
 
 Related: #100.
+
+---
+
+## 102: JumpFloodOutlinePipeline: wide screen-space outlines with jump flooding
+
++++
+status: open
+priority: medium
+kind: feature
+labels: effort:l, area:rendering
+created: 2026-10-22T20:21:09Z
+updated: 2026-10-22T20:32:00Z
++++
+
+Add a standalone `Element` (like `GaussianBlurPipeline`) that draws outlines of any pixel width around a mask.
+
+- Input: R8 mask texture. Output: destination color texture.
+- Parameters: `outlineColor`, `outlineWidth` (pixels).
+- Steps:
+  1. JFA init (compute): mask -> nearest-edge position texture (RG16, half-pixel inset).
+  2. Separable flood (compute): log2(width) iterations, one axis per dispatch, ping-pong between two cached textures.
+  3. Composite (render pass, fullscreen triangle, alpha blending): anti-aliased outline from distance. Skip pixels inside the mask. Use a render pass because drawables usually lack `.shaderWrite`.
+- Clamp widths below 1 px by fading alpha (Humus trick from the gist).
+- New `JumpFlood.metal` with init, flood-axis, and composite functions.
+
+Reference: https://bgolus.medium.com/the-quest-for-very-wide-outlines-ba82ed442cd9 and gist https://gist.github.com/bgolus/a18c1a3fc9af2d73cc19169a809eb195
+
+---
+
+## 103: Mesh silhouette mask helper for JumpFloodOutlinePipeline
+
++++
+status: open
+priority: medium
+kind: feature
+labels: effort:s, area:rendering
+created: 2026-10-22T20:21:10Z
+updated: 2026-10-22T20:32:00Z
++++
+
+Add an Element that draws `[MetalMesh]` with transforms into an R8 mask texture (writes 1.0, cleared to 0). The pipeline needs it as input.
+
+- Uses its own depth test (or none), so hidden parts of the meshes still outline.
+- Keeps the outline pipeline independent of meshes; other sources (point clouds, text) can write their own masks.
+
+Reference: https://bgolus.medium.com/the-quest-for-very-wide-outlines-ba82ed442cd9 and gist https://gist.github.com/bgolus/a18c1a3fc9af2d73cc19169a809eb195
+
+---
+
+## 104: Demo and test for jump flood outlines
+
++++
+status: open
+priority: low
+kind: task
+labels: effort:s, area:examples
+depends: 102, 103
+created: 2026-10-22T20:21:13Z
+updated: 2026-10-22T20:32:00Z
++++
+
+Depends on #102 and #103.
+
+- Add a demo to the examples app: mesh scene, select objects, slider for outline width (1 to 500+ px), color picker.
+- Add a test: render a known mask (e.g. a square), run the pipeline, and check pixel coverage at distances below and above the width.
+
+Reference: https://bgolus.medium.com/the-quest-for-very-wide-outlines-ba82ed442cd9 and gist https://gist.github.com/bgolus/a18c1a3fc9af2d73cc19169a809eb195
 
 ---
