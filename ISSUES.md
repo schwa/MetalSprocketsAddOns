@@ -2588,12 +2588,13 @@ Related: #100.
 ## 102: JumpFloodOutlinePipeline: wide screen-space outlines with jump flooding
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: effort:l, area:rendering
 created: 2026-10-22T20:21:09Z
-updated: 2026-10-22T20:32:00Z
+updated: 2026-10-22T20:37:23Z
+closed: 2026-10-22T20:37:23Z
 +++
 
 Add a standalone `Element` (like `GaussianBlurPipeline`) that draws outlines of any pixel width around a mask.
@@ -2608,6 +2609,8 @@ Add a standalone `Element` (like `GaussianBlurPipeline`) that draws outlines of 
 - New `JumpFlood.metal` with init, flood-axis, and composite functions.
 
 Reference: https://bgolus.medium.com/the-quest-for-very-wide-outlines-ba82ed442cd9 and gist https://gist.github.com/bgolus/a18c1a3fc9af2d73cc19169a809eb195
+
+- `2026-10-22T20:37:23Z`: Added JumpFloodPipeline (compute init + separable flood) and JumpFloodOutlineRenderPipeline (fullscreen blended composite). Differences from the plan: two Elements instead of one (compute is a sibling pass, composite goes in a RenderPass); seeds are rg32Float pixel positions, not RG16 with sub-pixel edge estimates; mask is thresholded at 0.5, so no sub-pixel edge AA from an MSAA mask.
 
 ---
 
