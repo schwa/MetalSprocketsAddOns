@@ -19,8 +19,7 @@ let package = Package(
         .package(path: "../../../.."),
         .package(url: "https://github.com/schwa/GeometryLite3D", .upToNextMinor(from: "0.2.4")),
         .package(url: "https://github.com/schwa/MetalSupport", .upToNextMinor(from: "1.0.7")),
-        // Temporarily on main for submissionIndex (MetalSprockets #485); go back to a version once it is tagged.
-        .package(url: "https://github.com/schwa/MetalSprockets", branch: "main"),
+        .package(url: "https://github.com/schwa/MetalSprockets", .upToNextMinor(from: "0.2.8")),
         .package(url: "https://github.com/schwa/GoldenImage", .upToNextMinor(from: "0.1.6")),
         .package(url: "https://github.com/schwa/Interaction3D", .upToNextMinor(from: "0.1.15")),
         .package(url: "https://github.com/schwa/SwiftMesh", .upToNextMinor(from: "0.0.10"))
