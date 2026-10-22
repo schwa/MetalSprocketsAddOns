@@ -2722,3 +2722,24 @@ Add this to the `SilhouetteMaskRenderPipeline` doc comment, with a short note on
 - `2026-10-22T21:10:09Z`: Documented both modes on SilhouetteMaskRenderPipeline, with a cross-reference from JumpFloodOutlineRenderPipeline.
 
 ---
+
+## 107: Jump flood outlines: depth-tested outlines (occluders hide the outline, no cut edges)
+
++++
+status: new
+priority: medium
+kind: enhancement
+labels: effort:m,area:rendering
+created: 2026-10-22T21:15:09Z
++++
+
+The visible-only mode from #105 draws the mask depth-tested against the scene. That outlines the edges where an occluder cuts across the object (a vertical line along the box edge across the sphere).
+
+Better: draw the mask x-ray (whole object), then depth-test the outline itself against the scene.
+- The mask stores the object's depth as well as coverage (e.g. r32Float holding fragment z; empty = no coverage).
+- The composite reads the depth of the nearest mask pixel (the jump flood seed), writes it with [[depth(any)]], and tests it with .lessEqual (.greaterEqual with reverse Z) and no depth writes.
+- The result: occluders in front hide the outline, and the outline still draws over things behind the object.
+
+Keep x-ray as an option (no depth test on the composite). Replace the demo's visible-only mode with this, update the docs from #106, and update the visible-only golden.
+
+---
