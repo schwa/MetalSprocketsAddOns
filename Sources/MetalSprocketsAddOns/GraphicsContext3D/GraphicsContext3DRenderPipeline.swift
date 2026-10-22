@@ -9,6 +9,8 @@ public struct GraphicsContext3DRenderPipeline: Element {
     let viewProjection: float4x4
     let viewport: SIMD2<Float>
     let debugWireframe: Bool
+    let depthCompareFunction: MTLCompareFunction
+    let writesDepth: Bool
 
     @MSState
     private var objectShader = ShaderLibrary.module.namespaced("GraphicsContext3D").requiredFunction(named: "lineJoinObjectShader", type: ObjectShader.self)
@@ -53,11 +55,14 @@ public struct GraphicsContext3DRenderPipeline: Element {
     @MSEnvironment(\.device)
     var device
 
-    public init(context: GraphicsContext3D, viewProjection: float4x4, viewport: SIMD2<Float>, debugWireframe: Bool = false) {
+    // The defaults suit standard depth (near 0, far 1). Use `.always` and no writes to draw on top of everything (#98).
+    public init(context: GraphicsContext3D, viewProjection: float4x4, viewport: SIMD2<Float>, debugWireframe: Bool = false, depthCompareFunction: MTLCompareFunction = .less, writesDepth: Bool = true) {
         self.context = context
         self.viewProjection = viewProjection
         self.viewport = viewport
         self.debugWireframe = debugWireframe
+        self.depthCompareFunction = depthCompareFunction
+        self.writesDepth = writesDepth
     }
 
     public var body: some Element {
@@ -135,7 +140,7 @@ public struct GraphicsContext3DRenderPipeline: Element {
                         .parameter("joinData", functionType: .mesh, buffer: joinDataBuffer, offset: 0)
                         .parameter("uniforms", functionType: .mesh, value: uniforms)
                     }
-                    .depthCompare(function: .less, enabled: true)
+                    .depthStencilDescriptor(.init(depthCompareFunction: depthCompareFunction, isDepthWriteEnabled: writesDepth))
                 }
 
                 if fillVertexCount > 0, let fillVertexBuffer {
@@ -149,7 +154,7 @@ public struct GraphicsContext3DRenderPipeline: Element {
                         .parameter("vertices", functionType: .vertex, buffer: fillVertexBuffer, offset: 0)
                         .parameter("uniforms", functionType: .vertex, value: uniforms)
                     }
-                    .depthCompare(function: .less, enabled: true)
+                    .depthStencilDescriptor(.init(depthCompareFunction: depthCompareFunction, isDepthWriteEnabled: writesDepth))
                     .renderPipelineDescriptorTransformer { descriptor in
                         // Fill colors are non-premultiplied, so composite source-over.
                         guard let attachment = descriptor.colorAttachments[0] else {

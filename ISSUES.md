@@ -2500,3 +2500,31 @@ created: 2026-10-22T18:04:10Z
 GraphicsContext3DRenderPipeline hard-codes .depthCompare(function: .less), so it only works with standard depth (near 0, far 1). Apps that render with reversed depth (near 1, far 0, .greater), such as SceneSprockets, have to draw it in a separate pass that clears depth to 1 and pass a standard-depth projection. Let callers choose the depth compare function and whether to write depth, or follow a reversed-depth flag, so lines can depth-test against a reversed-depth scene. Found while building the SceneSprockets transform gizmo (SceneSprockets #154).
 
 ---
+
+## 99: GraphicsContext3D fills flicker with depth testing: output differs between frames with identical inputs
+
++++
+status: closed
+priority: medium
+kind: bug
+created: 2026-10-22T18:53:20Z
+updated: 2026-10-22T19:00:42Z
+closed: 2026-10-22T19:00:42Z
++++
+
+In the SceneSprockets transform gizmo (SceneSprockets #154), filled arrowheads drawn by GraphicsContext3DRenderPipeline flickered all the time, even with the scene and camera still.
+
+Evidence from a GPU trace (5 frames, SceneSprocketsComposer):
+- Each frame: a "Manipulator" render pass (color loaded, depth cleared to 1, Depth32Float memoryless) with the stroke draw (mesh shader) and then the fill draw. Both use depth `.less` with depth writes on.
+- The fill draw inputs (vertex buffer, uniforms, vertex count 33) are byte-identical in every frame.
+- The final color differs by 70 to 140 pixels between frames, all on the filled arrowheads, which lose different parts each frame. Strokes and translucent plane fills are stable.
+
+Guess (not proven): something writes depth nondeterministically before or during the fill draw, probably the stroke mesh shader, and hides parts of the fills. A read of `lineJoinMeshShader` found no uninitialized output.
+
+Workaround: `depthCompareFunction: .always, writesDepth: false` (new init parameters, #98), used by TransformGizmo.
+
+Next: draw the same context with only fills, then only strokes, and diff frames; or capture with depth stored (not memoryless) to inspect depth after the stroke draw.
+
+- `2026-10-22T19:00:42Z`: Not a GraphicsContext3D bug. SceneSprockets' manipulator overlay pass had no barrier after the scene pass (Metal 4 does not order passes), so blending read unfinished drawable tiles. Fixed in SceneSprockets with a QueueBarrier at the start of ManipulatorOverlayPass.
+
+---
