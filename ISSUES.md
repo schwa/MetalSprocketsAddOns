@@ -2586,6 +2586,8 @@ Fix:
 
 Related: #100.
 
+- `2026-10-22T20:38:26Z`: Looked at all 24 uses (Transforms.orthographic inverseZ, ShadowMap useInverseZ, PointCloud and Slug reverseZ, plus the depthCompareFunction/writesDepth from #100). Punting: this renames or removes public parameters used by downstream apps (e.g. SceneSprockets), and the design is open. Decisions needed: (1) term: reverseZ or inverseZ? (2) add a DepthConvention enum (.standard/.reversed) that supplies the compare function, clear depth and projection flag, or just rename the Bools? (3) deprecate the old parameters or break them outright?
+
 ---
 
 ## 102: JumpFloodOutlinePipeline: wide screen-space outlines with jump flooding
