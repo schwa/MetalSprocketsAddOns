@@ -96,7 +96,7 @@ private func render(
                     .vertexBuffers(of: quad)
                 }
                 .vertexDescriptor(MTLVertexDescriptor(quad.vertexDescriptor))
-                .depthCompare(function: reverseZ ? .greater : .less, enabled: true)
+                .depthCompare(function: reverseZ ? .greater : .less, writes: true)
             }
             PointCloudResolvePipeline(framebuffer: framebuffer)
         }

@@ -86,7 +86,7 @@ struct DebugShadingDemoScene {
                 .useResources(mesh.submeshes.map(\.indexBuffer.buffer), usage: .read, stages: .vertex)
             }
             .vertexDescriptor(mesh.vertexDescriptor)
-            .depthCompare(function: .less, enabled: true)
+            .depthCompare(function: .less, writes: true)
         }
     }
 }

@@ -37,7 +37,7 @@ private func renderDebugMode(_ mode: DebugShadersMode, mesh: MTKMesh) throws -> 
             .vertexBuffers(of: mesh)
         }
         .vertexDescriptor(mesh.vertexDescriptor)
-        .depthCompare(function: .less, enabled: true)
+        .depthCompare(function: .less, writes: true)
     }
 
     let renderer = try OffscreenRenderer(size: defaultRenderSize)

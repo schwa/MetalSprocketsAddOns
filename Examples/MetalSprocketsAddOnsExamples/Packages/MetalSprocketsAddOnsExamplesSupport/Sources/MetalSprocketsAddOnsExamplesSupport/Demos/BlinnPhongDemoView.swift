@@ -165,7 +165,7 @@ struct BlinnPhongDemoScene {
                     .lighting(lighting)
                 }
                 .vertexDescriptor(first.mesh.vertexDescriptor)
-                .depthCompare(function: .less, enabled: true)
+                .depthCompare(function: .less, writes: true)
             }
         }
     }

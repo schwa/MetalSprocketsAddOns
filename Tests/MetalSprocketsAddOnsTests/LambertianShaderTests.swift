@@ -37,7 +37,7 @@ func testLambertianShader_litSphere() throws {
             .vertexBuffers(of: mesh)
         }
         .vertexDescriptor(MTLVertexDescriptor(mesh.vertexDescriptor))
-        .depthCompare(function: .less, enabled: true)
+        .depthCompare(function: .less, writes: true)
     }
 
     let renderer = try OffscreenRenderer(size: defaultRenderSize)
@@ -66,7 +66,7 @@ func testLambertianShader_litBox() throws {
             .vertexBuffers(of: mesh)
         }
         .vertexDescriptor(MTLVertexDescriptor(mesh.vertexDescriptor))
-        .depthCompare(function: .less, enabled: true)
+        .depthCompare(function: .less, writes: true)
     }
 
     let renderer = try OffscreenRenderer(size: defaultRenderSize)
@@ -103,7 +103,7 @@ func testLambertianShaderInstanced_grid() throws {
             .vertexBuffers(of: mesh)
         }
         .vertexDescriptor(MTLVertexDescriptor(mesh.vertexDescriptor))
-        .depthCompare(function: .less, enabled: true)
+        .depthCompare(function: .less, writes: true)
     }
 
     let renderer = try OffscreenRenderer(size: defaultRenderSize)

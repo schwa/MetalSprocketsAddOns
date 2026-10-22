@@ -51,7 +51,7 @@ func testBlinnPhongShader_litBox() throws {
             .lighting(lighting)
         }
         .vertexDescriptor(mesh.vertexDescriptor)
-        .depthCompare(function: .less, enabled: true)
+        .depthCompare(function: .less, writes: true)
     }
 
     let renderer = try OffscreenRenderer(size: defaultRenderSize)
@@ -99,7 +99,7 @@ func testBlinnPhongShader_litSphereTwoLights() throws {
             .lighting(lighting)
         }
         .vertexDescriptor(mesh.vertexDescriptor)
-        .depthCompare(function: .less, enabled: true)
+        .depthCompare(function: .less, writes: true)
     }
 
     let renderer = try OffscreenRenderer(size: defaultRenderSize)
@@ -123,7 +123,7 @@ private func renderLitSphere(lighting: Lighting) throws -> CGImage {
             .lighting(lighting)
         }
         .vertexDescriptor(mesh.vertexDescriptor)
-        .depthCompare(function: .less, enabled: true)
+        .depthCompare(function: .less, writes: true)
     }
     return try OffscreenRenderer(size: defaultRenderSize).render(renderPass).cgImage
 }
@@ -177,7 +177,7 @@ func testBlinnPhongShader_instancedMatchesSeparateDraws() throws {
             .lighting(lighting)
         }
         .vertexDescriptor(mesh.vertexDescriptor)
-        .depthCompare(function: .less, enabled: true)
+        .depthCompare(function: .less, writes: true)
     }
     let separatePass = try RenderPass {
         try BlinnPhongShader {
@@ -190,7 +190,7 @@ func testBlinnPhongShader_instancedMatchesSeparateDraws() throws {
             }
         }
         .vertexDescriptor(mesh.vertexDescriptor)
-        .depthCompare(function: .less, enabled: true)
+        .depthCompare(function: .less, writes: true)
     }
 
     let renderer = try OffscreenRenderer(size: defaultRenderSize)
@@ -223,7 +223,7 @@ func testBlinnPhongShader_instancedPerInstanceMaterials() throws {
             .lighting(lighting)
         }
         .vertexDescriptor(mesh.vertexDescriptor)
-        .depthCompare(function: .less, enabled: true)
+        .depthCompare(function: .less, writes: true)
     }
     let image = try OffscreenRenderer(size: defaultRenderSize).render(renderPass).cgImage
 

@@ -181,7 +181,7 @@ private func renderSphere(lighting: Lighting) throws -> CGImage {
             .lighting(lighting)
         }
         .vertexDescriptor(mesh.vertexDescriptor)
-        .depthCompare(function: .less, enabled: true)
+        .depthCompare(function: .less, writes: true)
     }
 
     return try OffscreenRenderer(size: defaultRenderSize).render(renderPass).cgImage

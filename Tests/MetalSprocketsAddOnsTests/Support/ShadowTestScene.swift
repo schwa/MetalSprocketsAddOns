@@ -95,7 +95,7 @@ struct ShadowTestScene {
                         .vertexBuffers(of: sphere)
                     }
                     .vertexDescriptor(MTLVertexDescriptor(sphere.vertexDescriptor))
-                    .depthCompare(function: .less, enabled: true)
+                    .depthCompare(function: .less, writes: true)
 
                     try FlatShader(
                         modelViewProjection: viewProjection * planeTransform,
@@ -105,7 +105,7 @@ struct ShadowTestScene {
                         .vertexBuffers(of: plane)
                     }
                     .vertexDescriptor(MTLVertexDescriptor(plane.vertexDescriptor))
-                    .depthCompare(function: .less, enabled: true)
+                    .depthCompare(function: .less, writes: true)
                 }
             }
         }
