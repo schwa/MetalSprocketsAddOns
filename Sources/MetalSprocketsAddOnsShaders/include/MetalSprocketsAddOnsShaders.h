@@ -36,3 +36,4 @@ NS_ASSUME_NONNULL_END
 #import "ShadowMap.h"
 #import "RayTracedShadows.h"
 #import "PointCloud.h"
+#import "SilhouetteMask.h"

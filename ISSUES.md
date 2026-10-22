@@ -2614,12 +2614,13 @@ Reference: https://bgolus.medium.com/the-quest-for-very-wide-outlines-ba82ed442c
 ## 103: Mesh silhouette mask helper for JumpFloodOutlinePipeline
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: effort:s, area:rendering
 created: 2026-10-22T20:21:10Z
-updated: 2026-10-22T20:32:00Z
+updated: 2026-10-22T20:35:30Z
+closed: 2026-10-22T20:35:30Z
 +++
 
 Add an Element that draws `[MetalMesh]` with transforms into an R8 mask texture (writes 1.0, cleared to 0). The pipeline needs it as input.
@@ -2628,6 +2629,8 @@ Add an Element that draws `[MetalMesh]` with transforms into an R8 mask texture 
 - Keeps the outline pipeline independent of meshes; other sources (point clouds, text) can write their own masks.
 
 Reference: https://bgolus.medium.com/the-quest-for-very-wide-outlines-ba82ed442cd9 and gist https://gist.github.com/bgolus/a18c1a3fc9af2d73cc19169a809eb195
+
+- `2026-10-22T20:35:31Z`: Added SilhouetteMaskRenderPipeline (reads float3 positions from any MetalMesh layout, depth test off by default) with tests.
 
 ---
 
