@@ -426,6 +426,8 @@ public struct PointCloudRasterizePass: Element {
 /// depth-tested against the rest of the pass, so the pass needs a depth attachment.
 public struct PointCloudResolvePipeline: Element {
     let framebuffer: PointCloudFramebuffer
+    let depthCompareFunction: MTLCompareFunction?
+    let writesDepth: Bool
 
     @MSState
     private var vertexShader = ShaderLibrary.module.namespaced("PointCloud").requiredFunction(named: "resolve_vertex", type: VertexShader.self)
@@ -439,13 +441,19 @@ public struct PointCloudResolvePipeline: Element {
     @MSState
     private var largeSplatFragmentShader = ShaderLibrary.module.namespaced("PointCloud").requiredFunction(named: "large_splat_fragment", type: FragmentShader.self)
 
-    public init(framebuffer: PointCloudFramebuffer) {
+    /// - Parameters:
+    ///   - depthCompareFunction: Overrides the depth test. When nil, `.greater` with reverse Z, otherwise `.less`.
+    ///   - writesDepth: Whether points write depth.
+    public init(framebuffer: PointCloudFramebuffer, depthCompareFunction: MTLCompareFunction? = nil, writesDepth: Bool = true) {
         self.framebuffer = framebuffer
+        self.depthCompareFunction = depthCompareFunction
+        self.writesDepth = writesDepth
     }
 
     public var body: some Element {
         get throws {
             let (buffer, parameters) = try rasterizedFrame()
+            let compareFunction = depthCompareFunction ?? (parameters.reverseZ != 0 ? .greater : .less)
             try RenderPipeline(label: "PointCloud Resolve", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 Draw { encoder in
                     encoder.drawPrimitives(primitiveType: .triangle, vertexStart: 0, vertexCount: 3)
@@ -453,7 +461,7 @@ public struct PointCloudResolvePipeline: Element {
                 .parameter("framebuffer", functionType: .fragment, buffer: buffer)
                 .parameter("params", functionType: .fragment, value: parameters)
             }
-            .depthCompare(function: parameters.reverseZ != 0 ? .greater : .less, writes: true)
+            .depthCompare(function: compareFunction, writes: writesDepth)
 
             if parameters.largeSplatCapacity > 0, let largeSplats = framebuffer.largeSplats, let arguments = framebuffer.largeSplatArguments {
                 // Points too large for the compute stamp; the compute pass wrote the instance count.
@@ -466,7 +474,7 @@ public struct PointCloudResolvePipeline: Element {
                     .parameter("params", functionType: .fragment, value: parameters)
                     .useResource(arguments, usage: .read, stages: .vertex)
                 }
-                .depthCompare(function: parameters.reverseZ != 0 ? .greater : .less, writes: true)
+                .depthCompare(function: compareFunction, writes: writesDepth)
             }
         }
     }

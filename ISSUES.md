@@ -2538,12 +2538,13 @@ Next: draw the same context with only fills, then only strokes, and diff frames;
 ## 100: Unify depth compare API across pipelines (EdgeLines, PointCloud, Slug)
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: effort:s, area:rendering
 created: 2026-10-22T19:52:48Z
-updated: 2026-10-22T20:32:00Z
+updated: 2026-10-22T20:38:16Z
+closed: 2026-10-22T20:38:16Z
 +++
 
 GridShader and GraphicsContext3DRenderPipeline now take `depthCompareFunction` + `writesDepth`. Other pipelines differ:
@@ -2553,6 +2554,8 @@ GridShader and GraphicsContext3DRenderPipeline now take `depthCompareFunction` +
 - `SlugTextRenderPipeline` uses a `reverseZ` flag (`.greater` with writes, or `.always` without).
 
 Fix: add `depthCompareFunction`/`writesDepth` to EdgeLines (defaults `.less`/`true`). Move PointCloud and Slug to the same parameters. Keep the shader-side `reverseZ` if the shader needs it. Leave pipelines that set no depth state alone.
+
+- `2026-10-22T20:38:16Z`: EdgeLines gets depthCompareFunction/writesDepth (defaults .less/true). PointCloudResolvePipeline and SlugTextRenderPipeline get optional overrides; nil keeps the reverseZ-derived behavior, so no source break. Removing reverseZ from their public API is left to #101. No new test: defaults unchanged and covered by existing goldens; the new parameters only forward to depthCompare.
 
 ---
 

@@ -27,8 +27,12 @@ public struct EdgeLinesRenderPipeline: Element {
     var colorizeByTriangle: Bool
     var edgeColor: SIMD4<Float>
     var debugMode: Bool
+    var depthCompareFunction: MTLCompareFunction
+    var writesDepth: Bool
 
-    public init(meshWithEdges: MeshWithEdges, viewProjection: simd_float4x4, lineWidth: Float = 1, viewport: SIMD2<Float>, colorizeByTriangle: Bool = false, edgeColor: SIMD4<Float> = [1, 1, 1, 1], debugMode: Bool = false) {
+    public init(meshWithEdges: MeshWithEdges, viewProjection: simd_float4x4, lineWidth: Float = 1, viewport: SIMD2<Float>, colorizeByTriangle: Bool = false, edgeColor: SIMD4<Float> = [1, 1, 1, 1], debugMode: Bool = false, depthCompareFunction: MTLCompareFunction = .less, writesDepth: Bool = true) {
+        self.depthCompareFunction = depthCompareFunction
+        self.writesDepth = writesDepth
         self.meshWithEdges = meshWithEdges
         self.viewProjection = viewProjection
         self.lineWidth = lineWidth
@@ -108,7 +112,7 @@ public struct EdgeLinesRenderPipeline: Element {
                         .parameter("vertexDescriptor", functionType: .mesh, value: bufferDescriptor)
                         .parameter("uniforms", functionType: .mesh, value: uniforms)
                     }
-                    .depthCompare(function: .less, writes: true)
+                    .depthCompare(function: depthCompareFunction, writes: writesDepth)
                 }
             }
         }

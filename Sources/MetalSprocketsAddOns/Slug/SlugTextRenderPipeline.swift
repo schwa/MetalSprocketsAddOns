@@ -25,7 +25,8 @@ public struct SlugTextRenderPipeline: Element {
     let viewports: [MTLViewport]?
     let wireframe: Bool
     let colorPixelFormat: MTLPixelFormat?
-    let reverseZ: Bool
+    let depthCompareFunction: MTLCompareFunction
+    let writesDepth: Bool
     let fontTextureBuffer: MTLBuffer
     let shaderLibrary: ShaderLibrary
 
@@ -45,7 +46,9 @@ public struct SlugTextRenderPipeline: Element {
         wireframe: Bool = false,
         viewports: [MTLViewport]? = nil,
         colorPixelFormat: MTLPixelFormat? = nil,
-        reverseZ: Bool = false
+        reverseZ: Bool = false,
+        depthCompareFunction: MTLCompareFunction? = nil,
+        writesDepth: Bool? = nil
     ) throws {
         precondition(!viewConstants.isEmpty, "viewConstants must have at least one entry")
         self.scene = scene
@@ -54,7 +57,9 @@ public struct SlugTextRenderPipeline: Element {
         self.viewports = viewports
         self.wireframe = wireframe
         self.colorPixelFormat = colorPixelFormat
-        self.reverseZ = reverseZ
+        // Without overrides: reverse Z depth-tests and writes; otherwise text draws on top.
+        self.depthCompareFunction = depthCompareFunction ?? (reverseZ ? .greater : .always)
+        self.writesDepth = writesDepth ?? reverseZ
         self.shaderLibrary = try ShaderLibrary(bundle: .metalSprocketsAddOnsShaders())
 
         // Create font texture entries buffer. The entry order is the scene's font index order,
@@ -130,7 +135,7 @@ public struct SlugTextRenderPipeline: Element {
                 }
             }
             .vertexDescriptor(GlyphVertex.descriptor)
-            .depthCompare(function: reverseZ ? .greater : .always, writes: reverseZ)
+            .depthCompare(function: depthCompareFunction, writes: writesDepth)
             .renderPipelineDescriptorTransformer { desc in
                 desc.maxVertexAmplificationCount = amplificationCount
                 if let colorPixelFormat {
