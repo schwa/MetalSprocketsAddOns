@@ -2747,3 +2747,27 @@ Keep x-ray as an option (no depth test on the composite). Replace the demo's vis
 - `2026-10-22T21:18:05Z`: The silhouette mask now writes depth in green. JumpFloodOutlineRenderPipeline outputs the nearest masked pixel's depth and takes a depthCompareFunction (default .always = x-ray). With X-ray off, the demo uses an x-ray mask (rg32Float) and a .lessEqual composite, so the box edge no longer gets an outline. Tests: unit test for the composite depth test using the clear depth; the demo golden was renamed to DepthTested.
 
 ---
+
+## 108: Add fast large-radius blur with smoothly animatable radius ("Smol Gaussian")
+
++++
+status: new
+priority: low
+kind: feature
+created: 2026-10-23T13:24:57Z
++++
+
+GaussianBlurPipeline is a direct separable Gaussian, so its cost grows linearly with radius. Very large radii are slow, and there is no cheap blur whose radius can be animated smoothly or set separately for X and Y.
+
+Reference: Aras Pranckevičius, "Fast blur with animated radius" — https://aras-p.info/blog/2026/10/01/Fast-blur-with-animated-radius/ (WebGPU playground + source linked from the post; Blender PR 164496).
+
+Summary of the technique:
+- Downsample to a working resolution (it can differ per axis), run a small separable Gaussian there, then upsample to full resolution.
+- Subtract the variance added by the down/upsampling from the final sigma, so the radius changes smoothly when the level switches.
+- Integrate pixel area correctly for odd sizes (no flicker on bright pixels). Keep a 1px border. Taper the kernel to zero between 3σ and 4σ (no cut-off on HDR highlights).
+- Reconstruct with bilinear up to 2x and a cubic B-spline (bilinear-tap trick) above 2x. Pair the weights into bilinear taps.
+- Cost goes down as the radius gets larger. About the same cost as Skia's blur, and 2–3x faster than Dual Kawase.
+
+Related: Sources/MetalSprocketsAddOns/Pipelines/GaussianBlurPipeline.swift, Shaders/Metal/GaussianBlur.metal.
+
+---
