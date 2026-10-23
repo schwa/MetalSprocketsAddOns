@@ -2792,3 +2792,21 @@ To do:
 - Use -90° if needed.
 
 ---
+
+## 110: Axis lines extend past the horizon
+
++++
+status: new
+priority: low
+kind: bug
+labels: rendering
+created: 2026-10-23T21:10:05Z
++++
+
+AxisLinesRenderPipeline draws the X, Y, and Z axis lines with no end. In a perspective view with GridShader enabled, the X (red) and Z (blue) lines continue above the horizon into the sky, and the Y (green) line runs the full viewport height. The grid fades out at the horizon, so the axis lines look detached from the scene.
+
+Expected: the axis lines can end at the horizon, or where the grid fades, at least when they are drawn together with the grid.
+
+Seen in Radiance (moved from Radiance#54): iPad, Point renderer, dark background, grid and axes on.
+
+---
