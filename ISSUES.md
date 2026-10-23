@@ -2779,8 +2779,15 @@ status: new
 priority: high
 kind: bug
 created: 2026-10-23T19:48:09Z
+updated: 2026-10-23T19:48:27Z
 +++
 
-GeometryLite3D commit aabafead (GeometryLite3D#45) changed simd_float4x4(xRotation:/yRotation:/zRotation:) to rotate counter-clockwise (right-handed, same as simd_quatf). Before, positive angles rotated by -θ. Code here was written against the old behavior.\n\nGridShader.swift:134 uses . The grid stays in the XZ plane, but its facing direction flips (+Y vs -Y).\n\nTo do:\n- Check that the grid still draws with culling enabled and from the expected side.\n- Use -90° if needed.
+GeometryLite3D commit aabafead (GeometryLite3D#45) changed simd_float4x4(xRotation:/yRotation:/zRotation:) to rotate counter-clockwise (right-handed, same as simd_quatf). Before, positive angles rotated by -θ. Code here was written against the old behavior.
+
+GridShader.swift:134 uses `float4x4(xRotation: .degrees(90))`. The grid stays in the XZ plane, but its facing direction flips (+Y vs -Y).
+
+To do:
+- Check that the grid still draws with culling enabled and from the expected side.
+- Use -90° if needed.
 
 ---
