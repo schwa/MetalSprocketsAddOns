@@ -131,7 +131,7 @@ public struct GridShader: Element {
     public var body: some Element {
         get throws {
             try RenderPipeline(label: "Grid", vertexShader: vertexShader, fragmentShader: fragmentShader) {
-                let modelMatrix = float4x4(xRotation: .degrees(90))
+                let modelMatrix = float4x4(xRotation: .degrees(-90))
                 let modelViewProjectionMatrix = viewTransforms.transforms(modelMatrix: modelMatrix).modelViewProjectionMatrix
                 let positions: [Packed3<Float>] = [
                     [-1, 1, 0], [-1, -1, 0], [1, 1, 0], [1, -1, 0]

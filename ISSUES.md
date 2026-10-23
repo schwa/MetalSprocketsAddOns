@@ -2775,11 +2775,12 @@ Related: Sources/MetalSprocketsAddOns/Pipelines/GaussianBlurPipeline.swift, Shad
 ## 109: GridShader grid facing flips after GeometryLite3D rotation fix
 
 +++
-status: new
+status: closed
 priority: high
 kind: bug
 created: 2026-10-23T19:48:09Z
-updated: 2026-10-23T19:48:27Z
+updated: 2026-10-23T20:03:36Z
+closed: 2026-10-23T20:03:36Z
 +++
 
 GeometryLite3D commit aabafead (GeometryLite3D#45) changed simd_float4x4(xRotation:/yRotation:/zRotation:) to rotate counter-clockwise (right-handed, same as simd_quatf). Before, positive angles rotated by -θ. Code here was written against the old behavior.
