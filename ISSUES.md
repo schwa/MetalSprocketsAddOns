@@ -2796,11 +2796,13 @@ To do:
 ## 110: Axis lines extend past the horizon
 
 +++
-status: new
+status: closed
 priority: low
 kind: bug
 labels: rendering
 created: 2026-10-23T21:10:05Z
+updated: 2026-10-24T13:32:50Z
+closed: 2026-10-24T13:32:50Z
 +++
 
 AxisLinesRenderPipeline draws the X, Y, and Z axis lines with no end. In a perspective view with GridShader enabled, the X (red) and Z (blue) lines continue above the horizon into the sky, and the Y (green) line runs the full viewport height. The grid fades out at the horizon, so the axis lines look detached from the scene.

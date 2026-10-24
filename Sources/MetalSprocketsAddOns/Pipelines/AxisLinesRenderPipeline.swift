@@ -15,6 +15,7 @@ public struct AxisLinesRenderPipeline: Element {
     let projectionMatrix: float4x4
     let viewportSize: SIMD2<Float>
     let lineWidth: Float
+    let length: Float
     let nudge: SIMD3<Float>
     let xAxisColor: SIMD4<Float>
     let yAxisColor: SIMD4<Float>
@@ -26,6 +27,7 @@ public struct AxisLinesRenderPipeline: Element {
         projectionMatrix: float4x4,
         viewportSize: SIMD2<Float>,
         lineWidth: Float = 2.0,
+        length: Float = 2_000,
         nudge: SIMD3<Float> = .zero,
         xAxisColor: SIMD4<Float> = [1, 0, 0, 1],
         yAxisColor: SIMD4<Float> = [0, 1, 0, 1],
@@ -36,6 +38,7 @@ public struct AxisLinesRenderPipeline: Element {
         self.projectionMatrix = projectionMatrix
         self.viewportSize = viewportSize
         self.lineWidth = lineWidth
+        self.length = length
         self.nudge = nudge
         self.xAxisColor = xAxisColor
         self.yAxisColor = yAxisColor
@@ -51,6 +54,7 @@ public struct AxisLinesRenderPipeline: Element {
                     projectionMatrix: projectionMatrix,
                     viewportSize: viewportSize,
                     lineWidth: lineWidth,
+                    length: length,
                     nudge: nudge,
                     xAxisColor: xAxisColor,
                     yAxisColor: yAxisColor,

@@ -53,63 +53,44 @@ namespace AxisLines {
             color.a = 0.0;
         }
 
-        // Origin in world space (with nudge)
+        // Project a finite world-space segment so perspective makes it converge toward the horizon.
         float3 origin = uniforms.nudge;
+        float4 clipA = uniforms.mvpMatrix * float4(origin - axisDir * uniforms.length, 1.0);
+        float4 clipB = uniforms.mvpMatrix * float4(origin + axisDir * uniforms.length, 1.0);
 
-        // Transform origin to clip space
-        float4 originClip = uniforms.mvpMatrix * float4(origin, 1.0);
-
-        // Transform to clip space for direction
-        float4 axisDirClip = uniforms.mvpMatrix * float4(origin + axisDir, 1.0);
-
-        // Calculate screen-space direction
-        float2 originNDC = originClip.xy / originClip.w;
-        float2 axisDirNDC = axisDirClip.xy / axisDirClip.w;
-        float2 lineDir = normalize(axisDirNDC - originNDC);
-
-        // Perpendicular direction in screen space
-        float2 perpDir = float2(-lineDir.y, lineDir.x);
-
-        // Convert line width from pixels to NDC
-        float2 lineWidthNDC = (uniforms.lineWidth / uniforms.viewportSize) * 2.0;
-        float2 offset = perpDir * lineWidthNDC * 0.5;
-
-        // Extend line to screen edges (use large value for "infinite")
-        float extensionFactor = 1000.0;
-
-        // Generate quad vertices (2 triangles)
-        float2 positionNDC;
-        float alongAxis; // -1 to +1 along axis
-
-        switch (quadVertexID) {
-        case 0: // Bottom-left
-            positionNDC = originNDC - lineDir * extensionFactor - offset;
-            alongAxis = -1.0;
-            break;
-        case 1: // Bottom-right
-            positionNDC = originNDC - lineDir * extensionFactor + offset;
-            alongAxis = -1.0;
-            break;
-        case 2: // Top-right
-            positionNDC = originNDC + lineDir * extensionFactor + offset;
-            alongAxis = 1.0;
-            break;
-        case 3: // Top-left (for second triangle)
-            positionNDC = originNDC - lineDir * extensionFactor - offset;
-            alongAxis = -1.0;
-            break;
-        case 4: // Top-right (for second triangle)
-            positionNDC = originNDC + lineDir * extensionFactor + offset;
-            alongAxis = 1.0;
-            break;
-        case 5: // Top-left far
-            positionNDC = originNDC + lineDir * extensionFactor - offset;
-            alongAxis = 1.0;
-            break;
+        // Clip the segment to the part in front of the camera before dividing by w.
+        const float minW = 1e-4;
+        if (clipA.w < minW && clipB.w < minW) {
+            out.position = float4(0, 0, 0, 1);
+            out.color = float4(0);
+            return out;
+        }
+        if (clipA.w < minW) {
+            clipA = mix(clipA, clipB, (minW - clipA.w) / (clipB.w - clipA.w));
+        } else if (clipB.w < minW) {
+            clipB = mix(clipB, clipA, (minW - clipB.w) / (clipA.w - clipB.w));
         }
 
-        // Use origin's depth for all vertices
-        out.position = float4(positionNDC * originClip.w, originClip.z, originClip.w);
+        float2 ndcA = clipA.xy / clipA.w;
+        float2 ndcB = clipB.xy / clipB.w;
+
+        // Build the quad offset in pixels so the width is the same in x and y.
+        float2 deltaPixels = (ndcB - ndcA) * uniforms.viewportSize;
+        if (length(deltaPixels) < 1e-6) {
+            color.a = 0.0;
+            deltaPixels = float2(1, 0);
+        }
+        float2 lineDirPixels = normalize(deltaPixels);
+        float2 perpPixels = float2(-lineDirPixels.y, lineDirPixels.x);
+        float2 offset = perpPixels * uniforms.lineWidth / uniforms.viewportSize;
+
+        // 2 triangles: (A-, A+, B+), (A-, B+, B-)
+        bool atB = quadVertexID == 2 || quadVertexID == 4 || quadVertexID == 5;
+        float side = (quadVertexID == 1 || quadVertexID == 2 || quadVertexID == 4) ? 1.0 : -1.0;
+        float4 clip = atB ? clipB : clipA;
+        float2 ndc = (atB ? ndcB : ndcA) + offset * side;
+
+        out.position = float4(ndc * clip.w, clip.z, clip.w);
         out.color = color;
 
         return out;
