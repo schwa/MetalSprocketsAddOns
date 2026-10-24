@@ -4,6 +4,16 @@ import MetalSprocketsAddOnsShaders
 import simd
 
 public struct AxisLinesRenderPipeline: Element {
+    public struct Axes: OptionSet, Sendable {
+        public let rawValue: Int
+        public init(rawValue: Int) { self.rawValue = rawValue }
+
+        public static let x = Self(rawValue: 1 << 0)
+        public static let y = Self(rawValue: 1 << 1)
+        public static let z = Self(rawValue: 1 << 2)
+        public static let all: Self = [.x, .y, .z]
+    }
+
     @MSState
     private var vertexShader = ShaderLibrary.module.namespaced("AxisLines").requiredFunction(named: "vertex_main", type: VertexShader.self)
 
@@ -20,6 +30,7 @@ public struct AxisLinesRenderPipeline: Element {
     let xAxisColor: SIMD4<Float>
     let yAxisColor: SIMD4<Float>
     let zAxisColor: SIMD4<Float>
+    let axes: Axes
 
     public init(
         mvpMatrix: float4x4,
@@ -31,7 +42,8 @@ public struct AxisLinesRenderPipeline: Element {
         nudge: SIMD3<Float> = .zero,
         xAxisColor: SIMD4<Float> = [1, 0, 0, 1],
         yAxisColor: SIMD4<Float> = [0, 1, 0, 1],
-        zAxisColor: SIMD4<Float> = [0, 0, 1, 1]
+        zAxisColor: SIMD4<Float> = [0, 0, 1, 1],
+        axes: Axes = .all
     ) throws {
         self.mvpMatrix = mvpMatrix
         self.viewMatrix = viewMatrix
@@ -43,6 +55,7 @@ public struct AxisLinesRenderPipeline: Element {
         self.xAxisColor = xAxisColor
         self.yAxisColor = yAxisColor
         self.zAxisColor = zAxisColor
+        self.axes = axes
     }
 
     public var body: some Element {
@@ -60,9 +73,12 @@ public struct AxisLinesRenderPipeline: Element {
                     yAxisColor: yAxisColor,
                     zAxisColor: zAxisColor
                 )
+                let axes = axes
                 Draw { encoder in
-                    // Draw 3 axes, each with 6 vertices (2 triangles per quad)
-                    encoder.drawPrimitives(primitiveType: .triangle, vertexStart: 0, vertexCount: 18)
+                    // The shader derives the axis from vertex_id / 6, so each axis is a separate 6-vertex range.
+                    for (index, axis) in [Axes.x, .y, .z].enumerated() where axes.contains(axis) {
+                        encoder.drawPrimitives(primitiveType: .triangle, vertexStart: index * 6, vertexCount: 6)
+                    }
                 }
                 .parameter("uniforms", functionType: .vertex, value: uniforms)
             }
