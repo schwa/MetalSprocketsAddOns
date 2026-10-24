@@ -2812,3 +2812,19 @@ Expected: the axis lines can end at the horizon, or where the grid fades, at lea
 Seen in Radiance (moved from Radiance#54): iPad, Point renderer, dark background, grid and axes on.
 
 ---
+
+## 111: AxisLinesRenderPipeline: choose which axes to draw
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: area:rendering,effort:xs
+created: 2026-10-24T22:18:31Z
++++
+
+AxisLinesRenderPipeline always draws X, Y and Z. Callers such as SceneSprockets Composer want to hide some, typically the Y (green) line, which runs straight up through the scene. Add an axes option (an OptionSet .x, .y, .z, default all) and skip the hidden ones (draw fewer quads, or zero their vertices).
+
+Workaround today: pass the axis color with alpha 0. The fragment shader discards fragments with alpha 0 (AxisLines.metal, around line 100), so the line disappears. That is undocumented and wastes the draw.
+
+---
