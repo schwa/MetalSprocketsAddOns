@@ -46,7 +46,7 @@ extension Demo {
     /// Whether the demo has an immersive version. Others need stereo support first (#119-#125).
     var hasImmersiveVersion: Bool {
         switch self {
-        case .graphicsContext3D, .jumpFloodOutline: true
+        case .graphicsContext3D, .jumpFloodOutline, .slugText: true
         default: false
         }
     }
@@ -58,6 +58,20 @@ struct ImmersiveDemoScene: Element {
 
     // Read-only after creation; built once rather than every frame.
     nonisolated(unsafe) private static let sphere = MetalMesh(mtkMesh: MTKMesh.sphere(extent: [0.8, 0.8, 0.8]))
+    // Built once; each frame only updates its spin.
+    nonisolated(unsafe) private static let slugScene = try? SlugTextDemoScene.makeScene(text: "Metal\nSprockets", fontSize: 144)
+
+    /// The Slug Text demo's text, about 0.6 m wide and 1.5 m in front at eye height, spinning.
+    private func slugText(scene: SlugScene, mesh: SlugTextMesh, viewProjections: [float4x4], viewports: [MTLViewport], viewportSize: SIMD2<Float>) throws -> SlugTextRenderPipeline {
+        SlugTextDemoScene.setSpin(Float(context.time), in: scene)
+        // Text is laid out in points: centre it, then scale points to meters.
+        let scale = 0.6 / Float(max(mesh.bounds.width, 1))
+        let placement = float4x4(translation: [0, 1.3, -1.5])
+            * float4x4(scale: [scale, scale, scale])
+            * float4x4(translation: [-Float(mesh.bounds.midX), -Float(mesh.bounds.midY), 0])
+        let constants = viewProjections.map { SlugFrameConstants(viewProjectionMatrix: $0 * placement, viewportSize: viewportSize) }
+        return try SlugTextRenderPipeline(scene: scene, viewConstants: constants, viewports: viewports, reverseZ: true)
+    }
 
     var body: some Element {
         get throws {
@@ -81,6 +95,10 @@ struct ImmersiveDemoScene: Element {
                 switch demo {
                 case .graphicsContext3D:
                     GraphicsContext3DRenderPipeline(context: drawing, views: contextViews, viewport: viewportSize, depthCompareFunction: .greater, writesDepth: true)
+                case .slugText:
+                    if let scene = Self.slugScene, let mesh = scene.meshes.first {
+                        try slugText(scene: scene, mesh: mesh, viewProjections: viewProjections, viewports: viewports, viewportSize: viewportSize)
+                    }
                 case .jumpFloodOutline:
                     // The silhouette mask only, for now; outlines are #125.
                     SilhouetteMaskRenderPipeline(instances: [.init(mesh: Self.sphere, transform: sphereTransform)], views: sphereViews, depthCompareFunction: .greater, writesDepth: true)

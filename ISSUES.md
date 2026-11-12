@@ -3052,16 +3052,19 @@ The ray-traced shadow compute pass works on one screen-space view only, so the R
 ## 122: Slug Text demo is not available in the immersive space
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: area:rendering, effort:s
 depends: 118
 created: 2026-11-12T19:58:59Z
-updated: 2026-11-12T20:26:50Z
+updated: 2026-11-12T20:43:03Z
+closed: 2026-11-12T20:43:03Z
 +++
 
 SlugTextRenderPipeline supports multiple views, but the Slug Text demo is not drawn in the immersive space.
+
+- `2026-11-12T20:43:03Z`: The immersive space draws the Slug Text demo's text (about 0.6 m wide, 1.5 m ahead, spinning) per eye with reverse-Z depth; the button is enabled for it. Not run on device yet. No unit test: visionOS-only code.
 
 ---
 
