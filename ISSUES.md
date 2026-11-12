@@ -3079,16 +3079,19 @@ SlugTextRenderPipeline supports multiple views, but the Slug Text demo is not dr
 ## 123: Point Cloud demo cannot run in the immersive space
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: area:rendering, effort:l
 depends: 118
 created: 2026-11-12T19:58:59Z
-updated: 2026-11-12T20:26:50Z
+updated: 2026-11-12T21:37:45Z
+closed: 2026-11-12T21:37:45Z
 +++
 
 The PointCloud compute rasterizer writes one 2D view only, so the Point Cloud demo cannot draw both eyes in the immersive space.
+
+- `2026-11-12T21:37:45Z`: PointCloudResolvePipeline takes views + viewIndex and routes to that view's render target slice and viewport (layered and side-by-side layouts, unit-tested on macOS). The immersive space now rasterizes the Point Cloud demo per eye (1M points) and resolves both eyes. Builds for visionOS device; not run on Apple Vision Pro yet.
 
 ---
 

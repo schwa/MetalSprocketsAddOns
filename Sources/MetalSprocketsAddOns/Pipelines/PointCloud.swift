@@ -424,10 +424,15 @@ public struct PointCloudRasterizePass: Element {
 ///
 /// Place it inside the render pass that follows ``PointCloudRasterizePass``. Points are
 /// depth-tested against the rest of the pass, so the pass needs a depth attachment.
+///
+/// For a multi-view pass (such as both eyes of a visionOS immersive space), rasterize each view into its own
+/// framebuffer and add one resolve per view, passing the pass's `views` and that view's index.
 public struct PointCloudResolvePipeline: Element {
     let framebuffer: PointCloudFramebuffer
     let depthCompareFunction: MTLCompareFunction?
     let writesDepth: Bool
+    let views: StereoViews?
+    let viewIndex: Int
 
     @MSState
     private var vertexShader = ShaderLibrary.module.namespaced("PointCloud").requiredFunction(named: "resolve_vertex", type: VertexShader.self)
@@ -444,37 +449,64 @@ public struct PointCloudResolvePipeline: Element {
     /// - Parameters:
     ///   - depthCompareFunction: Overrides the depth test. When nil, `.greater` with reverse Z, otherwise `.less`.
     ///   - writesDepth: Whether points write depth.
-    public init(framebuffer: PointCloudFramebuffer, depthCompareFunction: MTLCompareFunction? = nil, writesDepth: Bool = true) {
+    ///   - views: The pass's views. When stereo, the resolve draws into view `viewIndex`'s slice and viewport.
+    ///   - viewIndex: Which of `views` this framebuffer was rasterized for.
+    public init(framebuffer: PointCloudFramebuffer, depthCompareFunction: MTLCompareFunction? = nil, writesDepth: Bool = true, views: StereoViews? = nil, viewIndex: Int = 0) {
+        precondition(viewIndex >= 0 && viewIndex < (views?.count ?? 1), "viewIndex out of range")
         self.framebuffer = framebuffer
         self.depthCompareFunction = depthCompareFunction
         self.writesDepth = writesDepth
+        self.views = views
+        self.viewIndex = viewIndex
+    }
+
+    var resolveView: PointCloudResolveView {
+        guard let views, views.isStereo else {
+            return PointCloudResolveView(viewportOrigin: .zero, viewIndex: 0)
+        }
+        let viewport = views.viewports[viewIndex]
+        return PointCloudResolveView(viewportOrigin: SIMD2(Float(viewport.originX), Float(viewport.originY)), viewIndex: UInt32(viewIndex))
     }
 
     public var body: some Element {
         get throws {
             let (buffer, parameters) = try rasterizedFrame()
             let compareFunction = depthCompareFunction ?? (parameters.reverseZ != 0 ? .greater : .less)
+            let views = views
+            let resolveView = resolveView
             try RenderPipeline(label: "PointCloud Resolve", vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 Draw { encoder in
+                    views?.setViewports(encoder)
                     encoder.drawPrimitives(primitiveType: .triangle, vertexStart: 0, vertexCount: 3)
                 }
                 .parameter("framebuffer", functionType: .fragment, buffer: buffer)
                 .parameter("params", functionType: .fragment, value: parameters)
+                .parameter("view", functionType: .vertex, value: resolveView)
+                .parameter("view", functionType: .fragment, value: resolveView)
             }
             .depthCompare(function: compareFunction, writes: writesDepth)
+            // Writing the render target array index needs a declared primitive topology.
+            .renderPipelineDescriptorTransformer { descriptor in
+                descriptor.inputPrimitiveTopology = .triangle
+            }
 
             if parameters.largeSplatCapacity > 0, let largeSplats = framebuffer.largeSplats, let arguments = framebuffer.largeSplatArguments {
                 // Points too large for the compute stamp; the compute pass wrote the instance count.
                 try RenderPipeline(label: "PointCloud Large Splats", vertexShader: largeSplatVertexShader, fragmentShader: largeSplatFragmentShader) {
                     Draw { encoder in
+                        views?.setViewports(encoder)
                         encoder.drawPrimitives(primitiveType: .triangle, indirectBuffer: arguments.gpuAddress)
                     }
                     .parameter("largeSplats", functionType: .vertex, buffer: largeSplats)
                     .parameter("params", functionType: .vertex, value: parameters)
+                    .parameter("view", functionType: .vertex, value: resolveView)
                     .parameter("params", functionType: .fragment, value: parameters)
                     .useResource(arguments, usage: .read, stages: .vertex)
                 }
                 .depthCompare(function: compareFunction, writes: writesDepth)
+                .renderPipelineDescriptorTransformer { descriptor in
+                    descriptor.inputPrimitiveTopology = .triangle
+                }
             }
         }
     }

@@ -242,3 +242,63 @@ func testStereo_graphicsContext3DText() throws {
     #expect(maximumRed(aroundX: 16, slice: 1) == 0)
 }
 #endif
+
+// A grid of red points around the centre, rasterized once per view and resolved into each view's slice or viewport.
+@MainActor
+private func stereoPointCloud(views: StereoViews, size: Int) throws -> some Element {
+    let device = _MTLCreateSystemDefaultDevice()
+    var points: [PointCloudPoint] = []
+    for y in -4...4 {
+        for x in -4...4 {
+            points.append(PointCloudPoint(position: [Float(x) * 0.04, Float(y) * 0.04, 0.5], color: SIMD4<UInt8>(255, 0, 0, 255)))
+        }
+    }
+    let buffer = try #require(device.makeBuffer(bytes: points, length: points.count * MemoryLayout<PointCloudPoint>.stride, options: .storageModeShared))
+    let framebuffers = views.viewProjections.map { _ in PointCloudFramebuffer() }
+    return try MetalSprockets.Group {
+        ForEach(Array(views.viewProjections.enumerated()), id: \.offset) { index, viewProjection in
+            try PointCloudRasterizePass(points: buffer, count: points.count, viewProjection: viewProjection, viewportSize: [size, size], framebuffer: framebuffers[index], pointSize: 4, colorSpace: .linear)
+        }
+        try RenderPass {
+            ForEach(Array(framebuffers.enumerated()), id: \.offset) { index, framebuffer in
+                PointCloudResolvePipeline(framebuffer: framebuffer, depthCompareFunction: .always, views: views, viewIndex: index)
+            }
+        }
+    }
+}
+
+@Test(.requiresMetal4)
+@MainActor
+func testStereo_pointCloudLayered() throws {
+    let target = try StereoTarget()
+    let element = try stereoPointCloud(views: target.views, size: StereoTarget.size)
+    _ = try target.renderer.render(element)
+    target.expectShiftedPerEye()
+}
+
+// Both views side by side in one texture, as in the compositor's shared layout.
+@Test(.requiresMetal4)
+@MainActor
+func testStereo_pointCloudSideBySide() throws {
+    let size = StereoTarget.size
+    let renderer = try OffscreenRenderer(size: CGSize(width: size * 2, height: size))
+    let views = StereoViews(
+        viewMatrices: [float4x4(translation: [-0.5, 0, 0]), float4x4(translation: [0.5, 0, 0])],
+        projectionMatrices: [matrix_identity_float4x4, matrix_identity_float4x4],
+        viewports: [
+            MTLViewport(originX: 0, originY: 0, width: Double(size), height: Double(size), znear: 0, zfar: 1),
+            MTLViewport(originX: Double(size), originY: 0, width: Double(size), height: Double(size), znear: 0, zfar: 1)
+        ]
+    )
+    let rendering = try renderer.render(try stereoPointCloud(views: views, size: size))
+    let texture = rendering.texture
+    func red(x: Int, y: Int) -> UInt8 {
+        var pixel = [UInt8](repeating: 0, count: 4)
+        texture.getBytes(&pixel, bytesPerRow: size * 2 * 4, from: MTLRegionMake2D(x, y, 1, 1), mipmapLevel: 0)
+        return [.bgra8Unorm, .bgra8Unorm_srgb].contains(texture.pixelFormat) ? pixel[2] : pixel[0]
+    }
+    #expect(red(x: 16, y: 32) > 128, "Left view draws its points")
+    #expect(red(x: 48, y: 32) == 0)
+    #expect(red(x: size + 48, y: 32) > 128, "Right view draws its points in its own viewport")
+    #expect(red(x: size + 16, y: 32) == 0)
+}

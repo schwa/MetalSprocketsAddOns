@@ -110,3 +110,12 @@ struct PointCloudParameters {
     uint32_t largeSplatsCounted;
 };
 typedef struct PointCloudParameters PointCloudParameters;
+
+/// Which view of a multi-view pass the resolve draws into.
+struct PointCloudResolveView {
+    /// The view's viewport origin in render target pixels, subtracted to find the framebuffer pixel.
+    simd_float2 viewportOrigin;
+    /// Render target array slice and viewport index.
+    uint32_t viewIndex;
+};
+typedef struct PointCloudResolveView PointCloudResolveView;

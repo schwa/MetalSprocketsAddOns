@@ -191,10 +191,14 @@ namespace PointCloud {
 
     struct ResolveVertexOut {
         float4 position [[position]];
+        uint layer [[render_target_array_index]];
+        uint viewportIndex [[viewport_array_index]];
     };
 
     struct LargeSplatVertexOut {
         float4 position [[position]];
+        uint layer [[render_target_array_index]];
+        uint viewportIndex [[viewport_array_index]];
         float2 offset;
         float radius [[flat]];
         uint shape [[flat]];
@@ -206,9 +210,12 @@ namespace PointCloud {
         uint vertexID [[vertex_id]],
         uint instanceID [[instance_id]],
         const device PointCloudLargeSplat *largeSplats [[buffer(0)]],
-        constant PointCloudParameters &params [[buffer(1)]]
+        constant PointCloudParameters &params [[buffer(1)]],
+        constant PointCloudResolveView &view [[buffer(2)]]
     ) {
         LargeSplatVertexOut out;
+        out.layer = view.viewIndex;
+        out.viewportIndex = view.viewIndex;
         if (instanceID >= params.largeSplatCapacity) {
             // More points overflowed than fit; the extras were clamped in the compute pass.
             out.position = float4(0, 0, -1, 1);
@@ -240,10 +247,10 @@ namespace PointCloud {
         return decodeColour(in.color, params.colorSpace);
     }
 
-    [[vertex]] ResolveVertexOut resolve_vertex(uint vertexID [[vertex_id]]) {
+    [[vertex]] ResolveVertexOut resolve_vertex(uint vertexID [[vertex_id]], constant PointCloudResolveView &view [[buffer(0)]]) {
         // Oversized triangle covering the viewport.
         float2 uv = float2((vertexID << 1) & 2, vertexID & 2);
-        return { float4(uv * 2.0 - 1.0, 0.0, 1.0) };
+        return { float4(uv * 2.0 - 1.0, 0.0, 1.0), view.viewIndex, view.viewIndex };
     }
 
     struct ResolveFragmentOut {
@@ -254,9 +261,14 @@ namespace PointCloud {
     [[fragment]] ResolveFragmentOut resolve_fragment(
         ResolveVertexOut in [[stage_in]],
         device void *framebuffer [[buffer(0)]],
-        constant PointCloudParameters &params [[buffer(1)]]
+        constant PointCloudParameters &params [[buffer(1)]],
+        constant PointCloudResolveView &view [[buffer(2)]]
     ) {
-        uint2 pixel = uint2(in.position.xy);
+        float2 local = in.position.xy - view.viewportOrigin;
+        if (any(local < 0.0) || any(local >= float2(params.viewportSize))) {
+            discard_fragment();
+        }
+        uint2 pixel = uint2(local);
         uint index = pixel.y * params.viewportSize.x + pixel.x;
         float depth;
         float4 color;

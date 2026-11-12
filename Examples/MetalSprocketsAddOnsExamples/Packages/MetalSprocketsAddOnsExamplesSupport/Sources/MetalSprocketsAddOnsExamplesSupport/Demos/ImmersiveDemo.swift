@@ -5,6 +5,7 @@ import MetalSprockets
 import MetalSprocketsAddOns
 import MetalSprocketsAddOnsShaders
 import MetalSprocketsUI
+import MetalSupport
 import os
 import simd
 import SwiftMesh
@@ -54,6 +55,7 @@ extension Demo {
     var hasImmersiveVersion: Bool {
         switch self {
         case .graphicsContext3D, .jumpFloodOutline, .slugText, .debugShading, .blinnPhong: true
+        case .pointCloud: PointCloudFramebuffer.isSupported(on: _MTLCreateSystemDefaultDevice())
         default: false
         }
     }
@@ -80,6 +82,16 @@ enum ImmersiveDemoShared {
             ([0, 0, 0], Light(type: .point, color: [0.4, 0.7, 1], intensity: 20 * placementScale * placementScale))
         ]
     )
+
+    // Built once, on first use. One million points: the immersive space keeps a frame rate the desktop demo does not need to.
+    static let pointCloudScene: PointCloudDemoScene? = PointCloudFramebuffer.isSupported(on: _MTLCreateSystemDefaultDevice())
+        ? try? PointCloudDemoScene(pointCount: 1_000_000, colorMode: .position)
+        : nil
+
+    /// The point cloud's model matrix: the knot (about 0 to 2 high) centred on the shared placement.
+    static func pointCloudModelMatrix(_ context: ImmersiveContext) -> float4x4 {
+        world(context) * float4x4(translation: [0, -1, 0])
+    }
 
     static func views(_ context: ImmersiveContext) -> StereoViews {
         context.stereoViews
@@ -110,6 +122,9 @@ struct ImmersiveDemoPrepass: Element {
     var body: some Element {
         get throws {
             try Group {
+                if ImmersiveDemoSelection.current == .pointCloud, let scene = ImmersiveDemoShared.pointCloudScene {
+                    try scene.rasterize(views: ImmersiveDemoShared.views(context), modelMatrix: ImmersiveDemoShared.pointCloudModelMatrix(context), pointSize: 2)
+                }
                 if ImmersiveDemoSelection.current == .jumpFloodOutline {
                     let (mask, seeds) = try ImmersiveDemoShared.outlineMaskAndSeeds(context)
                     let instance = SilhouetteMaskRenderPipeline.Instance(mesh: ImmersiveDemoShared.sphereMetalMesh, transform: ImmersiveDemoShared.sphereModelMatrix(context))
@@ -242,6 +257,10 @@ struct ImmersiveDemoScene: Element {
                     try blinnPhong()
                 case .jumpFloodOutline:
                     try outlinedSphere()
+                case .pointCloud:
+                    if let scene = ImmersiveDemoShared.pointCloudScene {
+                        scene.resolve(views: views)
+                    }
                 default:
                     EmptyElement()
                 }

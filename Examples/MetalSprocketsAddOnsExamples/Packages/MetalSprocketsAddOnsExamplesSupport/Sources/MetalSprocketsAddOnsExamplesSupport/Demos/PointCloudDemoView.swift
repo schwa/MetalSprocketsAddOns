@@ -168,6 +168,8 @@ final class PointCloudDemoScene: @unchecked Sendable {
     let points: MTLBuffer
     let pointCount: Int
     let framebuffer = PointCloudFramebuffer()
+    /// One framebuffer per view for multi-view rendering.
+    let viewFramebuffers = (0..<StereoViews.maximumCount).map { _ in PointCloudFramebuffer() }
     let customDescribe: PointCloudPointFunction
 
     /// How every point is drawn.
@@ -317,6 +319,31 @@ final class PointCloudDemoScene: @unchecked Sendable {
                 }
                 try PointCloudResolvePipeline(framebuffer: framebuffer)
             }
+        }
+    }
+
+    /// Rasterizes the points once per view, with reverse Z. Run before the pass that holds ``resolve(views:)``.
+    func rasterize(views: StereoViews, modelMatrix: float4x4, pointSize: Float) throws -> some Element {
+        try MetalSprockets.Group {
+            ForEach(Array(views.viewProjections.enumerated()), id: \.offset) { index, viewProjection in
+                let viewport = views.viewports[index]
+                try PointCloudRasterizePass(
+                    points: self.points,
+                    count: self.pointCount,
+                    viewProjection: viewProjection * modelMatrix,
+                    viewportSize: SIMD2(Int(viewport.width), Int(viewport.height)),
+                    reverseZ: true,
+                    framebuffer: self.viewFramebuffers[index],
+                    pointSize: pointSize
+                )
+            }
+        }
+    }
+
+    /// Writes each view's points into its slice or viewport of the current render pass.
+    func resolve(views: StereoViews) -> some Element {
+        ForEach(Array(views.viewProjections.indices), id: \.self) { index in
+            PointCloudResolvePipeline(framebuffer: self.viewFramebuffers[index], views: views, viewIndex: index)
         }
     }
 }
