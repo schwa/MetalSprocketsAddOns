@@ -2757,12 +2757,13 @@ Keep x-ray as an option (no depth test on the composite). Replace the demo's vis
 ## 108: Add fast large-radius blur with smoothly animatable radius ("Smol Gaussian")
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: effort:l, area:rendering
 created: 2026-10-23T13:24:57Z
-updated: 2026-11-12T20:26:50Z
+updated: 2026-11-12T21:32:10Z
+closed: 2026-11-12T21:32:10Z
 +++
 
 GaussianBlurPipeline is a direct separable Gaussian, so its cost grows linearly with radius. Very large radii are slow, and there is no cheap blur whose radius can be animated smoothly or set separately for X and Y.
