@@ -21,7 +21,13 @@ public struct ImmersiveDemoSpace: Scene {
 
     public var body: some Scene {
         ImmersiveSpace(id: immersiveDemoSpaceID) {
-            ImmersiveRenderContent { context in
+            // No foveation: the outline pass reads a full-resolution mask by pixel position, which a foveated
+            // (rasterization-rate-mapped) pass would not match.
+            ImmersiveRenderContent(foveation: false) { context in
+                // Offscreen work goes outside the compositor's pass; ending it through the compositor's render
+                // context would end the command buffer.
+                ImmersiveDemoPrepass(context: context)
+                    .immersiveRenderContext(nil)
                 ImmersiveRenderPass(context: context, label: "AddOns Immersive") {
                     ImmersiveDemoScene(context: context)
                 }
@@ -52,23 +58,81 @@ extension Demo {
     }
 }
 
+/// Per-frame values every immersive demo shares, and resources built once. The render loop is one actor, so the
+/// shared state is only touched from it.
+enum ImmersiveDemoShared {
+    // Read-only after creation; built once rather than every frame.
+    nonisolated(unsafe) static let debugShadingScene = DebugShadingDemoScene()
+    nonisolated(unsafe) static let sphereMetalMesh = MetalMesh(mtkMesh: debugShadingScene.sphere)
+    // Built once; each frame only updates its spin.
+    nonisolated(unsafe) static let slugScene = try? SlugTextDemoScene.makeScene(text: "Metal\nSprockets", fontSize: 144)
+    // One set, reused every frame. Frames in flight share it, which can show a stale outline for a frame.
+    nonisolated(unsafe) static let outlineTextures = JumpFloodDemoTextures()
+    static let outlineWidth: Float = 8
+
+    static func views(_ context: ImmersiveContext) -> StereoViews {
+        let viewProjections = (0 ..< context.viewCount).map { context.projectionMatrix(eye: $0) * context.viewMatrix(eye: $0) }
+        return StereoViews(viewProjections: viewProjections, viewports: context.viewports)
+    }
+
+    /// About 1.2 m in front at eye height, scaled from the demos' ±1.5 units to about ±0.3 m, spinning.
+    static func world(_ context: ImmersiveContext) -> float4x4 {
+        let placement = float4x4(translation: [0, 1.3, -1.2]) * float4x4(scale: [0.2, 0.2, 0.2])
+        return placement * float4x4(simd_quatf(angle: Float(context.time) * 0.5, axis: [0, 1, 0]))
+    }
+
+    /// The Debug Shading sphere's model matrix, about 0.4 m across.
+    static func sphereModelMatrix(_ context: ImmersiveContext) -> float4x4 {
+        world(context) * float4x4(scale: [2, 2, 2])
+    }
+
+    /// The outline's mask and seeds: one slice per eye, sized to an eye's view.
+    static func outlineMaskAndSeeds(_ context: ImmersiveContext) throws -> (mask: MTLTexture, seeds: MTLTexture) {
+        let viewport = context.viewports[0]
+        return try outlineTextures.textures(width: Int(viewport.width), height: Int(viewport.height), arrayLength: context.viewCount)
+    }
+}
+
+/// Offscreen work before the compositor's pass: the Jump Flood Outlines demo's mask and flood.
+struct ImmersiveDemoPrepass: Element {
+    let context: ImmersiveContext
+
+    var body: some Element {
+        get throws {
+            try Group {
+                if ImmersiveDemoSelection.current == .jumpFloodOutline {
+                    let (mask, seeds) = try ImmersiveDemoShared.outlineMaskAndSeeds(context)
+                    let instance = SilhouetteMaskRenderPipeline.Instance(mesh: ImmersiveDemoShared.sphereMetalMesh, transform: ImmersiveDemoShared.sphereModelMatrix(context))
+                    try RenderPass(label: "Immersive Silhouette Mask") {
+                        SilhouetteMaskRenderPipeline(instances: [instance], views: ImmersiveDemoShared.views(context))
+                    }
+                    .renderPassDescriptorModifier { descriptor in
+                        descriptor.colorAttachments[0].texture = mask
+                        descriptor.colorAttachments[0].loadAction = .clear
+                        descriptor.colorAttachments[0].storeAction = .store
+                        descriptor.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
+                        descriptor.depthAttachment.texture = nil
+                        descriptor.stencilAttachment.texture = nil
+                        descriptor.renderTargetArrayLength = mask.arrayLength
+                        descriptor.rasterizationRateMap = nil
+                    }
+                    JumpFloodPipeline(mask: mask, seeds: seeds, maximumDistance: ImmersiveDemoShared.outlineWidth)
+                }
+            }
+        }
+    }
+}
+
 /// The selected demo's immersive version, in front of the viewer. Demos without one draw nothing.
 struct ImmersiveDemoScene: Element {
     let context: ImmersiveContext
 
-    // Read-only after creation; built once rather than every frame.
-    nonisolated(unsafe) private static let sphere = MetalMesh(mtkMesh: MTKMesh.sphere(extent: [0.8, 0.8, 0.8]))
-    // Built once; each frame only updates its spin.
-    nonisolated(unsafe) private static let slugScene = try? SlugTextDemoScene.makeScene(text: "Metal\nSprockets", fontSize: 144)
-
-    nonisolated(unsafe) private static let debugShadingScene = DebugShadingDemoScene()
-
     /// The Debug Shading demo's sphere with normals shown as colors, spinning.
-    private func debugShading(world: float4x4, viewProjections: [float4x4], viewports: [MTLViewport]) throws -> some Element {
-        let mesh = Self.debugShadingScene.sphere
-        let modelMatrix = world * float4x4(scale: [2, 2, 2])
+    private func debugShading() throws -> some Element {
+        let mesh = ImmersiveDemoShared.debugShadingScene.sphere
+        let views = ImmersiveDemoShared.views(context)
+        let modelMatrix = ImmersiveDemoShared.sphereModelMatrix(context)
         let normalMatrix = float3x3(modelMatrix.columns.0.xyz, modelMatrix.columns.1.xyz, modelMatrix.columns.2.xyz)
-        let views = StereoViews(viewProjections: viewProjections, viewports: viewports)
         return try DebugRenderPipeline(
             modelMatrix: modelMatrix,
             normalMatrix: normalMatrix,
@@ -89,6 +153,15 @@ struct ImmersiveDemoScene: Element {
     }
 
     /// The Slug Text demo's text, about 0.6 m wide and 1.5 m in front at eye height, spinning.
+    /// The Debug Shading sphere with an outline from the prepass's mask and flood, drawn over everything.
+    private func outlinedSphere() throws -> some Element {
+        let (mask, seeds) = try ImmersiveDemoShared.outlineMaskAndSeeds(context)
+        return try Group {
+            try debugShading()
+            JumpFloodOutlineRenderPipeline(mask: mask, seeds: seeds, color: [1, 0.8, 0.2, 1], width: ImmersiveDemoShared.outlineWidth, writesDepth: true, views: ImmersiveDemoShared.views(context))
+        }
+    }
+
     private func slugText(scene: SlugScene, mesh: SlugTextMesh, viewProjections: [float4x4], viewports: [MTLViewport], viewportSize: SIMD2<Float>) throws -> SlugTextRenderPipeline {
         SlugTextDemoScene.setSpin(Float(context.time), in: scene)
         // Text is laid out in points: centre it, then scale points to meters.
@@ -103,18 +176,11 @@ struct ImmersiveDemoScene: Element {
     var body: some Element {
         get throws {
             let demo = ImmersiveDemoSelection.current
-            let eyes = 0 ..< context.viewCount
-            let viewProjections = eyes.map { context.projectionMatrix(eye: $0) * context.viewMatrix(eye: $0) }
+            let viewProjections = ImmersiveDemoShared.views(context).viewProjections
             let viewports = context.viewports
             let viewportSize = SIMD2<Float>(Float(viewports[0].width), Float(viewports[0].height))
-
-            // About 1.2 m in front at eye height, scaled from the demo's ±1.5 units to about ±0.3 m.
-            let placement = float4x4(translation: [0, 1.3, -1.2]) * float4x4(scale: [0.2, 0.2, 0.2])
-            let spin = float4x4(simd_quatf(angle: Float(context.time) * 0.5, axis: [0, 1, 0]))
-            let world = placement * spin
+            let world = ImmersiveDemoShared.world(context)
             let contextViews = StereoViews(viewProjections: viewProjections.map { $0 * world }, viewports: viewports)
-            let sphereViews = StereoViews(viewProjections: viewProjections, viewports: viewports)
-            let sphereTransform = placement * float4x4(translation: [2.2, 0, 0]) * spin
 
             let drawing = GraphicsContext3DDemoScene.context(lineWidth: 6, lineCap: .round, lineJoin: .round, showFill: true)
             // The compositor uses reverse Z. visionOS shows color only where depth is written.
@@ -123,14 +189,13 @@ struct ImmersiveDemoScene: Element {
                 case .graphicsContext3D:
                     GraphicsContext3DRenderPipeline(context: drawing, views: contextViews, viewport: viewportSize, depthCompareFunction: .greater, writesDepth: true)
                 case .slugText:
-                    if let scene = Self.slugScene, let mesh = scene.meshes.first {
+                    if let scene = ImmersiveDemoShared.slugScene, let mesh = scene.meshes.first {
                         try slugText(scene: scene, mesh: mesh, viewProjections: viewProjections, viewports: viewports, viewportSize: viewportSize)
                     }
                 case .debugShading:
-                    try debugShading(world: world, viewProjections: viewProjections, viewports: viewports)
+                    try debugShading()
                 case .jumpFloodOutline:
-                    // The silhouette mask only, for now; outlines are #125.
-                    SilhouetteMaskRenderPipeline(instances: [.init(mesh: Self.sphere, transform: sphereTransform)], views: sphereViews, depthCompareFunction: .greater, writesDepth: true)
+                    try outlinedSphere()
                 default:
                     EmptyElement()
                 }

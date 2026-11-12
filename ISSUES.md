@@ -3106,16 +3106,19 @@ DebugShaders.metal reads per-eye matrices by [[amplification_id]], but DebugRend
 ## 125: Jump Flood Outlines demo cannot run in the immersive space
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: area:rendering, effort:s
 depends: 118, 114
 created: 2026-11-12T19:58:59Z
-updated: 2026-11-12T20:26:50Z
+updated: 2026-11-12T20:47:07Z
+closed: 2026-11-12T20:47:07Z
 +++
 
 JumpFlood outlines are single-view (#114), so the Jump Flood Outlines demo cannot draw both eyes in the immersive space.
+
+- `2026-11-12T20:47:07Z`: The immersive space draws the Debug Shading sphere with a jump-flood outline: a prepass (outside the compositor pass) renders a 2-slice silhouette mask and floods it; the compositor pass draws the outline per eye. Added JumpFloodOutlineRenderPipeline(writesDepth:) since visionOS shows color only where depth is written. The demo space now runs with foveation off, because the outline reads the full-resolution mask by pixel position. Mask/seed textures are shared by frames in flight (possible one-frame stale outline). Not run on device yet. No new unit test: visionOS-only code; writesDepth is a passthrough to depthCompare.
 
 ---
 

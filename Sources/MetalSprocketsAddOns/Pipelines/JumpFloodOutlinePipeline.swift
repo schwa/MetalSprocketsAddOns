@@ -133,6 +133,7 @@ public struct JumpFloodOutlineRenderPipeline: Element {
     let color: SIMD4<Float>
     let width: Float
     let depthCompareFunction: MTLCompareFunction
+    let writesDepth: Bool
     let views: StereoViews?
 
     @MSState
@@ -144,9 +145,12 @@ public struct JumpFloodOutlineRenderPipeline: Element {
     @MSState
     private var arrayFragmentShader = ShaderLibrary.module.namespaced("JumpFlood").requiredFunction(named: "outline_fragment_array", type: FragmentShader.self)
 
-    public init(mask: MTLTexture, seeds: MTLTexture, color: SIMD4<Float>, width: Float, depthCompareFunction: MTLCompareFunction = .always, views: StereoViews? = nil) {
+    /// `writesDepth` writes the outline's depth (the nearest masked pixel's), e.g. for visionOS, which shows color only
+    /// where depth is written.
+    public init(mask: MTLTexture, seeds: MTLTexture, color: SIMD4<Float>, width: Float, depthCompareFunction: MTLCompareFunction = .always, writesDepth: Bool = false, views: StereoViews? = nil) {
         precondition((mask.textureType == .type2DArray) == (seeds.textureType == .type2DArray), "mask and seeds must both be 2D or both be 2D arrays")
         self.views = views
+        self.writesDepth = writesDepth
         self.mask = mask
         self.seeds = seeds
         self.color = color
@@ -168,7 +172,7 @@ public struct JumpFloodOutlineRenderPipeline: Element {
                 .parameter("seeds", texture: seeds)
                 .parameter("params", functionType: .fragment, value: parameters)
             }
-            .depthCompare(function: depthCompareFunction, writes: false)
+            .depthCompare(function: depthCompareFunction, writes: writesDepth)
             .renderPipelineDescriptorTransformer { [viewCount = views?.count ?? 1] descriptor in
                 descriptor.maxVertexAmplificationCount = viewCount
                 guard let attachment = descriptor.colorAttachments[0] else {

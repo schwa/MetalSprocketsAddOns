@@ -194,24 +194,30 @@ private struct JumpFloodOutlineScene: Element {
     }
 }
 
-/// Mask and seed textures sized to the drawable, rebuilt when it changes.
-private final class JumpFloodDemoTextures {
+/// Mask and seed textures sized to the drawable, rebuilt when it changes. With an `arrayLength`, 2D arrays with one
+/// slice per eye.
+final class JumpFloodDemoTextures {
     private var mask: MTLTexture?
     private var seeds: MTLTexture?
 
-    func textures(width: Int, height: Int) throws -> (mask: MTLTexture, seeds: MTLTexture) {
+    func textures(width: Int, height: Int, arrayLength: Int? = nil) throws -> (mask: MTLTexture, seeds: MTLTexture) {
         let width = max(width, 1)
         let height = max(height, 1)
-        if let mask, let seeds, mask.width == width, mask.height == height {
+        let textureType: MTLTextureType = arrayLength == nil ? .type2D : .type2DArray
+        if let mask, let seeds, mask.width == width, mask.height == height, mask.textureType == textureType, mask.arrayLength == (arrayLength ?? 1) {
             return (mask, seeds)
         }
         let device = _MTLCreateSystemDefaultDevice()
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rg32Float, width: width, height: height, mipmapped: false)
+        if let arrayLength {
+            descriptor.textureType = .type2DArray
+            descriptor.arrayLength = arrayLength
+        }
         descriptor.usage = [.renderTarget, .shaderRead]
         descriptor.storageMode = .private
         let mask = try device.makeTexture(descriptor: descriptor).orThrow(.resourceCreationFailure("Failed to create outline mask"))
         mask.label = "Outline Mask"
-        let seeds = try JumpFloodPipeline.makeSeedTexture(device: device, width: width, height: height)
+        let seeds = try JumpFloodPipeline.makeSeedTexture(device: device, width: width, height: height, arrayLength: arrayLength)
         self.mask = mask
         self.seeds = seeds
         return (mask, seeds)
