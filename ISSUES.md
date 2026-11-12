@@ -2867,11 +2867,13 @@ Reported from SceneSprockets #378.
 ## 113: Shaders used by SceneSprockets cannot render stereo (no vertex amplification)
 
 +++
-status: new
+status: closed
 priority: medium
 kind: feature
 labels: area:rendering
 created: 2026-11-12T19:17:28Z
+updated: 2026-11-12T20:18:32Z
+closed: 2026-11-12T20:18:32Z
 +++
 
 Most AddOns vertex shaders take one view/projection and ignore [[amplification_id]], so they cannot draw both eyes in a visionOS immersive space. Only DebugShaders.metal and SlugShaders.metal support it.
@@ -2881,6 +2883,7 @@ Shaders without stereo support: AxisLines, BlinnPhongShaders, Boxes, Equirectang
 SceneSprockets uses BlinnPhong, SilhouetteMask, JumpFlood (outlines), GraphicsContext3D, Wireframe, Flat, Skybox and Grid, so those block SceneSprockets immersive rendering. Reference implementations: MetalSprocketsPBR (PBR.metal, PBRStereoViews) and MetalSprocketsGaussianSplats.
 
 - `2026-11-12T19:24:11Z`: SceneSprockets uses only SilhouetteMask, JumpFlood/JumpFloodOutline (SelectionOutline) and GraphicsContext3D (TransformGizmo) from AddOns. Its Blinn-Phong shaders are its own (SceneSprocketsShaders), and Wireframe/Flat/Skybox/Grid from AddOns are not used. SilhouetteMask and GraphicsContext3D now support StereoViews; JumpFlood remains.
+- `2026-11-12T20:18:32Z`: SilhouetteMask and GraphicsContext3D now support stereo (StereoViews). Remaining work is tracked elsewhere: JumpFlood outlines in #114, GraphicsContext3D labels/curves in #115, the other demos in #119-#125.
 
 ---
 
