@@ -8,6 +8,7 @@ public struct BlinnPhongShader<Content>: Element where Content: Element {
     var vertexShader: VertexShader
     var fragmentShader: FragmentShader
     var label: String
+    var viewCount: Int
 
     var content: Content
 
@@ -15,7 +16,12 @@ public struct BlinnPhongShader<Content>: Element where Content: Element {
     ///
     /// With `instanced`, bind per-instance matrices with `blinnPhongInstancedMatrices` and draw with an instance count.
     /// With `perInstanceMaterials` too, bind one material per instance with `blinnPhongMaterials`.
-    public init(instanced: Bool = false, perInstanceMaterials: Bool = false, @ElementBuilder content: () throws -> Content) throws {
+    ///
+    /// With `viewCount` 2 (stereo, non-instanced only), bind matrices with `blinnPhongMatrices(modelMatrix:cameraMatrix:views:)`
+    /// and call `views.configure(encoder)` in each `Draw`.
+    public init(instanced: Bool = false, perInstanceMaterials: Bool = false, viewCount: Int = 1, @ElementBuilder content: () throws -> Content) throws {
+        precondition(!instanced || viewCount == 1, "The instanced path draws one view")
+        self.viewCount = viewCount
         let device = _MTLCreateSystemDefaultDevice()
         assert(device.argumentBuffersSupport == .tier2)
         let shaderLibrary = ShaderLibrary.module.namespaced("BlinnPhong")
@@ -36,6 +42,9 @@ public struct BlinnPhongShader<Content>: Element where Content: Element {
         get throws {
             try RenderPipeline(label: label, vertexShader: vertexShader, fragmentShader: fragmentShader) {
                 content
+            }
+            .renderPipelineDescriptorTransformer { [viewCount] descriptor in
+                descriptor.maxVertexAmplificationCount = viewCount
             }
         }
     }

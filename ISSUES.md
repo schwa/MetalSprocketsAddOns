@@ -3004,16 +3004,19 @@ Related to #113, #117.
 ## 119: Blinn-Phong demo cannot run in the immersive space
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: area:rendering, effort:m
 depends: 118
 created: 2026-11-12T19:58:59Z
-updated: 2026-11-12T20:26:50Z
+updated: 2026-11-12T20:49:38Z
+closed: 2026-11-12T20:49:38Z
 +++
 
 BlinnPhongShaders take one view-projection and ignore [[amplification_id]], so the Blinn-Phong demo cannot draw both eyes in the immersive space.
+
+- `2026-11-12T20:49:38Z`: BlinnPhong vertex_main reads one MVP per view by [[amplification_id]] (single-view callers unchanged); BlinnPhongShader(viewCount:) sets the amplification count; new blinnPhongMatrices(modelMatrix:cameraMatrix:views:). The immersive space draws the demo's sphere and box with orbiting lights. Instanced path stays single-view (precondition). Specular uses the first eye's camera position. Test: testStereo_blinnPhong. Not run on device yet.
 
 ---
 

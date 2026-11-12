@@ -54,6 +54,16 @@ public extension Element {
             .parameter("cameraMatrix", functionType: .fragment, value: transforms.cameraMatrix)
     }
 
+    /// Binds matrices for drawing into every view at once (`BlinnPhongShader(viewCount: views.count)`). Lighting uses
+    /// `cameraMatrix`'s position for every view.
+    func blinnPhongMatrices(modelMatrix: float4x4, cameraMatrix: float4x4, views: StereoViews) -> some Element {
+        self
+            .parameter("modelViewMatrix", functionType: .vertex, value: cameraMatrix.inverse * modelMatrix)
+            .parameter("modelViewProjectionMatrix", functionType: .vertex, values: views.viewProjections.map { $0 * modelMatrix })
+            .parameter("modelMatrix", functionType: .vertex, value: modelMatrix)
+            .parameter("cameraMatrix", functionType: .fragment, value: cameraMatrix)
+    }
+
     /// Binds per-instance matrices for `BlinnPhongShader(instanced: true)`. Draw with `instanceCount: modelMatrices.count`.
     func blinnPhongInstancedMatrices(_ viewTransforms: ViewTransforms, modelMatrices: [float4x4]) -> some Element {
         let instanceTransforms = modelMatrices.map(viewTransforms.transforms(modelMatrix:))

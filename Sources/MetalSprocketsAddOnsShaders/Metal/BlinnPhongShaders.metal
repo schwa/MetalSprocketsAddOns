@@ -40,18 +40,20 @@ namespace BlinnPhong {
 
     // MARK: Shaders
 
+    // One model-view-projection matrix per view, indexed by the eye (amplification ID); one view binds just one.
     [[vertex]] Fragment vertex_main(
         uint instance_id [[instance_id]],
+        ushort eye [[amplification_id]],
         Vertex in [[stage_in]],
         constant float4x4 &modelViewMatrix [[buffer(1)]],
-        constant float4x4 &modelViewProjectionMatrix [[buffer(2)]],
+        constant float4x4 *modelViewProjectionMatrix [[buffer(2)]],
         constant float4x4 &modelMatrix [[buffer(3)]]
     ) {
         Fragment out;
         const float4 position = float4(in.position, 1.0);
 
         const float4 worldVertex = modelMatrix * position;
-        out.position = modelViewProjectionMatrix * position;
+        out.position = modelViewProjectionMatrix[eye] * position;
         out.worldPosition = float3(worldVertex) / worldVertex.w;
         out.normal = normalize(extractNormalMatrix(modelMatrix) * in.normal);
         out.textureCoordinate = in.textureCoordinate;

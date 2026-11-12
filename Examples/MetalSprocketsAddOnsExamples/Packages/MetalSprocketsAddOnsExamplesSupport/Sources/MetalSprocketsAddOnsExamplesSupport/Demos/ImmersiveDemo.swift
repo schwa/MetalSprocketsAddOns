@@ -3,6 +3,7 @@ import Metal
 import MetalKit
 import MetalSprockets
 import MetalSprocketsAddOns
+import MetalSprocketsAddOnsShaders
 import MetalSprocketsUI
 import os
 import simd
@@ -52,7 +53,7 @@ extension Demo {
     /// Whether the demo has an immersive version. Others need stereo support first (#119-#125).
     var hasImmersiveVersion: Bool {
         switch self {
-        case .graphicsContext3D, .jumpFloodOutline, .slugText, .debugShading: true
+        case .graphicsContext3D, .jumpFloodOutline, .slugText, .debugShading, .blinnPhong: true
         default: false
         }
     }
@@ -69,6 +70,16 @@ enum ImmersiveDemoShared {
     // One set, reused every frame. Frames in flight share it, which can show a stale outline for a frame.
     nonisolated(unsafe) static let outlineTextures = JumpFloodDemoTextures()
     static let outlineWidth: Float = 8
+    nonisolated(unsafe) static let blinnPhongScene = BlinnPhongDemoScene()
+    static let placementScale: Float = 0.2
+    // The demo's lights, dimmed by the placement scale squared so falloff over the smaller distances looks the same.
+    nonisolated(unsafe) static let blinnPhongLighting = try? Lighting(
+        ambientLightColor: [0.12, 0.12, 0.16],
+        lights: [
+            ([0, 0, 0], Light(type: .point, color: [1, 0.95, 0.85], intensity: 20 * placementScale * placementScale)),
+            ([0, 0, 0], Light(type: .point, color: [0.4, 0.7, 1], intensity: 20 * placementScale * placementScale))
+        ]
+    )
 
     static func views(_ context: ImmersiveContext) -> StereoViews {
         let viewProjections = (0 ..< context.viewCount).map { context.projectionMatrix(eye: $0) * context.viewMatrix(eye: $0) }
@@ -77,7 +88,7 @@ enum ImmersiveDemoShared {
 
     /// About 1.2 m in front at eye height, scaled from the demos' ±1.5 units to about ±0.3 m, spinning.
     static func world(_ context: ImmersiveContext) -> float4x4 {
-        let placement = float4x4(translation: [0, 1.3, -1.2]) * float4x4(scale: [0.2, 0.2, 0.2])
+        let placement = float4x4(translation: [0, 1.3, -1.2]) * float4x4(scale: [placementScale, placementScale, placementScale])
         return placement * float4x4(simd_quatf(angle: Float(context.time) * 0.5, axis: [0, 1, 0]))
     }
 
@@ -162,6 +173,38 @@ struct ImmersiveDemoScene: Element {
         }
     }
 
+    /// The Blinn-Phong demo's sphere and box with its two orbiting lights, placed and spun like the other demos.
+    private func blinnPhong() throws -> some Element {
+        let world = ImmersiveDemoShared.world(context)
+        let views = ImmersiveDemoShared.views(context)
+        let scene = ImmersiveDemoShared.blinnPhongScene
+        let lighting = ImmersiveDemoShared.blinnPhongLighting
+        for (index, position) in BlinnPhongDemoScene.lightPositions(at: Float(context.time)).enumerated() {
+            let worldPosition = world * SIMD4<Float>(position, 1)
+            lighting?.setLightPosition(SIMD3<Float>(worldPosition.x, worldPosition.y, worldPosition.z), at: index)
+        }
+        let cameraMatrix = context.viewMatrix(eye: 0).inverse
+        return try Group {
+            if let lighting, let first = scene.models.first {
+                try BlinnPhongShader(viewCount: views.count) {
+                    try ForEach(scene.models) { model in
+                        try Draw { encoder in
+                            views.configure(encoder)
+                            encoder.draw(model.mesh)
+                        }
+                        .vertexBuffers(of: model.mesh)
+                        .useResources(model.mesh.submeshes.map(\.indexBuffer.buffer), usage: .read, stages: .vertex)
+                        .blinnPhongMaterial(model.material)
+                        .blinnPhongMatrices(modelMatrix: world * model.modelMatrix, cameraMatrix: cameraMatrix, views: views)
+                    }
+                    .lighting(lighting)
+                }
+                .vertexDescriptor(first.mesh.vertexDescriptor)
+                .depthCompare(function: .greater, writes: true)
+            }
+        }
+    }
+
     private func slugText(scene: SlugScene, mesh: SlugTextMesh, viewProjections: [float4x4], viewports: [MTLViewport], viewportSize: SIMD2<Float>) throws -> SlugTextRenderPipeline {
         SlugTextDemoScene.setSpin(Float(context.time), in: scene)
         // Text is laid out in points: centre it, then scale points to meters.
@@ -194,6 +237,8 @@ struct ImmersiveDemoScene: Element {
                     }
                 case .debugShading:
                     try debugShading()
+                case .blinnPhong:
+                    try blinnPhong()
                 case .jumpFloodOutline:
                     try outlinedSphere()
                 default:

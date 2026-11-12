@@ -2,6 +2,7 @@ import CoreGraphics
 import Metal
 import MetalSprockets
 @testable import MetalSprocketsAddOns
+import MetalSprocketsAddOnsShaders
 import MetalSprocketsSupport
 import MetalSupport
 import simd
@@ -184,6 +185,32 @@ func testStereo_debugRenderPipeline() throws {
     #expect(right[1] > 200 && right[0] < 100, "Right eye draws its view as amplification 1: \(right)")
     #expect(target.pixel(x: 48, y: 32, slice: 0) == [0, 0, 0, 255])
     #expect(target.pixel(x: 16, y: 32, slice: 1) == [0, 0, 0, 255])
+}
+
+@Test(.requiresMetal4)
+@MainActor
+func testStereo_blinnPhong() throws {
+    let mesh = try makeBoxMeshWithTangents(extent: [0.4, 0.4, 0.4])
+    // Only ambient light reaches the camera, so the box is flat red.
+    let lighting = try Lighting(ambientLightColor: [1, 1, 1], lights: [([0, 0, 10], Light(type: .point, color: [0, 0, 0], intensity: 0))])
+    let material = BlinnPhongMaterial(ambient: .color([1, 0, 0]), diffuse: .color([0, 0, 0]), specular: .color([0, 0, 0]), shininess: 1)
+    let target = try StereoTarget()
+    let views = target.views
+    _ = try target.renderer.render(try RenderPass {
+        try BlinnPhongShader(viewCount: views.count) {
+            try Draw { encoder in
+                views.configure(encoder)
+                encoder.draw(mesh)
+            }
+            .vertexBuffers(of: mesh)
+            .useResources(mesh.submeshes.map(\.indexBuffer.buffer), usage: .read, stages: .vertex)
+            .blinnPhongMaterial(material)
+            .blinnPhongMatrices(modelMatrix: float4x4(translation: [0, 0, 0.5]), cameraMatrix: float4x4(translation: [0, 0, -1]), views: views)
+            .lighting(lighting)
+        }
+        .vertexDescriptor(mesh.vertexDescriptor)
+    })
+    target.expectShiftedPerEye()
 }
 
 #if arch(arm64)
