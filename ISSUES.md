@@ -1548,12 +1548,13 @@ Same applies to AccelerationStructureManagerTests.testAccelerationStructureManag
 ## 53: Release builds can embed development-only Metal shader source
 
 +++
-status: open
+status: closed
 priority: high
 kind: bug
 labels: area:build, effort:s
 created: 2026-08-25T22:10:26Z
-updated: 2026-10-22T21:26:52Z
+updated: 2026-11-12T20:36:28Z
+closed: 2026-11-12T20:36:28Z
 +++
 
 The MetalCompilerPlugin is attached to the MetalSprocketsAddOnsShaders target, but the manifest does not provide a configuration-dependent compilation condition to the plugin. MetalCompilerPlugin cannot read SwiftPM's active debug or release configuration directly. As a result, its debug metallib behavior cannot differ safely between configurations, and release products can contain development-only embedded Metal shader source. App Store validation reports ITMS-91306 for affected archives.
@@ -1574,6 +1575,7 @@ cSettings: [
 
 - `2026-09-30T18:44:18Z`: Tried the MetalCompilerPlugin 0.3.0 fix (METAL_COMPILER_PLUGIN_DEBUG with .when(configuration: .debug)). Correct under command-line SwiftPM, but Xcode applies the debug flags in Release too, so archives would still embed shader source. Reverted. Filed upstream as MetalCompilerPlugin #. Current state: no define, so no build embeds source (safe for archives), but Debug has no shader debug info.
 - `2026-09-30T18:44:25Z`: Upstream issue: MetalCompilerPlugin #1.
+- `2026-11-12T20:36:28Z`: MetalCompilerPlugin 0.4.0 (#11) picks flags from Xcode's $CONFIGURATION, and 0.4.1 is already required. Added METAL_COMPILER_PLUGIN_DEBUG (.when(configuration: .debug)) for SwiftPM builds without $CONFIGURATION. Verified with metal-readobj (SOURCES section): Debug embeds source and Release does not, for Xcode, swift build, and swift build --build-system native. No unit test: build configuration is not reachable from the test suite.
 
 ---
 

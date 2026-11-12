@@ -42,6 +42,11 @@ let package = Package(
                 .product(name: "MetalSprocketsShaders", package: "MetalSprockets"),
             ],
             exclude: ["Metal"],
+            // Debug metallibs embed shader source for the Metal debugger. Xcode picks by configuration itself; this
+            // covers SwiftPM builds that do not set $CONFIGURATION.
+            cSettings: [
+                .define("METAL_COMPILER_PLUGIN_DEBUG", .when(configuration: .debug))
+            ],
             plugins: [
                 .plugin(name: "MetalCompilerPlugin", package: "MetalCompilerPlugin")
             ]
