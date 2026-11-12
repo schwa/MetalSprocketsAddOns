@@ -1313,12 +1313,13 @@ Suggested direction:
 ## 44: Texture sampling returns constant values on GitHub Actions paravirt GPU
 
 +++
-status: open
+status: closed
 priority: medium
 kind: bug
 labels: effort:m, upstream, area:testing, area:ci
 created: 2026-08-09T00:39:50Z
-updated: 2026-11-12T20:26:51Z
+updated: 2026-11-12T22:26:12Z
+closed: 2026-11-12T22:26:12Z
 +++
 
 Five golden-image tests are gated off on GitHub Actions runners because `texture.sample(...)` returns a constant instead of texel data (plain rgba8Unorm -> white, YCbCr two-plane -> green). Geometry renders correctly; only sampling is wrong. Local Apple silicon and a local VirtualBuddy paravirt VM both sample correctly, so this looks specific to the GitHub Actions runner image's paravirt driver.
@@ -1335,6 +1336,7 @@ Split out of #29, which covered the mesh-shader encoder crash (now fixed).
 Next steps: replace the env-var gate with a runtime probe (render a quad sampling a known texture, compare against expected texel), or re-enable once GitHub rolls a newer runner image.
 
 - `2026-08-09T02:35:54Z`: Blocked on the GitHub Actions runner image: only the paravirt driver can fix the sampling. Gate cleanup (runtime probe instead of the CI env var, plus skip messages that reference this issue rather than #29) split out to #52.
+- `2026-11-12T22:26:12Z`: Closed: can't test — needs the GitHub Actions paravirt GPU, which we can't reproduce locally. The five tests stay gated on CI.
 
 ---
 
