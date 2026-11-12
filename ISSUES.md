@@ -3035,6 +3035,8 @@ updated: 2026-11-12T20:26:50Z
 
 The ShadowMap pipelines (and the screen-space shadow-mask compute pass) work for one view only, so the Shadow Map demo cannot draw both eyes in the immersive space.
 
+- `2026-11-12T21:32:43Z`: Auto-fixer punt. Tried: reviewed ShadowMaskPass, ShadowContext, ShadowMapTechnique and ImmersiveDemo. The shadow path is a screen-space compute pass that reads a single 2D scene depth and writes a single 2D colour texture in place; the compositor's drawable textures can't be used that way, so stereo needs either (a) render the scene offscreen into 2-slice colour/depth arrays, run a per-slice ShadowMaskPass (texture2d_array + per-view inverse view-projection — public API change to ShadowContext/ShadowMaskPass), then composite colour+depth into the compositor pass, or (b) add a forward path that samples the shadow map in the scene's fragment shader (amplified like BlinnPhong) and skip the mask pass in immersive. Punting: that's a design choice, and neither can be verified without a Vision Pro run. Unblocker: pick (a) or (b); the same choice likely applies to #121 and #123.
+
 ---
 
 ## 121: Ray-Traced Shadows demo cannot run in the immersive space
