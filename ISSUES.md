@@ -3053,6 +3053,8 @@ updated: 2026-11-12T20:26:50Z
 
 The ray-traced shadow compute pass works on one screen-space view only, so the Ray-Traced Shadows demo cannot draw both eyes in the immersive space.
 
+- `2026-11-12T21:32:58Z`: Auto-fixer punt. Tried: reviewed RayTracedShadowComputePass and the immersive demo. Same blocker as #120: the pass reads one 2D scene depth and darkens one 2D colour texture in place, which the compositor's drawable can't support. Options: (a) offscreen 2-slice colour/depth arrays + per-slice compute pass with per-view inverse view-projection (ShadowContext API change) + composite into the compositor pass, or (b) a forward path doing the shadow ray query in the scene's amplified fragment shader. Punting: design choice, and unverifiable without a Vision Pro run. Unblocker: the decision on #120 (a/b) should apply here too.
+
 ---
 
 ## 122: Slug Text demo is not available in the immersive space
