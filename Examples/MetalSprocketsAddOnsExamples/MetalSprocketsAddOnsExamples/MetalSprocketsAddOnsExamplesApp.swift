@@ -5,6 +5,7 @@
 //  Created by Jonathan Wight.
 //
 
+import MetalSprocketsAddOnsExamplesSupport
 import SwiftUI
 
 @main
@@ -13,5 +14,8 @@ struct MetalSprocketsAddOnsExamplesApp: App {
         WindowGroup {
             ContentView()
         }
+        #if os(visionOS)
+        ImmersiveDemoSpace()
+        #endif
     }
 }

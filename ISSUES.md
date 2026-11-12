@@ -2938,3 +2938,142 @@ Effect in AddOns: GraphicsContext3D strokes cannot use [[amplification_id]] for 
 This is a MetalSprockets core limitation; tracked here because AddOns works around it.
 
 ---
+
+## 117: Examples app has no visionOS immersive demo for stereo pipelines
+
++++
+status: new
+priority: medium
+kind: feature
+labels: area:rendering
+created: 2026-11-12T19:30:08Z
++++
+
+The Examples app builds for visionOS (xros) but has only windowed demos. There is no ImmersiveSpace / CompositorServices demo, so the stereo (StereoViews) paths of SilhouetteMaskRenderPipeline, GraphicsContext3DRenderPipeline and SlugTextRenderPipeline are never exercised on a real compositor layer (layered or shared layout), on device or simulator.
+
+Current coverage is only StereoTests, which render offscreen into a 2-slice array texture.
+
+Related to #113.
+
+---
+
+## 118: Immersive demo ignores the selected demo
+
++++
+status: new
+priority: medium
+kind: feature
+labels: area:rendering
+created: 2026-11-12T19:58:59Z
++++
+
+The Examples app's visionOS immersive space always draws one fixed scene (the GraphicsContext3D drawing plus a silhouette-mask sphere). Choosing another demo in the sidebar does not change what the immersive space shows, so most demos cannot be checked in stereo on Apple Vision Pro.
+
+Related to #113, #117.
+
+---
+
+## 119: Blinn-Phong demo cannot run in the immersive space
+
++++
+status: new
+priority: low
+kind: feature
+labels: area:rendering
+depends: 118
+created: 2026-11-12T19:58:59Z
++++
+
+BlinnPhongShaders take one view-projection and ignore [[amplification_id]], so the Blinn-Phong demo cannot draw both eyes in the immersive space.
+
+---
+
+## 120: Shadow Map demo cannot run in the immersive space
+
++++
+status: new
+priority: low
+kind: feature
+labels: area:rendering
+depends: 118
+created: 2026-11-12T19:58:59Z
++++
+
+The ShadowMap pipelines (and the screen-space shadow-mask compute pass) work for one view only, so the Shadow Map demo cannot draw both eyes in the immersive space.
+
+---
+
+## 121: Ray-Traced Shadows demo cannot run in the immersive space
+
++++
+status: new
+priority: low
+kind: feature
+labels: area:rendering
+depends: 118
+created: 2026-11-12T19:58:59Z
++++
+
+The ray-traced shadow compute pass works on one screen-space view only, so the Ray-Traced Shadows demo cannot draw both eyes in the immersive space.
+
+---
+
+## 122: Slug Text demo is not available in the immersive space
+
++++
+status: new
+priority: low
+kind: feature
+labels: area:rendering
+depends: 118
+created: 2026-11-12T19:58:59Z
++++
+
+SlugTextRenderPipeline supports multiple views, but the Slug Text demo is not drawn in the immersive space.
+
+---
+
+## 123: Point Cloud demo cannot run in the immersive space
+
++++
+status: new
+priority: low
+kind: feature
+labels: area:rendering
+depends: 118
+created: 2026-11-12T19:58:59Z
++++
+
+The PointCloud compute rasterizer writes one 2D view only, so the Point Cloud demo cannot draw both eyes in the immersive space.
+
+---
+
+## 124: Debug Shading demo is not available in the immersive space
+
++++
+status: new
+priority: low
+kind: feature
+labels: area:rendering
+depends: 118
+created: 2026-11-12T19:58:59Z
++++
+
+DebugShaders.metal reads per-eye matrices by [[amplification_id]], but DebugRenderPipeline's Swift API takes one viewProjectionMatrix and never enables amplification, so the Debug Shading demo cannot draw both eyes in the immersive space.
+
+---
+
+## 125: Jump Flood Outlines demo cannot run in the immersive space
+
++++
+status: new
+priority: low
+kind: feature
+labels: area:rendering
+depends: 118, 114
+created: 2026-11-12T19:58:59Z
++++
+
+JumpFlood outlines are single-view (#114), so the Jump Flood Outlines demo cannot draw both eyes in the immersive space.
+
+---
