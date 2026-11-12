@@ -1316,9 +1316,9 @@ Suggested direction:
 status: open
 priority: medium
 kind: bug
-labels: testing, ci, effort:m, upstream
+labels: effort:m, upstream, area:testing, area:ci
 created: 2026-08-09T00:39:50Z
-updated: 2026-10-22T21:26:52Z
+updated: 2026-11-12T20:26:51Z
 +++
 
 Five golden-image tests are gated off on GitHub Actions runners because `texture.sample(...)` returns a constant instead of texel data (plain rgba8Unorm -> white, YCbCr two-plane -> green). Geometry renders correctly; only sampling is wrong. Local Apple silicon and a local VirtualBuddy paravirt VM both sample correctly, so this looks specific to the GitHub Actions runner image's paravirt driver.
@@ -2751,10 +2751,12 @@ Keep x-ray as an option (no depth test on the composite). Replace the demo's vis
 ## 108: Add fast large-radius blur with smoothly animatable radius ("Smol Gaussian")
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
+labels: effort:l, area:rendering
 created: 2026-10-23T13:24:57Z
+updated: 2026-11-12T20:26:50Z
 +++
 
 GaussianBlurPipeline is a direct separable Gaussian, so its cost grows linearly with radius. Very large radii are slow, and there is no cheap blur whose radius can be animated smoothly or set separately for X and Y.
@@ -2912,11 +2914,12 @@ Part of #113.
 ## 115: GraphicsContext3D text labels and curves use only the first stereo view
 
 +++
-status: new
+status: open
 priority: low
 kind: bug
-labels: area:rendering
+labels: area:rendering, effort:m
 created: 2026-11-12T19:24:10Z
+updated: 2026-11-12T20:26:50Z
 +++
 
 With GraphicsContext3DRenderPipeline(context:views:viewport:) and two views:
@@ -2931,11 +2934,12 @@ Strokes and fills themselves draw correctly in both eyes. Related to #113.
 ## 116: Mesh render pipelines cannot set maxVertexAmplificationCount
 
 +++
-status: new
+status: open
 priority: low
 kind: enhancement
-labels: area:rendering
+labels: area:rendering, effort:s, upstream
 created: 2026-11-12T19:24:11Z
+updated: 2026-11-12T20:26:50Z
 +++
 
 MetalSprockets core builds MTL4MeshRenderPipelineDescriptor in PipelineCache.meshRenderPipeline without applying renderPipelineDescriptorTransformer or any other hook, so mesh pipelines cannot enable vertex amplification (or blending).
@@ -2949,11 +2953,13 @@ This is a MetalSprockets core limitation; tracked here because AddOns works arou
 ## 117: Examples app has no visionOS immersive demo for stereo pipelines
 
 +++
-status: new
+status: closed
 priority: medium
 kind: feature
 labels: area:rendering
 created: 2026-11-12T19:30:08Z
+updated: 2026-11-12T20:26:51Z
+closed: 2026-11-12T20:26:51Z
 +++
 
 The Examples app builds for visionOS (xros) but has only windowed demos. There is no ImmersiveSpace / CompositorServices demo, so the stereo (StereoViews) paths of SilhouetteMaskRenderPipeline, GraphicsContext3DRenderPipeline and SlugTextRenderPipeline are never exercised on a real compositor layer (layered or shared layout), on device or simulator.
@@ -2962,16 +2968,19 @@ Current coverage is only StereoTests, which render offscreen into a 2-slice arra
 
 Related to #113.
 
+- `2026-11-12T20:26:51Z`: Fixed in sypknzlz: the Examples app has a visionOS immersive space (GraphicsContext3D drawing + silhouette-mask sphere), run on device. Coverage of the other demos is tracked in #118-#125.
+
 ---
 
 ## 118: Immersive demo ignores the selected demo
 
 +++
-status: new
+status: open
 priority: medium
 kind: feature
-labels: area:rendering
+labels: area:rendering, effort:m
 created: 2026-11-12T19:58:59Z
+updated: 2026-11-12T20:26:50Z
 +++
 
 The Examples app's visionOS immersive space always draws one fixed scene (the GraphicsContext3D drawing plus a silhouette-mask sphere). Choosing another demo in the sidebar does not change what the immersive space shows, so most demos cannot be checked in stereo on Apple Vision Pro.
@@ -2983,12 +2992,13 @@ Related to #113, #117.
 ## 119: Blinn-Phong demo cannot run in the immersive space
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
-labels: area:rendering
+labels: area:rendering, effort:m
 depends: 118
 created: 2026-11-12T19:58:59Z
+updated: 2026-11-12T20:26:50Z
 +++
 
 BlinnPhongShaders take one view-projection and ignore [[amplification_id]], so the Blinn-Phong demo cannot draw both eyes in the immersive space.
@@ -2998,12 +3008,13 @@ BlinnPhongShaders take one view-projection and ignore [[amplification_id]], so t
 ## 120: Shadow Map demo cannot run in the immersive space
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
-labels: area:rendering
+labels: area:rendering, effort:l
 depends: 118
 created: 2026-11-12T19:58:59Z
+updated: 2026-11-12T20:26:50Z
 +++
 
 The ShadowMap pipelines (and the screen-space shadow-mask compute pass) work for one view only, so the Shadow Map demo cannot draw both eyes in the immersive space.
@@ -3013,12 +3024,13 @@ The ShadowMap pipelines (and the screen-space shadow-mask compute pass) work for
 ## 121: Ray-Traced Shadows demo cannot run in the immersive space
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
-labels: area:rendering
+labels: area:rendering, effort:l
 depends: 118
 created: 2026-11-12T19:58:59Z
+updated: 2026-11-12T20:26:50Z
 +++
 
 The ray-traced shadow compute pass works on one screen-space view only, so the Ray-Traced Shadows demo cannot draw both eyes in the immersive space.
@@ -3028,12 +3040,13 @@ The ray-traced shadow compute pass works on one screen-space view only, so the R
 ## 122: Slug Text demo is not available in the immersive space
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
-labels: area:rendering
+labels: area:rendering, effort:s
 depends: 118
 created: 2026-11-12T19:58:59Z
+updated: 2026-11-12T20:26:50Z
 +++
 
 SlugTextRenderPipeline supports multiple views, but the Slug Text demo is not drawn in the immersive space.
@@ -3043,12 +3056,13 @@ SlugTextRenderPipeline supports multiple views, but the Slug Text demo is not dr
 ## 123: Point Cloud demo cannot run in the immersive space
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
-labels: area:rendering
+labels: area:rendering, effort:l
 depends: 118
 created: 2026-11-12T19:58:59Z
+updated: 2026-11-12T20:26:50Z
 +++
 
 The PointCloud compute rasterizer writes one 2D view only, so the Point Cloud demo cannot draw both eyes in the immersive space.
@@ -3058,12 +3072,13 @@ The PointCloud compute rasterizer writes one 2D view only, so the Point Cloud de
 ## 124: Debug Shading demo is not available in the immersive space
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
-labels: area:rendering
+labels: area:rendering, effort:s
 depends: 118
 created: 2026-11-12T19:58:59Z
+updated: 2026-11-12T20:26:50Z
 +++
 
 DebugShaders.metal reads per-eye matrices by [[amplification_id]], but DebugRenderPipeline's Swift API takes one viewProjectionMatrix and never enables amplification, so the Debug Shading demo cannot draw both eyes in the immersive space.
@@ -3073,12 +3088,13 @@ DebugShaders.metal reads per-eye matrices by [[amplification_id]], but DebugRend
 ## 125: Jump Flood Outlines demo cannot run in the immersive space
 
 +++
-status: new
+status: open
 priority: low
 kind: feature
-labels: area:rendering
+labels: area:rendering, effort:s
 depends: 118, 114
 created: 2026-11-12T19:58:59Z
+updated: 2026-11-12T20:26:50Z
 +++
 
 JumpFlood outlines are single-view (#114), so the Jump Flood Outlines demo cannot draw both eyes in the immersive space.
