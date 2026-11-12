@@ -13,32 +13,27 @@ namespace RayTracedShadow {
     // True when a world-space shading normal texture is bound.
     constant bool HAS_NORMALS [[function_constant(1)]];
 
-    [[kernel]] void shadow_compute(
-        uint2 tid [[thread_position_in_grid]],
-        depth2d<float, access::read> sceneDepth [[texture(0)]],
-        texture2d<float, access::read_write> outputTexture [[texture(1)]],
-        texture2d<float, access::read> sceneNormals [[texture(2), function_constant(HAS_NORMALS)]],
-        metal::raytracing::instance_acceleration_structure accelerationStructure [[buffer(0)]],
-        constant RayTracedShadowParameters &params [[buffer(1)]]
-    ) {
-        uint2 outputSize = uint2(outputTexture.get_width(), outputTexture.get_height());
-
-        // Bounds check
-        if (tid.x >= outputSize.x || tid.y >= outputSize.y) {
-            return;
-        }
-
-        // Map thread position to depth texture coordinates (may differ in size)
-        uint2 depthSize = uint2(sceneDepth.get_width(), sceneDepth.get_height());
-        uint2 depthCoord = uint2(
+    // Map thread position to depth texture coordinates (may differ in size)
+    uint2 depthCoordinate(uint2 tid, uint2 outputSize, uint2 depthSize) {
+        return uint2(
             uint(float(tid.x) * float(depthSize.x) / float(outputSize.x)),
             uint(float(tid.y) * float(depthSize.y) / float(outputSize.y))
         );
-        float depth = sceneDepth.read(depthCoord);
+    }
 
+    // The fraction of light blocked at one pixel (0 = fully lit). `storedNormal` is zero when there is none.
+    float shadowFactor(
+        uint2 tid,
+        uint2 outputSize,
+        float depth,
+        float3 storedNormal,
+        float4x4 inverseViewProjection,
+        metal::raytracing::instance_acceleration_structure accelerationStructure,
+        constant RayTracedShadowParameters &params
+    ) {
         // Skip background (depth at clear value — 0.0 for inverse Z, 1.0 for standard)
         if (depth == 0.0 || depth == 1.0) {
-            return;
+            return 0.0;
         }
 
         // Reconstruct world position from screen UV + depth
@@ -46,7 +41,7 @@ namespace RayTracedShadow {
         float2 ndc = texCoord * 2.0 - 1.0;
         ndc.y = -ndc.y; // flip Y for Metal NDC
         float4 clipPos = float4(ndc, depth, 1.0);
-        float4 worldPos = params.inverseViewProjection * clipPos;
+        float4 worldPos = inverseViewProjection * clipPos;
         worldPos /= worldPos.w;
 
         float3 origin = worldPos.xyz;
@@ -58,12 +53,9 @@ namespace RayTracedShadow {
         // With a smooth shading normal, surfaces facing away from a light are shadowed from it without tracing, and
         // rays start off the surface along the normal, so the mesh's flat triangles do not shadow themselves.
         float3 normal = 0;
-        if (HAS_NORMALS) {
-            float3 stored = sceneNormals.read(depthCoord).xyz;
-            if (length_squared(stored) > 0.25) {
-                normal = normalize(stored);
-                origin += normal * bias;
-            }
+        if (length_squared(storedNormal) > 0.25) {
+            normal = normalize(storedNormal);
+            origin += normal * bias;
         }
         const bool hasNormal = any(normal != 0);
 
@@ -123,23 +115,63 @@ namespace RayTracedShadow {
         }
 
         if (lightCount <= 0 || totalContribution <= 0.0 || blockedContribution <= 0.0) {
-            return; // Fully lit or no lights — no modification needed
+            return 0.0; // Fully lit or no lights — no modification needed
         }
 
         // Shadow factor weighted by light contribution
-        float shadowFactor = blockedContribution / totalContribution;
+        return blockedContribution / totalContribution;
+    }
 
-        // Darken the existing pixel
-        float4 existing = outputTexture.read(tid);
-
+    float4 darken(float4 existing, float shadowFactor, float shadowIntensity) {
         if (DEBUG) {
-            float3 debugColor = float3(1.0, 0.0, 1.0);
-            existing.rgb = mix(existing.rgb, debugColor, params.shadowIntensity * shadowFactor);
+            existing.rgb = mix(existing.rgb, float3(1.0, 0.0, 1.0), shadowIntensity * shadowFactor);
         } else {
-            existing.rgb *= 1.0 - (params.shadowIntensity * shadowFactor);
+            existing.rgb *= 1.0 - (shadowIntensity * shadowFactor);
         }
+        return existing;
+    }
 
-        outputTexture.write(existing, tid);
+    [[kernel]] void shadow_compute(
+        uint2 tid [[thread_position_in_grid]],
+        depth2d<float, access::read> sceneDepth [[texture(0)]],
+        texture2d<float, access::read_write> outputTexture [[texture(1)]],
+        texture2d<float, access::read> sceneNormals [[texture(2), function_constant(HAS_NORMALS)]],
+        metal::raytracing::instance_acceleration_structure accelerationStructure [[buffer(0)]],
+        constant RayTracedShadowParameters &params [[buffer(1)]]
+    ) {
+        uint2 outputSize = uint2(outputTexture.get_width(), outputTexture.get_height());
+        if (tid.x >= outputSize.x || tid.y >= outputSize.y) {
+            return;
+        }
+        uint2 depthCoord = depthCoordinate(tid, outputSize, uint2(sceneDepth.get_width(), sceneDepth.get_height()));
+        float3 normal = HAS_NORMALS ? sceneNormals.read(depthCoord).xyz : float3(0);
+        float factor = shadowFactor(tid, outputSize, sceneDepth.read(depthCoord), normal, params.inverseViewProjection, accelerationStructure, params);
+        if (factor > 0.0) {
+            outputTexture.write(darken(outputTexture.read(tid), factor, params.shadowIntensity), tid);
+        }
+    }
+
+    // One view per array slice (for example both eyes of a visionOS immersive space); the grid's z is the slice.
+    [[kernel]] void shadow_compute_layered(
+        uint3 tid [[thread_position_in_grid]],
+        depth2d_array<float, access::read> sceneDepth [[texture(0)]],
+        texture2d_array<float, access::read_write> outputTexture [[texture(1)]],
+        texture2d_array<float, access::read> sceneNormals [[texture(2), function_constant(HAS_NORMALS)]],
+        metal::raytracing::instance_acceleration_structure accelerationStructure [[buffer(0)]],
+        constant RayTracedShadowParameters &params [[buffer(1)]],
+        constant float4x4 *inverseViewProjections [[buffer(2)]]
+    ) {
+        uint2 outputSize = uint2(outputTexture.get_width(), outputTexture.get_height());
+        if (tid.x >= outputSize.x || tid.y >= outputSize.y || tid.z >= outputTexture.get_array_size()) {
+            return;
+        }
+        uint slice = tid.z;
+        uint2 depthCoord = depthCoordinate(tid.xy, outputSize, uint2(sceneDepth.get_width(), sceneDepth.get_height()));
+        float3 normal = HAS_NORMALS ? sceneNormals.read(depthCoord, slice).xyz : float3(0);
+        float factor = shadowFactor(tid.xy, outputSize, sceneDepth.read(depthCoord, slice), normal, inverseViewProjections[slice], accelerationStructure, params);
+        if (factor > 0.0) {
+            outputTexture.write(darken(outputTexture.read(tid.xy, slice), factor, params.shadowIntensity), tid.xy, slice);
+        }
     }
 
 } // namespace RayTracedShadow

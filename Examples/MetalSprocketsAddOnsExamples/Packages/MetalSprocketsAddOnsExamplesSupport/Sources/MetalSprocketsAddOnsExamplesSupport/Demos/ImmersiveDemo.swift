@@ -51,13 +51,12 @@ enum ImmersiveDemoSelection {
 }
 
 extension Demo {
-    /// Whether the demo has an immersive version. Others need stereo support first (#119-#125).
+    /// Whether the demo has an immersive version on this device.
     var hasImmersiveVersion: Bool {
         switch self {
-        case .graphicsContext3D, .jumpFloodOutline, .slugText, .debugShading, .blinnPhong: true
+        case .graphicsContext3D, .jumpFloodOutline, .slugText, .debugShading, .blinnPhong, .shadowMap: true
         case .pointCloud: PointCloudFramebuffer.isSupported(on: _MTLCreateSystemDefaultDevice())
-        case .shadowMap: true
-        default: false
+        case .rayTracedShadows: _MTLCreateSystemDefaultDevice().supportsRaytracing
         }
     }
 }
@@ -124,7 +123,10 @@ struct ImmersiveDemoPrepass: Element {
         get throws {
             try Group {
                 if ImmersiveDemoSelection.current == .shadowMap {
-                    try ImmersiveShadowMapDemo.prepass(context)
+                    try ImmersiveShadowDemos.shadowMapPrepass(context)
+                }
+                if ImmersiveDemoSelection.current == .rayTracedShadows {
+                    try ImmersiveShadowDemos.rayTracedPrepass(context)
                 }
                 if ImmersiveDemoSelection.current == .pointCloud, let scene = ImmersiveDemoShared.pointCloudScene {
                     try scene.rasterize(views: ImmersiveDemoShared.views(context), modelMatrix: ImmersiveDemoShared.pointCloudModelMatrix(context), pointSize: 2)
@@ -261,8 +263,8 @@ struct ImmersiveDemoScene: Element {
                     try blinnPhong()
                 case .jumpFloodOutline:
                     try outlinedSphere()
-                case .shadowMap:
-                    try ImmersiveShadowMapDemo.composite(context)
+                case .shadowMap, .rayTracedShadows:
+                    try ImmersiveShadowDemos.composite(context)
                 case .pointCloud:
                     if let scene = ImmersiveDemoShared.pointCloudScene {
                         scene.resolve(views: views)

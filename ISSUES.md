@@ -3052,13 +3052,14 @@ The ShadowMap pipelines (and the screen-space shadow-mask compute pass) work for
 ## 121: Ray-Traced Shadows demo cannot run in the immersive space
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: area:rendering, effort:l
 depends: 118
 created: 2026-11-12T19:58:59Z
-updated: 2026-11-12T20:26:50Z
+updated: 2026-11-12T22:41:43Z
+closed: 2026-11-12T22:41:43Z
 +++
 
 The ray-traced shadow compute pass works on one screen-space view only, so the Ray-Traced Shadows demo cannot draw both eyes in the immersive space.
@@ -3066,6 +3067,7 @@ The ray-traced shadow compute pass works on one screen-space view only, so the R
 - `2026-11-12T21:32:58Z`: Auto-fixer punt. Tried: reviewed RayTracedShadowComputePass and the immersive demo. Same blocker as #120: the pass reads one 2D scene depth and darkens one 2D colour texture in place, which the compositor's drawable can't support. Options: (a) offscreen 2-slice colour/depth arrays + per-slice compute pass with per-view inverse view-projection (ShadowContext API change) + composite into the compositor pass, or (b) a forward path doing the shadow ray query in the scene's amplified fragment shader. Punting: design choice, and unverifiable without a Vision Pro run. Unblocker: the decision on #120 (a/b) should apply here too.
 - `2026-11-12T22:22:40Z`: Question 1 (design): Same choice as #120 for ray-traced shadows: (a) offscreen 2-slice arrays + per-slice compute pass + composite, or (b) shadow ray query in the scene's amplified fragment shader? (The #120 answer likely applies here.)
 - `2026-11-12T22:23:51Z`: Answer 1: least work
+- `2026-11-12T22:41:43Z`: Reused #120's layered infrastructure: RayTracedShadowComputePass(views:) runs a layered kernel with per-view inverse view-projections; RayTracedShadowTechnique picks it for layered ShadowContexts. Immersive demo: Ray-Traced Shadows shares the Shadow Map demo's offscreen scene + composite (instances move with the placement each frame). Test: layered RT matches each view rendered alone. Builds for visionOS device; not run on Apple Vision Pro. The immersive sphere is the 48-segment one and no normal texture is written, so the self-shadow edge shows triangle steps (#58's normal texture could fix it).
 
 ---
 

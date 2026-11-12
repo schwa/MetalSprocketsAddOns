@@ -47,8 +47,17 @@ public struct RayTracedShadowTechnique: ShadowTechnique {
     }
 
     public func passesAfterScene(context: ShadowContext) throws -> RayTracedShadowComputePass {
-        guard context.views == nil else {
-            throw MetalSprocketsError.configurationError("Ray-traced shadows do not support layered (multi-view) shadow contexts yet.")
+        if let views = context.views {
+            return try RayTracedShadowComputePass(
+                sceneDepthTexture: context.depthTexture,
+                outputTexture: context.colorTexture,
+                accelerationStructureManager: accelerationStructureManager,
+                lighting: lighting,
+                views: views,
+                maxRayDistance: maxRayDistance,
+                shadowIntensity: context.shadowIntensity,
+                sceneNormalTexture: context.normalTexture
+            )
         }
         return try RayTracedShadowComputePass(
             sceneDepthTexture: context.depthTexture,

@@ -8,9 +8,10 @@ import MetalSprocketsUI
 import MetalSupport
 import simd
 
-/// The Shadow Map demo in the immersive space. The compositor's attachments can't be darkened from compute, so the
-/// scene is drawn for both eyes into offscreen array textures, masked there, then composited into the compositor's pass.
-enum ImmersiveShadowMapDemo {
+/// The Shadow Map and Ray-Traced Shadows demos in the immersive space. The compositor's attachments can't be darkened
+/// from compute, so the scene is drawn for both eyes into offscreen array textures, shadowed there, then composited into
+/// the compositor's pass.
+enum ImmersiveShadowDemos {
     struct Model {
         var mesh: MTKMesh
         var transform: simd_float4x4
@@ -58,26 +59,57 @@ enum ImmersiveShadowMapDemo {
         return try textures.textures(width: Int(viewport.width), height: Int(viewport.height), arrayLength: context.viewCount)
     }
 
-    /// Offscreen: the shadow map, the scene for both eyes, and the layered shadow mask.
-    static func prepass(_ context: ImmersiveContext) throws -> some Element {
+    // Rebuilt from the models once; each frame moves the instances with the placement.
+    nonisolated(unsafe) static var accelerationStructures: AccelerationStructureManager? = {
+        var manager = try? AccelerationStructureManager()
+        try? manager?.build(meshes: models.map(\.mesh), instances: models.indices.map { AccelerationStructureManager.Instance(meshIndex: $0, transform: models[$0].transform) })
+        return manager
+    }()
+
+    /// Offscreen, shadow-mapped: the shadow map, the scene for both eyes, and the layered shadow mask.
+    static func shadowMapPrepass(_ context: ImmersiveContext) throws -> some Element {
         var shadowMap = try shadowMap.orThrow(.resourceCreationFailure("Failed to create the immersive shadow map"))
-        let lighting = try lighting.orThrow(.resourceCreationFailure("Failed to create the immersive shadow map lighting"))
-        let first = models[0]
         let world = world(context)
+        let lightPosition = try updateLight(context)
         let scale = ImmersiveDemoShared.placementScale
-        let lightPosition = (world * SIMD4(ShadowMapDemoScene.lightPosition(at: Float(context.time)), 1)).xyz
-        lighting.setLightPosition(lightPosition, at: 0)
         shadowMap.updateDirectionalLight(at: 0, position: lightPosition, target: world.columns.3.xyz, orthoSize: 8 * scale, near: 0.1 * scale, far: 30 * scale)
-        let views = offscreenViews(ImmersiveDemoShared.views(context))
-        let (color, depth) = try layeredTextures(context)
-        let shadowContext = try ShadowContext(views: views, colorTexture: color, depthTexture: depth)
-        let technique = ShadowMapTechnique(shadowMap: shadowMap, vertexDescriptor: first.mesh.vertexDescriptor) {
+        let technique = ShadowMapTechnique(shadowMap: shadowMap, vertexDescriptor: models[0].mesh.vertexDescriptor) {
             ForEach(Array(models.enumerated()), id: \.offset) { _, model in
                 Draw(mesh: model.mesh)
                     .vertexBuffers(of: model.mesh)
                     .parameter("modelMatrix", functionType: .vertex, value: world * model.transform)
             }
         }
+        return try prepass(context, technique: technique)
+    }
+
+    /// Offscreen, ray-traced: the scene for both eyes, then shadow rays per slice.
+    static func rayTracedPrepass(_ context: ImmersiveContext) throws -> some Element {
+        let world = world(context)
+        _ = try updateLight(context)
+        var manager = try accelerationStructures.orThrow(.resourceCreationFailure("Failed to build the immersive acceleration structures"))
+        try manager.updateInstances(models.indices.map { AccelerationStructureManager.Instance(meshIndex: $0, transform: world * models[$0].transform) })
+        accelerationStructures = manager
+        let lighting = try lighting.orThrow(.resourceCreationFailure("Failed to create the immersive shadow lighting"))
+        return try prepass(context, technique: RayTracedShadowTechnique(accelerationStructureManager: manager, lighting: lighting))
+    }
+
+    /// Moves the light with the placement and returns its world position.
+    private static func updateLight(_ context: ImmersiveContext) throws -> SIMD3<Float> {
+        let lighting = try lighting.orThrow(.resourceCreationFailure("Failed to create the immersive shadow lighting"))
+        let lightPosition = (world(context) * SIMD4(ShadowMapDemoScene.lightPosition(at: Float(context.time)), 1)).xyz
+        lighting.setLightPosition(lightPosition, at: 0)
+        return lightPosition
+    }
+
+    /// The scene for both eyes into the layered textures, wrapped in `technique`'s shadow passes.
+    private static func prepass(_ context: ImmersiveContext, technique: some ShadowTechnique) throws -> some Element {
+        let lighting = try lighting.orThrow(.resourceCreationFailure("Failed to create the immersive shadow lighting"))
+        let first = models[0]
+        let world = world(context)
+        let views = offscreenViews(ImmersiveDemoShared.views(context))
+        let (color, depth) = try layeredTextures(context)
+        let shadowContext = try ShadowContext(views: views, colorTexture: color, depthTexture: depth)
         let cameraMatrix = views.cameraMatrices[0]
         return try ShadowedScene(technique: technique, context: shadowContext) {
             try RenderPass(label: "Immersive Shadow Map Scene") {

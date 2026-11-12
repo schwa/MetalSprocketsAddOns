@@ -245,7 +245,8 @@ public struct RayTracedShadowComputePass: Element {
     let outputTexture: MTLTexture
     let accelerationStructureManager: AccelerationStructureManager
     let lighting: Lighting
-    let inverseViewProjection: float4x4
+    /// One per view. With more than one, the textures are arrays with one slice per view.
+    let inverseViewProjections: [float4x4]
     let maxRayDistance: Float
     let shadowIntensity: Float
     let debug: Bool
@@ -282,16 +283,47 @@ public struct RayTracedShadowComputePass: Element {
         self.outputTexture = outputTexture
         self.accelerationStructureManager = accelerationStructureManager
         self.lighting = lighting
-        self.inverseViewProjection = inverseViewProjection
+        self.inverseViewProjections = [inverseViewProjection]
         self.maxRayDistance = maxRayDistance
         self.shadowIntensity = shadowIntensity
         self.debug = debug
+        computeKernel = try Self.kernel(layered: false, debug: debug, hasNormals: sceneNormalTexture != nil)
+    }
 
-        let shaderLibrary = ShaderLibrary.module.namespaced("RayTracedShadow")
+    /// Creates a ray-traced shadow pass for several views at once, such as both eyes of a visionOS immersive space.
+    ///
+    /// The scene was drawn into array textures with one slice per view (see ``ShadowContext/views``): slice `i` of
+    /// `sceneDepthTexture`, `outputTexture` and `sceneNormalTexture` belongs to `views` view `i`.
+    public init(
+        sceneDepthTexture: MTLTexture,
+        outputTexture: MTLTexture,
+        accelerationStructureManager: AccelerationStructureManager,
+        lighting: Lighting,
+        views: StereoViews,
+        maxRayDistance: Float = 0,
+        shadowIntensity: Float = 1.0,
+        debug: Bool = false,
+        sceneNormalTexture: MTLTexture? = nil
+    ) throws {
+        try ShadowContext.validateLayered(views: views, textures: [sceneDepthTexture, outputTexture] + (sceneNormalTexture.map { [$0] } ?? []))
+        self.sceneDepthTexture = sceneDepthTexture
+        self.sceneNormalTexture = sceneNormalTexture
+        self.outputTexture = outputTexture
+        self.accelerationStructureManager = accelerationStructureManager
+        self.lighting = lighting
+        self.inverseViewProjections = views.viewProjections.map(\.inverse)
+        self.maxRayDistance = maxRayDistance
+        self.shadowIntensity = shadowIntensity
+        self.debug = debug
+        computeKernel = try Self.kernel(layered: true, debug: debug, hasNormals: sceneNormalTexture != nil)
+    }
+
+    private static func kernel(layered: Bool, debug: Bool, hasNormals: Bool) throws -> ComputeKernel {
         var constants = FunctionConstants()
         constants["DEBUG"] = .bool(debug)
-        constants["HAS_NORMALS"] = .bool(sceneNormalTexture != nil)
-        computeKernel = try shaderLibrary.function(named: "shadow_compute", type: ComputeKernel.self, constants: constants)
+        constants["HAS_NORMALS"] = .bool(hasNormals)
+        let name = layered ? "shadow_compute_layered" : "shadow_compute"
+        return try ShaderLibrary.module.namespaced("RayTracedShadow").function(named: name, type: ComputeKernel.self, constants: constants)
     }
 
     /// Creates a ray-traced shadow compute pass from shared camera transforms.
@@ -324,10 +356,12 @@ public struct RayTracedShadowComputePass: Element {
             let primitiveStructures = accelerationStructureManager.primitiveAccelerationStructures
             let width = outputTexture.width
             let height = outputTexture.height
+            let layered = outputTexture.textureType == .type2DArray
+            let inverseViewProjections = inverseViewProjections
 
             if let instanceAS = accelerationStructureManager.instanceAccelerationStructure {
                 let params = RayTracedShadowParameters(
-                    inverseViewProjection: inverseViewProjection,
+                    inverseViewProjection: inverseViewProjections[0],
                     lighting: try lighting.toArgumentBuffer(),
                     maxRayDistance: maxRayDistance,
                     shadowIntensity: shadowIntensity
@@ -337,7 +371,7 @@ public struct RayTracedShadowComputePass: Element {
                     QueueBarrier(after: [.fragment, .dispatch], before: .dispatch)
                     try ComputePipeline(label: "RT Shadow", computeKernel: computeKernel) {
                         try ComputeDispatch(
-                            threadsPerGrid: MTLSize(width: width, height: height, depth: 1),
+                            threadsPerGrid: MTLSize(width: width, height: height, depth: layered ? inverseViewProjections.count : 1),
                             threadsPerThreadgroup: MTLSize(width: 8, height: 8, depth: 1)
                         )
                         .parameter("sceneDepth", texture: sceneDepthTexture)
@@ -345,6 +379,9 @@ public struct RayTracedShadowComputePass: Element {
                         .parameters { parameters in
                             if let sceneNormalTexture = self.sceneNormalTexture {
                                 parameters.set("sceneNormals", texture: sceneNormalTexture)
+                            }
+                            if layered {
+                                parameters.set("inverseViewProjections", values: inverseViewProjections)
                             }
                         }
                         .parameter("accelerationStructure", accelerationStructure: instanceAS)
