@@ -64,10 +64,72 @@ func testRayTracedShadowComputePass_endToEnd() throws {
     #expect(try image.isEqualToGoldenImage(named: "RayTracedShadowSphere"))
 }
 
+// MARK: - Self-shadow terminator (#58)
+
+/// Compares the sphere's self-shadow against the smooth sphere: a pixel should be dark exactly where the true sphere
+/// normal faces away from the light. Only pixels near the terminator are compared, where the triangles' steps show;
+/// pixels within `margin` of it are skipped, as the tessellated surface differs a little from the true sphere there.
+/// Returns the number of disagreeing pixels and the number compared.
+@MainActor
+func sphereTerminatorMismatches(scene: ShadowTestScene, image: CGImage, lightDirection: SIMD3<Float>? = nil, margin: Float = 0.02, band: Float = 0.2) -> (mismatches: Int, compared: Int) {
+    let width = image.width
+    let height = image.height
+    var pixels = [UInt8](repeating: 0, count: width * height * 4)
+    let context = CGContext(data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+    context?.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+    let inverse = scene.inverseViewProjection
+    let centre = scene.sphereTransform.translation
+    // MDLMesh's sphere extent is its radius.
+    let radius = scene.sphereExtent.x
+    var mismatches = 0
+    var compared = 0
+    for y in 0..<height {
+        for x in 0..<width {
+            let ndc = SIMD2<Float>((Float(x) + 0.5) / Float(width) * 2 - 1, 1 - (Float(y) + 0.5) / Float(height) * 2)
+            let near = inverse * SIMD4<Float>(ndc.x, ndc.y, 0, 1)
+            let far = inverse * SIMD4<Float>(ndc.x, ndc.y, 1, 1)
+            let origin = SIMD3<Float>(near.x, near.y, near.z) / near.w
+            let direction = normalize(SIMD3<Float>(far.x, far.y, far.z) / far.w - origin)
+            // Ray-sphere intersection, nearest hit.
+            let offset = origin - centre
+            let b = dot(offset, direction)
+            let discriminant = b * b - (dot(offset, offset) - radius * radius)
+            guard discriminant > 0 else {
+                continue
+            }
+            let point = origin + direction * (-b - discriminant.squareRoot())
+            let facing = dot(normalize(point - centre), lightDirection ?? normalize(scene.lightPosition - point))
+            guard abs(facing) > margin, abs(facing) < band else {
+                continue
+            }
+            let index = (y * width + x) * 4
+            let luminance = (0.2126 * Float(pixels[index]) + 0.7152 * Float(pixels[index + 1]) + 0.0722 * Float(pixels[index + 2])) / 255
+            let dark = luminance < 0.3
+            compared += 1
+            if dark != (facing < 0) {
+                mismatches += 1
+            }
+        }
+    }
+    return (mismatches, compared)
+}
+
+@Test(.requiresMetal4, .disabled(if: !supportsRaytracing, "Ray tracing unsupported on this GPU — see issue #29"))
+@MainActor
+func testRayTracedShadows_smoothNormalsGiveSmoothTerminator() throws {
+    let scene = try ShadowTestScene()
+    let lighting = try Lighting(ambientLightColor: [0, 0, 0], lights: [(scene.lightPosition, Light(type: .point, color: [1, 1, 1], intensity: 30))])
+    let image = try renderRayTracedShadows(scene: scene, lighting: lighting, normalTexture: try scene.renderNormals())
+    let result = sphereTerminatorMismatches(scene: scene, image: image)
+    #expect(result.compared > 500)
+    #expect(result.mismatches * 100 < result.compared, "\(result.mismatches) of \(result.compared) sphere pixels disagree with the smooth terminator")
+}
+
 // MARK: - Light types (#93)
 
 @MainActor
-private func renderRayTracedShadows(scene: ShadowTestScene, lighting: Lighting) throws -> CGImage {
+private func renderRayTracedShadows(scene: ShadowTestScene, lighting: Lighting, normalTexture: MTLTexture? = nil) throws -> CGImage {
     let technique = try RayTracedShadowTechnique(
         meshes: [scene.sphere, scene.plane],
         instances: [
@@ -76,7 +138,7 @@ private func renderRayTracedShadows(scene: ShadowTestScene, lighting: Lighting) 
         ],
         lighting: lighting
     )
-    let context = try ShadowContext(viewTransforms: scene.viewTransforms, colorTexture: scene.renderer.colorTexture, depthTexture: scene.renderer.depthTexture)
+    let context = try ShadowContext(viewTransforms: scene.viewTransforms, colorTexture: scene.renderer.colorTexture, depthTexture: scene.renderer.depthTexture, normalTexture: normalTexture)
     let combined = try ShadowedScene(technique: technique, context: context) {
         try scene.scenePass
     }

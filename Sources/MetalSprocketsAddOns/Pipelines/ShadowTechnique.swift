@@ -23,27 +23,39 @@ public struct ShadowContext {
     /// Shadow darkness (0–1).
     public var shadowIntensity: Float
 
+    /// Optional world-space shading normals, the same size as `depthTexture`: xyz is the unit normal, and a zero
+    /// vector marks pixels with none. With it, curved meshes get a smooth self-shadow edge instead of one that
+    /// follows their triangles. Write it with ``SceneNormalsRenderPipeline`` into a float format such as `.rgba16Float`.
+    public var normalTexture: MTLTexture?
+
     /// Usage the colour texture must be created with: shadow passes write it from compute.
     public static let requiredColorUsage: MTLTextureUsage = [.renderTarget, .shaderRead, .shaderWrite]
 
     /// Usage the depth texture must be created with: shadow passes sample it from compute.
     public static let requiredDepthUsage: MTLTextureUsage = [.renderTarget, .shaderRead]
 
+    /// Usage the normal texture must be created with: shadow passes read it from compute.
+    public static let requiredNormalUsage: MTLTextureUsage = [.shaderRead]
+
     /// Creates a shadow context, checking that the textures were created with the usage the
     /// shadow passes need.
     ///
     /// - Throws: ``MetalSprocketsError/configurationError(_:)`` if either texture is missing
     /// required usage flags.
-    public init(viewTransforms: ViewTransforms, colorTexture: MTLTexture, depthTexture: MTLTexture, shadowIntensity: Float = 1.0) throws {
+    public init(viewTransforms: ViewTransforms, colorTexture: MTLTexture, depthTexture: MTLTexture, normalTexture: MTLTexture? = nil, shadowIntensity: Float = 1.0) throws {
         guard colorTexture.usage.isSuperset(of: Self.requiredColorUsage) else {
             throw MetalSprocketsError.configurationError("Shadow colour texture needs \(Self.requiredColorUsage) usage, has \(colorTexture.usage).")
         }
         guard depthTexture.usage.isSuperset(of: Self.requiredDepthUsage) else {
             throw MetalSprocketsError.configurationError("Shadow depth texture needs \(Self.requiredDepthUsage) usage, has \(depthTexture.usage).")
         }
+        if let normalTexture, !normalTexture.usage.isSuperset(of: Self.requiredNormalUsage) {
+            throw MetalSprocketsError.configurationError("Shadow normal texture needs \(Self.requiredNormalUsage) usage, has \(normalTexture.usage).")
+        }
         self.viewTransforms = viewTransforms
         self.colorTexture = colorTexture
         self.depthTexture = depthTexture
+        self.normalTexture = normalTexture
         self.shadowIntensity = shadowIntensity
     }
 }
@@ -163,7 +175,8 @@ public struct ShadowMapTechnique<Casters>: ShadowTechnique where Casters: Elemen
             outputTexture: context.colorTexture,
             shadowMap: shadowMap,
             viewTransforms: context.viewTransforms,
-            shadowIntensity: context.shadowIntensity
+            shadowIntensity: context.shadowIntensity,
+            sceneNormalTexture: context.normalTexture
         )
     }
 }

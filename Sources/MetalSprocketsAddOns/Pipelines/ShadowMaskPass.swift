@@ -27,6 +27,7 @@ import simd
 /// ```
 public struct ShadowMaskPass: Element {
     let sceneDepthTexture: MTLTexture
+    let sceneNormalTexture: MTLTexture?
     let outputTexture: MTLTexture
     let shadowMap: ShadowMap
     let inverseViewProjection: float4x4
@@ -47,15 +48,18 @@ public struct ShadowMaskPass: Element {
     ///   - inverseViewProjection: Inverse of the camera's view-projection matrix.
     ///   - shadowIntensity: Shadow darkness (0–1, default 1).
     ///   - debug: When true, tints shadowed areas magenta instead of darkening them.
+    ///   - sceneNormalTexture: Optional world-space shading normals (see ``ShadowContext/normalTexture``).
     public init(
         sceneDepthTexture: MTLTexture,
         outputTexture: MTLTexture,
         shadowMap: ShadowMap,
         inverseViewProjection: float4x4,
         shadowIntensity: Float = 1.0,
-        debug: Bool = false
+        debug: Bool = false,
+        sceneNormalTexture: MTLTexture? = nil
     ) throws {
         self.sceneDepthTexture = sceneDepthTexture
+        self.sceneNormalTexture = sceneNormalTexture
         self.outputTexture = outputTexture
         self.shadowMap = shadowMap
         self.inverseViewProjection = inverseViewProjection
@@ -64,6 +68,7 @@ public struct ShadowMaskPass: Element {
         let shaderLibrary = ShaderLibrary.module.namespaced("ShadowMask")
         var constants = FunctionConstants()
         constants["DEBUG"] = .bool(debug)
+        constants["HAS_NORMALS"] = .bool(sceneNormalTexture != nil)
         computeKernel = try shaderLibrary.function(named: "shadow_mask_compute", type: ComputeKernel.self, constants: constants)
     }
 
@@ -74,7 +79,8 @@ public struct ShadowMaskPass: Element {
         shadowMap: ShadowMap,
         viewTransforms: ViewTransforms,
         shadowIntensity: Float = 1.0,
-        debug: Bool = false
+        debug: Bool = false,
+        sceneNormalTexture: MTLTexture? = nil
     ) throws {
         try self.init(
             sceneDepthTexture: sceneDepthTexture,
@@ -82,7 +88,8 @@ public struct ShadowMaskPass: Element {
             shadowMap: shadowMap,
             inverseViewProjection: viewTransforms.inverseViewProjectionMatrix,
             shadowIntensity: shadowIntensity,
-            debug: debug
+            debug: debug,
+            sceneNormalTexture: sceneNormalTexture
         )
     }
 
@@ -107,6 +114,11 @@ public struct ShadowMaskPass: Element {
                     .parameter("sceneDepth", texture: sceneDepthTexture)
                     .parameter("shadowMapTexture", texture: shadowMap.depthTexture(forSubmission: submissionIndex))
                     .parameter("outputTexture", texture: outputTexture)
+                    .parameters { parameters in
+                        if let sceneNormalTexture = self.sceneNormalTexture {
+                            parameters.set("sceneNormals", texture: sceneNormalTexture)
+                        }
+                    }
                     .parameter("shadowMapSampler", samplerState: shadowMap.sampler)
                     .parameter("params", value: maskParams)
                     .parameter("shadowMapParams", value: shadowParams)

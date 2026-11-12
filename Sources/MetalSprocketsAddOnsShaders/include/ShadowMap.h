@@ -19,6 +19,8 @@ struct ShadowMapParameters {
     int lightCount;
     /// Shadow map resolution (width == height assumed square).
     float mapSize;
+    /// 1 when the shadow map uses reverse Z (nearer the light is larger).
+    int reverseZ;
 };
 typedef struct ShadowMapParameters ShadowMapParameters;
 
@@ -40,6 +42,16 @@ namespace ShadowMap {
         constant ShadowMapParameters &shadowParams,
         metal::depth2d_array<float, metal::access::sample> shadowMap,
         metal::sampler shadowSampler
+    );
+
+    /// Shadow visibility for one light, from its slice of the shadow map.
+    float sampleShadowForLight(
+        float3 worldPosition,
+        constant ShadowLightParameters &light,
+        float mapSize,
+        metal::depth2d_array<float, metal::access::sample> shadowMap,
+        metal::sampler shadowSampler,
+        uint sliceIndex
     );
 }
 #endif

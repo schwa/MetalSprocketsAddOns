@@ -26,8 +26,10 @@ struct ShadowTestScene {
     /// World-space position of the single shadow-casting light.
     let lightPosition = SIMD3<Float>(3, 5, 2)
 
+    let sphereExtent = SIMD3<Float>(0.6, 0.6, 0.6)
+
     init() throws {
-        sphere = MTKMesh.sphere(extent: [0.6, 0.6, 0.6])
+        sphere = MTKMesh.sphere(extent: sphereExtent)
         plane = MTKMesh.plane(width: 4, height: 4)
         sphereTransform = float4x4(translation: SIMD3<Float>(0, 0.5, 0))
         // MTKMesh.plane lies in the XY plane; rotate it onto XZ (facing +Y) to make a floor.
@@ -75,6 +77,37 @@ struct ShadowTestScene {
 
     var inverseViewProjection: float4x4 {
         viewTransforms.inverseViewProjectionMatrix
+    }
+
+    /// World-space shading normals of both meshes, for `ShadowContext.normalTexture`.
+    func renderNormals() throws -> MTLTexture {
+        let device = _MTLCreateSystemDefaultDevice()
+        func texture(_ format: MTLPixelFormat, usage: MTLTextureUsage) throws -> MTLTexture {
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: format, width: Int(defaultRenderSize.width), height: Int(defaultRenderSize.height), mipmapped: false)
+            descriptor.usage = usage
+            descriptor.storageMode = format == .depth32Float ? .private : .shared
+            return try device.makeTexture(descriptor: descriptor).orThrow(.resourceCreationFailure("normals"))
+        }
+        let normals = try texture(.rgba16Float, usage: [.renderTarget, .shaderRead])
+        let renderer = try OffscreenRenderer(size: defaultRenderSize, colorTexture: normals, depthTexture: texture(.depth32Float, usage: [.renderTarget]))
+        renderer.renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
+        let viewProjection = viewProjection
+        _ = try renderer.render(try RenderPass {
+            try MetalSprockets.Group {
+                // MTKMesh.plane's normals face -Z, so after `planeTransform` the floor's point down. Turning it the
+                // other way gives the same square facing up.
+                let upwardPlaneTransform = float4x4(translation: planeTransform.translation) * float4x4(simd_quatf(angle: .pi / 2, axis: SIMD3<Float>(1, 0, 0)))
+                try ForEach([(0, sphere, sphereTransform), (1, plane, upwardPlaneTransform)], id: \.0) { _, mesh, transform in
+                    try SceneNormalsRenderPipeline(viewProjection: viewProjection, modelMatrix: transform) {
+                        Draw(mesh: mesh)
+                            .vertexBuffers(of: mesh)
+                    }
+                    .vertexDescriptor(MTLVertexDescriptor(mesh.vertexDescriptor))
+                    .depthCompare(function: .less, writes: true)
+                }
+            }
+        })
+        return normals
     }
 
     /// Draws both meshes with `FlatShader`, populating the renderer's colour and depth textures.

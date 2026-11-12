@@ -194,6 +194,7 @@ public struct ShadowMap {
         var params = ShadowMapParameters()
         params.lightCount = Int32(lightCount)
         params.mapSize = Float(resolution)
+        params.reverseZ = reverseZ ? 1 : 0
         withUnsafeMutablePointer(to: &params.lights) { tuple in
             tuple.withMemoryRebound(to: ShadowLightParameters.self, capacity: Int(MAX_SHADOW_LIGHTS)) { lights in
                 for i in 0..<min(lightCount, Int(MAX_SHADOW_LIGHTS)) {

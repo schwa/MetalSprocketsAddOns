@@ -1699,12 +1699,13 @@ Screenshot: ~/Library/Application Support/CleanShot/media/media_gHZg8nSrZ1/Scree
 ## 58: Ray-traced self-shadow edge on curved meshes is stair-stepped
 
 +++
-status: open
+status: closed
 priority: low
 kind: bug
 labels: area:rendering, effort:m
 created: 2026-09-30T16:34:13Z
-updated: 2026-10-22T21:26:52Z
+updated: 2026-11-12T22:31:03Z
+closed: 2026-11-12T22:31:03Z
 +++
 
 With RayTracedShadowComputePass, the shadow a sphere casts on itself has a blocky, stair-stepped edge instead of following the curve. The shadow cast onto the ground looks correct.
@@ -1722,6 +1723,7 @@ Cause not investigated. My guess is self-intersection of shadow rays with the fl
 - `2026-11-12T20:39:06Z`: Auto-fixer punt (2nd). Tried: re-read the issue and the earlier diagnosis; the open question from 2026-10-07 is still unanswered. Punting: the fix is a public API decision, not a code bug. Unblocker: choose (a) an optional smooth-normal texture in ShadowContext (format/space?) read by ShadowMaskPass and RayTracedShadowComputePass, or (b) leave the API and have callers hide the terminator with N·L lighting (then this can close as by-design).
 - `2026-11-12T22:22:40Z`: Question 1 (design): Should ShadowContext get an optional smooth-normal texture (which format/space?) read by ShadowMaskPass and RayTracedShadowComputePass, or should this close as by-design with callers hiding the terminator via N·L lighting?
 - `2026-11-12T22:23:30Z`: Answer 1: add it
+- `2026-11-12T22:31:03Z`: ShadowContext.normalTexture (optional, world-space unit normals, e.g. rgba16Float) + SceneNormalsRenderPipeline to write it. RayTracedShadowComputePass and ShadowMaskPass read it: back-facing pixels are shadowed without a lookup, and rays/lookups start off the surface along the normal. Terminator tests: RT 49→4 mismatches of 3012 near-terminator pixels; shadow map 1144→<1%. The Ray-Traced Shadows demo still uses the 192-segment sphere and doesn't write normals yet.
 
 ---
 

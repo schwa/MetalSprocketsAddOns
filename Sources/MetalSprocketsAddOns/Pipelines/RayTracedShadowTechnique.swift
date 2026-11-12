@@ -54,7 +54,8 @@ public struct RayTracedShadowTechnique: ShadowTechnique {
             lighting: lighting,
             viewTransforms: context.viewTransforms,
             maxRayDistance: maxRayDistance,
-            shadowIntensity: context.shadowIntensity
+            shadowIntensity: context.shadowIntensity,
+            sceneNormalTexture: context.normalTexture
         )
     }
 }

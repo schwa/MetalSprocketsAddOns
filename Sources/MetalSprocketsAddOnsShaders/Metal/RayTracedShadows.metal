@@ -10,11 +10,14 @@ using namespace raytracing;
 namespace RayTracedShadow {
 
     constant bool DEBUG [[function_constant(0)]];
+    // True when a world-space shading normal texture is bound.
+    constant bool HAS_NORMALS [[function_constant(1)]];
 
     [[kernel]] void shadow_compute(
         uint2 tid [[thread_position_in_grid]],
         depth2d<float, access::read> sceneDepth [[texture(0)]],
         texture2d<float, access::read_write> outputTexture [[texture(1)]],
+        texture2d<float, access::read> sceneNormals [[texture(2), function_constant(HAS_NORMALS)]],
         metal::raytracing::instance_acceleration_structure accelerationStructure [[buffer(0)]],
         constant RayTracedShadowParameters &params [[buffer(1)]]
     ) {
@@ -52,6 +55,18 @@ namespace RayTracedShadow {
         float cameraDist = length(origin);
         float bias = max(0.01, cameraDist * 0.002);
 
+        // With a smooth shading normal, surfaces facing away from a light are shadowed from it without tracing, and
+        // rays start off the surface along the normal, so the mesh's flat triangles do not shadow themselves.
+        float3 normal = 0;
+        if (HAS_NORMALS) {
+            float3 stored = sceneNormals.read(depthCoord).xyz;
+            if (length_squared(stored) > 0.25) {
+                normal = normalize(stored);
+                origin += normal * bias;
+            }
+        }
+        const bool hasNormal = any(normal != 0);
+
         // Create intersector — we only need to know if *any* intersection exists
         intersector<triangle_data, instancing> i;
         i.accept_any_intersection(true); // Early out on first hit
@@ -87,6 +102,10 @@ namespace RayTracedShadow {
                 continue;
             }
             totalContribution += attenuation;
+            if (hasNormal && dot(normal, direction) <= 0.0) {
+                blockedContribution += attenuation;
+                continue;
+            }
 
             float maxDistance = params.maxRayDistance > 0.0 ? min(params.maxRayDistance, distanceToLight) : distanceToLight;
 

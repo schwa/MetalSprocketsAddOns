@@ -259,8 +259,8 @@ func testShadowContext_rejectsTexturesMissingRequiredUsage() throws {
 /// Renders a sphere above a ground plane lit by a single shadow-casting directional light,
 /// optionally applying the shadow mask.
 @MainActor
-private func renderShadowScene(applyShadowMask: Bool, shadowIntensity: Float = 1.0) throws -> CGImage {
-    let scene = try ShadowTestScene()
+private func renderShadowScene(applyShadowMask: Bool, shadowIntensity: Float = 1.0, smoothNormals: Bool = false, scene: ShadowTestScene? = nil) throws -> CGImage {
+    let scene = try scene ?? ShadowTestScene()
     guard applyShadowMask else {
         return try scene.renderer.render(scene.scenePass).cgImage
     }
@@ -285,6 +285,7 @@ private func renderShadowScene(applyShadowMask: Bool, shadowIntensity: Float = 1
         viewTransforms: scene.viewTransforms,
         colorTexture: scene.renderer.colorTexture,
         depthTexture: scene.renderer.depthTexture,
+        normalTexture: smoothNormals ? try scene.renderNormals() : nil,
         shadowIntensity: shadowIntensity
     )
 
@@ -292,6 +293,17 @@ private func renderShadowScene(applyShadowMask: Bool, shadowIntensity: Float = 1
         try scene.scenePass
     }
     return try scene.renderer.render(content).cgImage
+}
+
+@Test(.requiresMetal4)
+@MainActor
+func testShadowMask_smoothNormalsGiveSmoothTerminator() throws {
+    // #58: the self-shadow edge follows the smooth sphere, not its triangles. The light is directional, aimed at the origin.
+    let scene = try ShadowTestScene()
+    let image = try renderShadowScene(applyShadowMask: true, smoothNormals: true, scene: scene)
+    let result = sphereTerminatorMismatches(scene: scene, image: image, lightDirection: normalize(scene.lightPosition))
+    #expect(result.compared > 500)
+    #expect(result.mismatches * 100 < result.compared, "\(result.mismatches) of \(result.compared) sphere pixels disagree with the smooth terminator")
 }
 
 @Test

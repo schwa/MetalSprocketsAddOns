@@ -241,6 +241,7 @@ public struct AccelerationStructureManager: @unchecked Sendable {
 /// ```
 public struct RayTracedShadowComputePass: Element {
     let sceneDepthTexture: MTLTexture
+    let sceneNormalTexture: MTLTexture?
     let outputTexture: MTLTexture
     let accelerationStructureManager: AccelerationStructureManager
     let lighting: Lighting
@@ -263,6 +264,8 @@ public struct RayTracedShadowComputePass: Element {
     ///   - maxRayDistance: Maximum shadow ray distance (0 = distance to light).
     ///   - shadowIntensity: Shadow darkness (0–1, default 1).
     ///   - debug: When true, shows magenta debug overlay for shadowed areas.
+    ///   - sceneNormalTexture: Optional world-space shading normals (see ``ShadowContext/normalTexture``). Gives
+    ///     curved meshes a smooth self-shadow edge instead of one that follows their triangles.
     public init(
         sceneDepthTexture: MTLTexture,
         outputTexture: MTLTexture,
@@ -271,9 +274,11 @@ public struct RayTracedShadowComputePass: Element {
         inverseViewProjection: float4x4,
         maxRayDistance: Float = 0,
         shadowIntensity: Float = 1.0,
-        debug: Bool = false
+        debug: Bool = false,
+        sceneNormalTexture: MTLTexture? = nil
     ) throws {
         self.sceneDepthTexture = sceneDepthTexture
+        self.sceneNormalTexture = sceneNormalTexture
         self.outputTexture = outputTexture
         self.accelerationStructureManager = accelerationStructureManager
         self.lighting = lighting
@@ -285,6 +290,7 @@ public struct RayTracedShadowComputePass: Element {
         let shaderLibrary = ShaderLibrary.module.namespaced("RayTracedShadow")
         var constants = FunctionConstants()
         constants["DEBUG"] = .bool(debug)
+        constants["HAS_NORMALS"] = .bool(sceneNormalTexture != nil)
         computeKernel = try shaderLibrary.function(named: "shadow_compute", type: ComputeKernel.self, constants: constants)
     }
 
@@ -297,7 +303,8 @@ public struct RayTracedShadowComputePass: Element {
         viewTransforms: ViewTransforms,
         maxRayDistance: Float = 0,
         shadowIntensity: Float = 1.0,
-        debug: Bool = false
+        debug: Bool = false,
+        sceneNormalTexture: MTLTexture? = nil
     ) throws {
         try self.init(
             sceneDepthTexture: sceneDepthTexture,
@@ -307,7 +314,8 @@ public struct RayTracedShadowComputePass: Element {
             inverseViewProjection: viewTransforms.inverseViewProjectionMatrix,
             maxRayDistance: maxRayDistance,
             shadowIntensity: shadowIntensity,
-            debug: debug
+            debug: debug,
+            sceneNormalTexture: sceneNormalTexture
         )
     }
 
@@ -334,6 +342,11 @@ public struct RayTracedShadowComputePass: Element {
                         )
                         .parameter("sceneDepth", texture: sceneDepthTexture)
                         .parameter("outputTexture", texture: outputTexture)
+                        .parameters { parameters in
+                            if let sceneNormalTexture = self.sceneNormalTexture {
+                                parameters.set("sceneNormals", texture: sceneNormalTexture)
+                            }
+                        }
                         .parameter("accelerationStructure", accelerationStructure: instanceAS)
                         .parameter("params", value: params)
                         // The instance structure refers to the primitive structures, and the lighting argument buffer to its buffers.
