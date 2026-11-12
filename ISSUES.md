@@ -3087,16 +3087,19 @@ The PointCloud compute rasterizer writes one 2D view only, so the Point Cloud de
 ## 124: Debug Shading demo is not available in the immersive space
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: area:rendering, effort:s
 depends: 118
 created: 2026-11-12T19:58:59Z
-updated: 2026-11-12T20:26:50Z
+updated: 2026-11-12T20:44:49Z
+closed: 2026-11-12T20:44:49Z
 +++
 
 DebugShaders.metal reads per-eye matrices by [[amplification_id]], but DebugRenderPipeline's Swift API takes one viewProjectionMatrix and never enables amplification, so the Debug Shading demo cannot draw both eyes in the immersive space.
+
+- `2026-11-12T20:44:49Z`: DebugRenderPipeline gains init(…views: StereoViews…) (per-eye amplified uniforms, maxVertexAmplificationCount); StereoViews.configure(_:) is public so content Draws can enable amplification. The immersive space draws the Debug Shading sphere (normal mode). Test: testStereo_debugRenderPipeline (amplification-ID mode, each eye in its slice). Not run on device yet.
 
 ---
 

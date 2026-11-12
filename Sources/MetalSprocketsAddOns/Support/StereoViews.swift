@@ -30,8 +30,9 @@ public struct StereoViews: Sendable {
         (viewProjections[0], viewProjections[count > 1 ? 1 : 0])
     }
 
-    /// Amplifies the following draws into one stream per view. Draws reset amplification, so every draw calls this.
-    func configure(_ encoder: any MTL4RenderCommandEncoder) {
+    /// Amplifies the following draws into one stream per view. Draws reset amplification, so every draw calls this,
+    /// including draws you write inside a pipeline that takes `StereoViews` (e.g. ``DebugRenderPipeline``).
+    public func configure(_ encoder: any MTL4RenderCommandEncoder) {
         guard isStereo else {
             return
         }

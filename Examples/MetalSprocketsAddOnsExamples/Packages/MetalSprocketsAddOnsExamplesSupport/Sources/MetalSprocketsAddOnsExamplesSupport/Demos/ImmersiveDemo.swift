@@ -46,7 +46,7 @@ extension Demo {
     /// Whether the demo has an immersive version. Others need stereo support first (#119-#125).
     var hasImmersiveVersion: Bool {
         switch self {
-        case .graphicsContext3D, .jumpFloodOutline, .slugText: true
+        case .graphicsContext3D, .jumpFloodOutline, .slugText, .debugShading: true
         default: false
         }
     }
@@ -60,6 +60,33 @@ struct ImmersiveDemoScene: Element {
     nonisolated(unsafe) private static let sphere = MetalMesh(mtkMesh: MTKMesh.sphere(extent: [0.8, 0.8, 0.8]))
     // Built once; each frame only updates its spin.
     nonisolated(unsafe) private static let slugScene = try? SlugTextDemoScene.makeScene(text: "Metal\nSprockets", fontSize: 144)
+
+    nonisolated(unsafe) private static let debugShadingScene = DebugShadingDemoScene()
+
+    /// The Debug Shading demo's sphere with normals shown as colors, spinning.
+    private func debugShading(world: float4x4, viewProjections: [float4x4], viewports: [MTLViewport]) throws -> some Element {
+        let mesh = Self.debugShadingScene.sphere
+        let modelMatrix = world * float4x4(scale: [2, 2, 2])
+        let normalMatrix = float3x3(modelMatrix.columns.0.xyz, modelMatrix.columns.1.xyz, modelMatrix.columns.2.xyz)
+        let views = StereoViews(viewProjections: viewProjections, viewports: viewports)
+        return try DebugRenderPipeline(
+            modelMatrix: modelMatrix,
+            normalMatrix: normalMatrix,
+            debugMode: .normal,
+            lightPosition: [0, 3, 0],
+            cameraPosition: context.viewMatrix(eye: 0).inverse.columns.3.xyz,
+            views: views
+        ) {
+            Draw { encoder in
+                views.configure(encoder)
+                encoder.draw(mesh)
+            }
+            .vertexBuffers(of: mesh)
+            .useResources(mesh.submeshes.map(\.indexBuffer.buffer), usage: .read, stages: .vertex)
+        }
+        .vertexDescriptor(mesh.vertexDescriptor)
+        .depthCompare(function: .greater, writes: true)
+    }
 
     /// The Slug Text demo's text, about 0.6 m wide and 1.5 m in front at eye height, spinning.
     private func slugText(scene: SlugScene, mesh: SlugTextMesh, viewProjections: [float4x4], viewports: [MTLViewport], viewportSize: SIMD2<Float>) throws -> SlugTextRenderPipeline {
@@ -99,6 +126,8 @@ struct ImmersiveDemoScene: Element {
                     if let scene = Self.slugScene, let mesh = scene.meshes.first {
                         try slugText(scene: scene, mesh: mesh, viewProjections: viewProjections, viewports: viewports, viewportSize: viewportSize)
                     }
+                case .debugShading:
+                    try debugShading(world: world, viewProjections: viewProjections, viewports: viewports)
                 case .jumpFloodOutline:
                     // The silhouette mask only, for now; outlines are #125.
                     SilhouetteMaskRenderPipeline(instances: [.init(mesh: Self.sphere, transform: sphereTransform)], views: sphereViews, depthCompareFunction: .greater, writesDepth: true)

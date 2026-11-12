@@ -37,11 +37,15 @@ private struct StereoTarget {
         )
     }
 
-    // Red channel at a pixel (y down) of a slice.
-    func red(x: Int, y: Int, slice: Int) -> UInt8 {
+    // RGBA at a pixel (y down) of a slice.
+    func pixel(x: Int, y: Int, slice: Int) -> [UInt8] {
         var pixel = [UInt8](repeating: 0, count: 4)
         color.getBytes(&pixel, bytesPerRow: Self.size * 4, bytesPerImage: Self.size * Self.size * 4, from: MTLRegionMake2D(x, y, 1, 1), mipmapLevel: 0, slice: slice)
-        return pixel[0]
+        return pixel
+    }
+
+    func red(x: Int, y: Int, slice: Int) -> UInt8 {
+        pixel(x: x, y: y, slice: slice)[0]
     }
 
     // A centred shape lands at x = 16 in the left slice and x = 48 in the right.
@@ -147,6 +151,39 @@ func testStereo_jumpFloodOutline() throws {
     #expect(target.red(x: 58, y: 32, slice: 1) > 128)
     #expect(target.red(x: 26, y: 32, slice: 1) == 0)
     #expect(target.red(x: 16, y: 32, slice: 0) == 0, "Inside of the mask is left unchanged")
+}
+
+@Test(.requiresMetal4)
+@MainActor
+func testStereo_debugRenderPipeline() throws {
+    let mesh = try makeBoxMeshWithTangents(extent: [0.4, 0.4, 0.4])
+    let target = try StereoTarget()
+    let views = target.views
+    _ = try target.renderer.render(try RenderPass {
+        try DebugRenderPipeline(
+            modelMatrix: float4x4(translation: [0, 0, 0.5]),
+            normalMatrix: matrix_identity_float3x3,
+            debugMode: .amplificationID,
+            lightPosition: [0, 0, -1],
+            cameraPosition: [0, 0, -1],
+            views: views
+        ) {
+            Draw { encoder in
+                views.configure(encoder)
+                encoder.draw(mesh)
+            }
+            .vertexBuffers(of: mesh)
+            .useResources(mesh.submeshes.map(\.indexBuffer.buffer), usage: .read, stages: .vertex)
+        }
+        .vertexDescriptor(mesh.vertexDescriptor)
+    })
+    // Amplification ID 0 is drawn red, 1 green; each at its own view's position.
+    let left = target.pixel(x: 16, y: 32, slice: 0)
+    let right = target.pixel(x: 48, y: 32, slice: 1)
+    #expect(left[0] > 200 && left[1] < 100, "Left eye draws its view as amplification 0: \(left)")
+    #expect(right[1] > 200 && right[0] < 100, "Right eye draws its view as amplification 1: \(right)")
+    #expect(target.pixel(x: 48, y: 32, slice: 0) == [0, 0, 0, 255])
+    #expect(target.pixel(x: 16, y: 32, slice: 1) == [0, 0, 0, 255])
 }
 
 #if arch(arm64)
