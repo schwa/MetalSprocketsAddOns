@@ -117,6 +117,13 @@ public struct AccelerationStructureManager: @unchecked Sendable {
     }
 
     private func buildPrimitiveAccelerationStructure(mesh: MetalMesh) throws -> MTLAccelerationStructure {
+        let descriptor = MTLPrimitiveAccelerationStructureDescriptor()
+        descriptor.geometryDescriptors = try Self.geometryDescriptors(for: mesh)
+        return try buildAccelerationStructure(descriptor: descriptor)
+    }
+
+    /// One triangle geometry per submesh.
+    static func geometryDescriptors(for mesh: MetalMesh) throws -> [MTLAccelerationStructureTriangleGeometryDescriptor] {
         guard let positionAttribute = mesh.vertexDescriptor.attributes.first(where: { $0.semantic == .position }) else {
             throw MetalSprocketsError.resourceCreationFailure("Mesh has no position vertex attribute")
         }
@@ -124,24 +131,20 @@ public struct AccelerationStructureManager: @unchecked Sendable {
             throw MetalSprocketsError.resourceCreationFailure("Mesh has no vertex buffer for buffer index \(positionAttribute.bufferIndex)")
         }
 
-        // MetalMesh always packs triangle indices as UInt32, one index buffer per submesh.
-        let geometryDescriptors = mesh.submeshes.map { submesh in
+        // Submeshes can share one index buffer at different offsets, with 16- or 32-bit indices.
+        let vertexBufferOffset = (mesh.vertexBufferOffsets[positionAttribute.bufferIndex] ?? 0) + positionAttribute.offset
+        return mesh.submeshes.map { submesh in
             let geometryDescriptor = MTLAccelerationStructureTriangleGeometryDescriptor()
             geometryDescriptor.vertexBuffer = vertexBuffer
-            geometryDescriptor.vertexBufferOffset = positionAttribute.offset
+            geometryDescriptor.vertexBufferOffset = vertexBufferOffset
             geometryDescriptor.vertexStride = layout.stride
             geometryDescriptor.vertexFormat = .float3
             geometryDescriptor.triangleCount = submesh.indexCount / 3
             geometryDescriptor.indexBuffer = submesh.indexBuffer
-            geometryDescriptor.indexBufferOffset = 0
-            geometryDescriptor.indexType = .uint32
+            geometryDescriptor.indexBufferOffset = submesh.indexBufferOffset
+            geometryDescriptor.indexType = submesh.indexType
             return geometryDescriptor
         }
-
-        let descriptor = MTLPrimitiveAccelerationStructureDescriptor()
-        descriptor.geometryDescriptors = geometryDescriptors
-
-        return try buildAccelerationStructure(descriptor: descriptor)
     }
 
     private func buildInstanceAccelerationStructure(

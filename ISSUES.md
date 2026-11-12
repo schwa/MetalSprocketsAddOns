@@ -2459,17 +2459,20 @@ testBlinnPhongShader_instancedMatchesSeparateDraws checks only that mean luminan
 ## 96: RayTracedShadows ignores MetalMesh submesh index buffer offsets
 
 +++
-status: open
+status: closed
 priority: medium
 kind: bug
 labels: effort:s, area:rendering
 created: 2026-10-13T17:08:06Z
-updated: 2026-10-22T21:26:52Z
+updated: 2026-11-12T20:37:29Z
+closed: 2026-11-12T20:37:29Z
 +++
 
 RayTracedShadows.swift (about line 136) builds one acceleration-structure geometry per MetalMesh submesh and sets geometryDescriptor.indexBufferOffset = 0. The comment says 'MetalMesh always packs triangle indices as UInt32, one index buffer per submesh'. That is not always true: SwiftMesh's MetalMesh direct inits (MetalMesh(device:attributes:submeshes:...)) put all submeshes in one index buffer and set MetalMesh.Submesh.indexBufferOffset. For such a mesh with more than one submesh, every geometry after the first reads the first submesh's indices, so the acceleration structure (and the shadows) are wrong, with no error.
 
 The MTKMesh path in the same file (line ~107) already uses submesh.indexBuffer.offset.
+
+- `2026-11-12T20:37:29Z`: Fixed: MetalMesh acceleration-structure geometry now uses each submesh's indexBufferOffset and indexType, and the mesh's vertexBufferOffsets. Regression test: AccelerationStructureGeometryTests.
 
 ---
 
