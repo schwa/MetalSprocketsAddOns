@@ -148,3 +148,32 @@ func testStereo_jumpFloodOutline() throws {
     #expect(target.red(x: 26, y: 32, slice: 1) == 0)
     #expect(target.red(x: 16, y: 32, slice: 0) == 0, "Inside of the mask is left unchanged")
 }
+
+#if arch(arm64)
+@Test(.requiresMetal4)
+@MainActor
+func testStereo_graphicsContext3DText() throws {
+    let context = GraphicsContext3D { ctx in
+        ctx.text("\u{2588}", at: [0, 0, 0.5], with: .red, fontSize: 12)
+    }
+    let target = try StereoTarget()
+    let viewport = SIMD2<Float>(Float(StereoTarget.size), Float(StereoTarget.size))
+    _ = try target.renderer.render(try RenderPass {
+        GraphicsContext3DRenderPipeline(context: context, views: target.views, viewport: viewport)
+    })
+    // The brightest red within a few pixels of each eye's label position.
+    func maximumRed(aroundX centerX: Int, slice: Int) -> UInt8 {
+        var result: UInt8 = 0
+        for y in 28 ... 36 {
+            for x in centerX - 4 ... centerX + 4 {
+                result = max(result, target.red(x: x, y: y, slice: slice))
+            }
+        }
+        return result
+    }
+    #expect(maximumRed(aroundX: 16, slice: 0) > 128, "Left eye draws the label at its view's position")
+    #expect(maximumRed(aroundX: 48, slice: 0) == 0)
+    #expect(maximumRed(aroundX: 48, slice: 1) > 128, "Right eye draws the label at its view's position")
+    #expect(maximumRed(aroundX: 16, slice: 1) == 0)
+}
+#endif

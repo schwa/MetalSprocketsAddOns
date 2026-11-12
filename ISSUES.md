@@ -2920,12 +2920,13 @@ Part of #113.
 ## 115: GraphicsContext3D text labels and curves use only the first stereo view
 
 +++
-status: open
+status: closed
 priority: low
 kind: bug
 labels: area:rendering, effort:m
 created: 2026-11-12T19:24:10Z
-updated: 2026-11-12T20:26:50Z
+updated: 2026-11-12T20:42:17Z
+closed: 2026-11-12T20:42:17Z
 +++
 
 With GraphicsContext3DRenderPipeline(context:views:viewport:) and two views:
@@ -2934,6 +2935,8 @@ With GraphicsContext3DRenderPipeline(context:views:viewport:) and two views:
 - Curves (quad/cubic) are tessellated on the CPU for the first view, so tessellation density is chosen for that eye only.
 
 Strokes and fills themselves draw correctly in both eyes. Related to #113.
+
+- `2026-11-12T20:42:17Z`: Fixed: curves are tessellated for the view that sees them largest, and regeneration compares every view. With two views, text labels are world-space billboards (sized and facing from the first view) drawn per eye with Slug's view constants, so each eye sees them at its own position. One view keeps the pixel-space path. Tests: testGeometryGenerator_tessellatesForTheLargestView, testStereo_graphicsContext3DText.
 
 ---
 

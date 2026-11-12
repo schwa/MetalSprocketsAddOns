@@ -11,45 +11,32 @@ internal struct Vertex {
 }
 
 internal struct GeometryGenerator {
-    let viewProjection: float4x4
+    let viewProjections: [float4x4]
     let viewport: SIMD2<Float>
 
-    private func estimateQuadCurveScreenLength(from p0: SIMD3<Float>, to p2: SIMD3<Float>, control p1: SIMD3<Float>) -> Float {
-        let p0Clip = viewProjection * SIMD4<Float>(p0, 1.0)
-        let p1Clip = viewProjection * SIMD4<Float>(p1, 1.0)
-        let p2Clip = viewProjection * SIMD4<Float>(p2, 1.0)
-
-        guard abs(p0Clip.w) > 1e-6, abs(p1Clip.w) > 1e-6, abs(p2Clip.w) > 1e-6 else {
-            return 0
-        }
-
-        let p0Screen = SIMD2<Float>((p0Clip.x / p0Clip.w * 0.5 + 0.5) * viewport.x, (p0Clip.y / p0Clip.w * 0.5 + 0.5) * viewport.y)
-        let p1Screen = SIMD2<Float>((p1Clip.x / p1Clip.w * 0.5 + 0.5) * viewport.x, (p1Clip.y / p1Clip.w * 0.5 + 0.5) * viewport.y)
-        let p2Screen = SIMD2<Float>((p2Clip.x / p2Clip.w * 0.5 + 0.5) * viewport.x, (p2Clip.y / p2Clip.w * 0.5 + 0.5) * viewport.y)
-
-        let chordLength = distance(p0Screen, p2Screen)
-        let controlLength = distance(p0Screen, p1Screen) + distance(p1Screen, p2Screen)
-        return (chordLength + controlLength) / 2
+    init(viewProjection: float4x4, viewport: SIMD2<Float>) {
+        self.init(viewProjections: [viewProjection], viewport: viewport)
     }
 
-    private func estimateCubicCurveScreenLength(from p0: SIMD3<Float>, to p3: SIMD3<Float>, control1 p1: SIMD3<Float>, control2 p2: SIMD3<Float>) -> Float {
-        let p0Clip = viewProjection * SIMD4<Float>(p0, 1.0)
-        let p1Clip = viewProjection * SIMD4<Float>(p1, 1.0)
-        let p2Clip = viewProjection * SIMD4<Float>(p2, 1.0)
-        let p3Clip = viewProjection * SIMD4<Float>(p3, 1.0)
+    init(viewProjections: [float4x4], viewport: SIMD2<Float>) {
+        self.viewProjections = viewProjections
+        self.viewport = viewport
+    }
 
-        guard abs(p0Clip.w) > 1e-6, abs(p1Clip.w) > 1e-6, abs(p2Clip.w) > 1e-6, abs(p3Clip.w) > 1e-6 else {
-            return 0
+    /// Estimated on-screen length of the Bézier curve with these control points (endpoints first and last), in the view
+    /// that sees it largest, so every view gets enough segments.
+    private func estimateCurveScreenLength(_ controlPoints: [SIMD3<Float>]) -> Float {
+        let lengths: [Float] = viewProjections.map { viewProjection in
+            let clipPoints = controlPoints.map { viewProjection * SIMD4<Float>($0, 1.0) }
+            guard clipPoints.allSatisfy({ abs($0.w) > 1e-6 }) else {
+                return 0
+            }
+            let screenPoints = clipPoints.map { SIMD2<Float>(($0.x / $0.w * 0.5 + 0.5) * viewport.x, ($0.y / $0.w * 0.5 + 0.5) * viewport.y) }
+            let chordLength = distance(screenPoints[0], screenPoints[screenPoints.count - 1])
+            let controlLength = zip(screenPoints, screenPoints.dropFirst()).reduce(0) { $0 + distance($1.0, $1.1) }
+            return (chordLength + controlLength) / 2
         }
-
-        let p0Screen = SIMD2<Float>((p0Clip.x / p0Clip.w * 0.5 + 0.5) * viewport.x, (p0Clip.y / p0Clip.w * 0.5 + 0.5) * viewport.y)
-        let p1Screen = SIMD2<Float>((p1Clip.x / p1Clip.w * 0.5 + 0.5) * viewport.x, (p1Clip.y / p1Clip.w * 0.5 + 0.5) * viewport.y)
-        let p2Screen = SIMD2<Float>((p2Clip.x / p2Clip.w * 0.5 + 0.5) * viewport.x, (p2Clip.y / p2Clip.w * 0.5 + 0.5) * viewport.y)
-        let p3Screen = SIMD2<Float>((p3Clip.x / p3Clip.w * 0.5 + 0.5) * viewport.x, (p3Clip.y / p3Clip.w * 0.5 + 0.5) * viewport.y)
-
-        let chordLength = distance(p0Screen, p3Screen)
-        let controlLength = distance(p0Screen, p1Screen) + distance(p1Screen, p2Screen) + distance(p2Screen, p3Screen)
-        return (chordLength + controlLength) / 2
+        return lengths.max() ?? 0
     }
 
     /// Curve tessellation depends on screen length, so only curved paths depend on the view projection and viewport.
@@ -71,7 +58,7 @@ internal struct GeometryGenerator {
     }
 
     internal func subdivideQuadCurve(from p0: SIMD3<Float>, to p2: SIMD3<Float>, control p1: SIMD3<Float>) -> [SIMD3<Float>] {
-        let screenLength = estimateQuadCurveScreenLength(from: p0, to: p2, control: p1)
+        let screenLength = estimateCurveScreenLength([p0, p1, p2])
         let segmentCount = Self.segmentCount(forScreenLength: screenLength)
 
         var points: [SIMD3<Float>] = []
@@ -85,7 +72,7 @@ internal struct GeometryGenerator {
     }
 
     internal func subdivideCubicCurve(from p0: SIMD3<Float>, to p3: SIMD3<Float>, control1 p1: SIMD3<Float>, control2 p2: SIMD3<Float>) -> [SIMD3<Float>] {
-        let screenLength = estimateCubicCurveScreenLength(from: p0, to: p3, control1: p1, control2: p2)
+        let screenLength = estimateCurveScreenLength([p0, p1, p2, p3])
         let segmentCount = Self.segmentCount(forScreenLength: screenLength)
 
         var points: [SIMD3<Float>] = []

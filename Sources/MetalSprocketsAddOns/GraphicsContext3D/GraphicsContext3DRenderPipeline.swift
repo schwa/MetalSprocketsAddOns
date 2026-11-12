@@ -42,7 +42,7 @@ public struct GraphicsContext3DRenderPipeline: Element {
     var contextHasCurves = false
 
     @MSState
-    var previousViewProjection: float4x4?
+    var previousViewProjections: [float4x4]?
 
     @MSState
     var previousViewport: SIMD2<Float>?
@@ -62,7 +62,7 @@ public struct GraphicsContext3DRenderPipeline: Element {
     }
 
     /// Draws into every view at once. `viewport` is one view's size in pixels; line widths are in those pixels.
-    /// Curves are tessellated and text labels placed for the first view only.
+    /// Curves are tessellated finely enough for every view. Labels keep their pixel size in the first view.
     public init(context: GraphicsContext3D, views: StereoViews, viewport: SIMD2<Float>, debugWireframe: Bool = false, depthCompareFunction: MTLCompareFunction = .less, writesDepth: Bool = true) {
         self.context = context
         self.views = views
@@ -81,11 +81,11 @@ public struct GraphicsContext3DRenderPipeline: Element {
             // Join data and fill vertices are world space; only curve tessellation depends on the camera.
             let hasValidViewport = viewport.x > 0 && viewport.y > 0
             let contextChanged = previousContext != context
-            let cameraChanged = previousViewProjection != viewProjection || previousViewport != viewport
+            let cameraChanged = previousViewProjections != views.viewProjections || previousViewport != viewport
             let needsRegeneration = hasValidViewport && (contextChanged || (contextHasCurves && cameraChanged))
 
             if needsRegeneration {
-                let generator = GeometryGenerator(viewProjection: viewProjection, viewport: viewport)
+                let generator = GeometryGenerator(viewProjections: views.viewProjections, viewport: viewport)
 
                 var allJoinData: [LineJoinGPUData] = []
                 var allFillVertices: [Vertex] = []
@@ -121,7 +121,7 @@ public struct GraphicsContext3DRenderPipeline: Element {
                     }
                 }
                 previousContext = context
-                previousViewProjection = viewProjection
+                previousViewProjections = views.viewProjections
                 previousViewport = viewport
             }
 
@@ -185,7 +185,7 @@ public struct GraphicsContext3DRenderPipeline: Element {
                 #if arch(arm64)
                 let textLabels = context.textLabels
                 if !textLabels.isEmpty {
-                    GraphicsContext3DTextPipeline(labels: textLabels, viewProjection: viewProjection, viewport: viewport)
+                    GraphicsContext3DTextPipeline(labels: textLabels, views: views, viewport: viewport)
                 }
                 #endif
             }

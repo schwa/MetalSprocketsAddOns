@@ -12,10 +12,14 @@ import simd
 /// Labels are laid out in pixel space and positioned by projecting their world-space anchor
 /// into the viewport, so they keep a constant on-screen size. The Slug pipeline neither
 /// depth-tests nor writes depth, so labels sit on top of the context's strokes and fills.
+///
+/// With two views, each label is a world-space billboard at its anchor, sized and turned to face the first view, so
+/// each eye sees it at its own position.
 internal struct GraphicsContext3DTextPipeline: Element {
     let labels: [GraphicsContext3D.TextLabel]
-    let viewProjection: float4x4
+    let views: StereoViews
     let viewport: SIMD2<Float>
+    var viewProjection: float4x4 { views.viewProjections[0] }
 
     @MSState
     private var scene: SlugScene?
@@ -29,9 +33,9 @@ internal struct GraphicsContext3DTextPipeline: Element {
     @MSEnvironment(\.device)
     private var device
 
-    init(labels: [GraphicsContext3D.TextLabel], viewProjection: float4x4, viewport: SIMD2<Float>) {
+    init(labels: [GraphicsContext3D.TextLabel], views: StereoViews, viewport: SIMD2<Float>) {
         self.labels = labels
-        self.viewProjection = viewProjection
+        self.views = views
         self.viewport = viewport
     }
 
@@ -48,16 +52,22 @@ internal struct GraphicsContext3DTextPipeline: Element {
                 sceneLabels = labels
             }
 
-            let frameConstants = SlugFrameConstants(viewProjectionMatrix: pixelSpaceViewProjection, viewportSize: viewport)
             let hasViewport = viewport.x > 0 && viewport.y > 0
             let renderableScene = hasViewport ? scene.flatMap { $0.meshCount > 0 ? $0 : nil } : nil
             if let renderableScene {
-                updateModelMatrices(of: renderableScene)
+                if views.isStereo {
+                    updateBillboardMatrices(of: renderableScene)
+                } else {
+                    updateModelMatrices(of: renderableScene)
+                }
             }
+            let viewConstants = views.isStereo
+                ? views.viewProjections.map { SlugFrameConstants(viewProjectionMatrix: $0, viewportSize: viewport) }
+                : [SlugFrameConstants(viewProjectionMatrix: pixelSpaceViewProjection, viewportSize: viewport)]
 
             return try Group {
                 if let renderableScene {
-                    try SlugTextRenderPipeline(scene: renderableScene, frameConstants: frameConstants)
+                    try SlugTextRenderPipeline(scene: renderableScene, viewConstants: viewConstants, viewports: views.viewports)
                 }
             }
         }
@@ -87,6 +97,41 @@ internal struct GraphicsContext3DTextPipeline: Element {
                     screenPosition.x - Float(bounds.midX),
                     screenPosition.y - Float(bounds.midY),
                     0
+                ))
+            }
+        }
+    }
+}
+
+extension GraphicsContext3DTextPipeline {
+    /// Places each label's mesh in world space at its anchor, facing the first view, with one glyph unit (pixel) per
+    /// pixel of that view at the anchor's depth.
+    private func updateBillboardMatrices(of scene: SlugScene) {
+        let inverseViewProjection = viewProjection.inverse
+        func unproject(_ ndc: SIMD3<Float>) -> SIMD3<Float> {
+            let world = inverseViewProjection * SIMD4<Float>(ndc, 1)
+            return SIMD3<Float>(world.x, world.y, world.z) / world.w
+        }
+        scene.withModelMatrices { matrices in
+            for (index, label) in labels.enumerated() where index < matrices.count {
+                let clipPosition = viewProjection * SIMD4<Float>(label.position, 1)
+                guard clipPosition.w > 1e-6 else {
+                    // Behind (or on) the camera plane: collapse the mesh so it draws nothing.
+                    matrices[index] = float4x4(diagonal: SIMD4<Float>(0, 0, 0, 1))
+                    continue
+                }
+                let ndc = SIMD3<Float>(clipPosition.x, clipPosition.y, clipPosition.z) / clipPosition.w
+                let anchor = unproject(ndc)
+                let xAxis = unproject(ndc + [2 / viewport.x, 0, 0]) - anchor
+                let yAxis = unproject(ndc + [0, 2 / viewport.y, 0]) - anchor
+                let bounds = scene.meshes[index].bounds
+                let origin = anchor - xAxis * Float(bounds.midX) - yAxis * Float(bounds.midY)
+                // Glyphs are flat (z = 0), so the third column only needs to be independent of the others.
+                matrices[index] = float4x4(columns: (
+                    SIMD4<Float>(xAxis, 0),
+                    SIMD4<Float>(yAxis, 0),
+                    SIMD4<Float>(simd_cross(xAxis, yAxis), 0),
+                    SIMD4<Float>(origin, 1)
                 ))
             }
         }

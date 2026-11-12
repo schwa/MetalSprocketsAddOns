@@ -182,3 +182,17 @@ func testGeometryGenerator_segmentCount_isBoundedAndAdaptive() {
     #expect(GeometryGenerator.segmentCount(forScreenLength: 200) == 50)
     #expect(GeometryGenerator.segmentCount(forScreenLength: 100_000) == 64)
 }
+
+@Test
+func testGeometryGenerator_tessellatesForTheLargestView() {
+    // The second view sees the curve 4x larger, so it needs more segments than the first.
+    let curve = Path3D { path in
+        path.move(to: [-0.1, 0, 0])
+        path.addQuadCurve(to: [0.1, 0, 0], control: [0, 0.1, 0])
+    }
+    let small = GeometryGenerator(viewProjection: matrix_identity_float4x4, viewport: [256, 256])
+    let large = GeometryGenerator(viewProjection: float4x4(diagonal: [4, 4, 1, 1]), viewport: [256, 256])
+    let stereo = GeometryGenerator(viewProjections: [matrix_identity_float4x4, float4x4(diagonal: [4, 4, 1, 1])], viewport: [256, 256])
+    #expect(small.extractPoints(from: curve).count < large.extractPoints(from: curve).count)
+    #expect(stereo.extractPoints(from: curve).count == large.extractPoints(from: curve).count)
+}
