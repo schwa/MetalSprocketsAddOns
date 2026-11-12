@@ -112,3 +112,39 @@ func testStereo_graphicsContext3DStroke() throws {
     })
     target.expectShiftedPerEye()
 }
+
+@Test(.requiresMetal4)
+@MainActor
+func testStereo_jumpFloodOutline() throws {
+    let device = _MTLCreateSystemDefaultDevice()
+    let size = StereoTarget.size
+    // One square per slice: x 8..<24 for the left eye, 40..<56 for the right.
+    let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .r8Unorm, width: size, height: size, mipmapped: false)
+    descriptor.textureType = .type2DArray
+    descriptor.arrayLength = 2
+    descriptor.usage = [.shaderRead]
+    descriptor.storageMode = .shared
+    let mask = try #require(device.makeTexture(descriptor: descriptor))
+    for (slice, columns) in [(0, 8..<24), (1, 40..<56)] {
+        var pixels = [UInt8](repeating: 0, count: size * size)
+        for y in 24..<40 {
+            for x in columns {
+                pixels[y * size + x] = 255
+            }
+        }
+        mask.replace(region: MTLRegionMake2D(0, 0, size, size), mipmapLevel: 0, slice: slice, withBytes: pixels, bytesPerRow: size, bytesPerImage: size * size)
+    }
+    let seeds = try JumpFloodPipeline.makeSeedTexture(device: device, width: size, height: size, arrayLength: 2)
+    try JumpFloodPipeline(mask: mask, seeds: seeds, maximumDistance: 4).run()
+
+    let target = try StereoTarget()
+    _ = try target.renderer.render(try RenderPass {
+        JumpFloodOutlineRenderPipeline(mask: mask, seeds: seeds, color: [1, 0, 0, 1], width: 4, views: target.views)
+    })
+    // Two pixels right of each eye's square is outline; the same spot in the other eye is not.
+    #expect(target.red(x: 26, y: 32, slice: 0) > 128)
+    #expect(target.red(x: 58, y: 32, slice: 0) == 0)
+    #expect(target.red(x: 58, y: 32, slice: 1) > 128)
+    #expect(target.red(x: 26, y: 32, slice: 1) == 0)
+    #expect(target.red(x: 16, y: 32, slice: 0) == 0, "Inside of the mask is left unchanged")
+}

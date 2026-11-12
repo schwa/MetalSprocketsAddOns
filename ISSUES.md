@@ -2890,11 +2890,13 @@ SceneSprockets uses BlinnPhong, SilhouetteMask, JumpFlood (outlines), GraphicsCo
 ## 114: JumpFlood outlines cannot render stereo
 
 +++
-status: new
+status: closed
 priority: medium
 kind: feature
 labels: area:rendering
 created: 2026-11-12T19:24:10Z
+updated: 2026-11-12T20:24:56Z
+closed: 2026-11-12T20:24:56Z
 +++
 
 JumpFloodPipeline and JumpFloodOutlineRenderPipeline work on one 2D mask and seed texture for one view. In a visionOS immersive space (two eyes, layered target), the flood and outline only cover one view, so SceneSprockets selection outlines (SelectionOutline) cannot draw in stereo.
@@ -2902,6 +2904,8 @@ JumpFloodPipeline and JumpFloodOutlineRenderPipeline work on one 2D mask and see
 SilhouetteMaskRenderPipeline can already draw the mask for two views (StereoViews), into a 2-slice array texture. The flood and outline passes do not read or write array textures.
 
 Part of #113.
+
+- `2026-11-12T20:24:56Z`: JumpFloodPipeline and JumpFloodOutlineRenderPipeline accept 2D array mask/seeds (one slice per eye); the outline takes StereoViews. Untested on device; foveation and shared layout not handled.
 
 ---
 

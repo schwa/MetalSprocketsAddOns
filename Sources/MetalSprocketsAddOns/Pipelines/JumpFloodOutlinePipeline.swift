@@ -20,6 +20,9 @@ import simd
 ///
 /// Place it as a sibling of other passes, like `GaussianBlurPipeline`. Pixels farther than `maximumDistance` from the
 /// mask may not find their nearest seed.
+///
+/// For stereo, use 2D array textures (one slice per eye, e.g. a mask drawn by ``SilhouetteMaskRenderPipeline`` with
+/// two views); every slice floods independently.
 public struct JumpFloodPipeline: Element {
     let mask: MTLTexture
     let seeds: MTLTexture
@@ -32,11 +35,17 @@ public struct JumpFloodPipeline: Element {
     private var floodKernel = ShaderLibrary.module.namespaced("JumpFlood").requiredFunction(named: "flood_step", type: ComputeKernel.self)
 
     @MSState
+    private var initArrayKernel = ShaderLibrary.module.namespaced("JumpFlood").requiredFunction(named: "init_seeds_array", type: ComputeKernel.self)
+
+    @MSState
+    private var floodArrayKernel = ShaderLibrary.module.namespaced("JumpFlood").requiredFunction(named: "flood_step_array", type: ComputeKernel.self)
+
+    @MSState
     private var pingPongCache = SeedTextureCache()
 
     /// - Parameters:
     ///   - mask: Values >= 0.5 are inside. Must have `.shaderRead` usage.
-    ///   - seeds: Output. Use ``makeSeedTexture(device:width:height:)``, sized like `mask`.
+    ///   - seeds: Output. Use ``makeSeedTexture(device:width:height:arrayLength:)``, sized like `mask`.
     ///   - maximumDistance: Largest distance, in pixels, the flood must reach. Usually the outline width.
     public init(mask: MTLTexture, seeds: MTLTexture, maximumDistance: Float) {
         self.mask = mask
@@ -44,8 +53,13 @@ public struct JumpFloodPipeline: Element {
         self.maximumDistance = maximumDistance
     }
 
-    public static func makeSeedTexture(device: MTLDevice, width: Int, height: Int) throws -> MTLTexture {
+    /// With an `arrayLength` (for stereo, 2), a 2D array texture to match an array mask.
+    public static func makeSeedTexture(device: MTLDevice, width: Int, height: Int, arrayLength: Int? = nil) throws -> MTLTexture {
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rg32Float, width: width, height: height, mipmapped: false)
+        if let arrayLength {
+            descriptor.textureType = .type2DArray
+            descriptor.arrayLength = arrayLength
+        }
         descriptor.usage = [.shaderRead, .shaderWrite]
         descriptor.storageMode = .private
         let texture = try device.makeTexture(descriptor: descriptor)
@@ -63,7 +77,10 @@ public struct JumpFloodPipeline: Element {
     public var body: some Element {
         get throws {
             let pingPong = try pingPongCache.texture(matching: seeds)
-            let threadsPerGrid = MTLSize(width: seeds.width, height: seeds.height, depth: 1)
+            let isArray = seeds.textureType == .type2DArray
+            let initKernel = isArray ? initArrayKernel : initKernel
+            let floodKernel = isArray ? floodArrayKernel : floodKernel
+            let threadsPerGrid = MTLSize(width: seeds.width, height: seeds.height, depth: isArray ? seeds.arrayLength : 1)
             let threadsPerThreadgroup = MTLSize(width: 8, height: 8, depth: 1)
             let steps = Self.stepSizes(maximumDistance: maximumDistance)
 
@@ -103,6 +120,9 @@ public struct JumpFloodPipeline: Element {
 /// Put it in a `RenderPass` whose color attachment is the same size as `mask`. It alpha-blends over the target and
 /// leaves pixels inside the mask unchanged.
 ///
+/// For stereo, pass 2D array `mask` and `seeds` (one slice per eye) and the `views` the pass draws, whose count
+/// matches the slices. Each eye reads its own slice.
+///
 /// Each outline pixel gets the depth of the nearest masked pixel, read from the mask's green channel (see
 /// ``SilhouetteMaskRenderPipeline``). With the default `.always`, the outline draws over everything (x-ray). Pass
 /// `.lessEqual` (`.greaterEqual` with reverse Z) and attach the scene depth to hide the outline behind objects in
@@ -113,6 +133,7 @@ public struct JumpFloodOutlineRenderPipeline: Element {
     let color: SIMD4<Float>
     let width: Float
     let depthCompareFunction: MTLCompareFunction
+    let views: StereoViews?
 
     @MSState
     private var vertexShader = ShaderLibrary.module.namespaced("JumpFlood").requiredFunction(named: "outline_vertex", type: VertexShader.self)
@@ -120,7 +141,12 @@ public struct JumpFloodOutlineRenderPipeline: Element {
     @MSState
     private var fragmentShader = ShaderLibrary.module.namespaced("JumpFlood").requiredFunction(named: "outline_fragment", type: FragmentShader.self)
 
-    public init(mask: MTLTexture, seeds: MTLTexture, color: SIMD4<Float>, width: Float, depthCompareFunction: MTLCompareFunction = .always) {
+    @MSState
+    private var arrayFragmentShader = ShaderLibrary.module.namespaced("JumpFlood").requiredFunction(named: "outline_fragment_array", type: FragmentShader.self)
+
+    public init(mask: MTLTexture, seeds: MTLTexture, color: SIMD4<Float>, width: Float, depthCompareFunction: MTLCompareFunction = .always, views: StereoViews? = nil) {
+        precondition((mask.textureType == .type2DArray) == (seeds.textureType == .type2DArray), "mask and seeds must both be 2D or both be 2D arrays")
+        self.views = views
         self.mask = mask
         self.seeds = seeds
         self.color = color
@@ -132,8 +158,10 @@ public struct JumpFloodOutlineRenderPipeline: Element {
         get throws {
             // Widths under one pixel fade the alpha instead of thinning the line.
             let parameters = JumpFloodOutlineParameters(color: [color.x, color.y, color.z, color.w * min(max(width, 0), 1)], width: max(width, 1))
-            try RenderPipeline(label: "JumpFloodOutline", vertexShader: vertexShader, fragmentShader: fragmentShader) {
-                Draw { encoder in
+            let isArray = mask.textureType == .type2DArray
+            try RenderPipeline(label: "JumpFloodOutline", vertexShader: vertexShader, fragmentShader: isArray ? arrayFragmentShader : fragmentShader) {
+                Draw { [views] encoder in
+                    views?.configure(encoder)
                     encoder.drawPrimitives(primitiveType: .triangle, vertexStart: 0, vertexCount: 3)
                 }
                 .parameter("mask", texture: mask)
@@ -141,7 +169,8 @@ public struct JumpFloodOutlineRenderPipeline: Element {
                 .parameter("params", functionType: .fragment, value: parameters)
             }
             .depthCompare(function: depthCompareFunction, writes: false)
-            .renderPipelineDescriptorTransformer { descriptor in
+            .renderPipelineDescriptorTransformer { [viewCount = views?.count ?? 1] descriptor in
+                descriptor.maxVertexAmplificationCount = viewCount
                 guard let attachment = descriptor.colorAttachments[0] else {
                     return
                 }
@@ -161,10 +190,11 @@ private final class SeedTextureCache {
     private var texture: MTLTexture?
 
     func texture(matching seeds: MTLTexture) throws -> MTLTexture {
-        if let texture, texture.width == seeds.width, texture.height == seeds.height, texture.device === seeds.device {
+        if let texture, texture.width == seeds.width, texture.height == seeds.height, texture.textureType == seeds.textureType, texture.arrayLength == seeds.arrayLength, texture.device === seeds.device {
             return texture
         }
-        let texture = try JumpFloodPipeline.makeSeedTexture(device: seeds.device, width: seeds.width, height: seeds.height)
+        let arrayLength = seeds.textureType == .type2DArray ? seeds.arrayLength : nil
+        let texture = try JumpFloodPipeline.makeSeedTexture(device: seeds.device, width: seeds.width, height: seeds.height, arrayLength: arrayLength)
         texture.label = "JumpFlood PingPong"
         self.texture = texture
         return texture
