@@ -2880,4 +2880,61 @@ Shaders without stereo support: AxisLines, BlinnPhongShaders, Boxes, Equirectang
 
 SceneSprockets uses BlinnPhong, SilhouetteMask, JumpFlood (outlines), GraphicsContext3D, Wireframe, Flat, Skybox and Grid, so those block SceneSprockets immersive rendering. Reference implementations: MetalSprocketsPBR (PBR.metal, PBRStereoViews) and MetalSprocketsGaussianSplats.
 
+- `2026-11-12T19:24:11Z`: SceneSprockets uses only SilhouetteMask, JumpFlood/JumpFloodOutline (SelectionOutline) and GraphicsContext3D (TransformGizmo) from AddOns. Its Blinn-Phong shaders are its own (SceneSprocketsShaders), and Wireframe/Flat/Skybox/Grid from AddOns are not used. SilhouetteMask and GraphicsContext3D now support StereoViews; JumpFlood remains.
+
+---
+
+## 114: JumpFlood outlines cannot render stereo
+
++++
+status: new
+priority: medium
+kind: feature
+labels: area:rendering
+created: 2026-11-12T19:24:10Z
++++
+
+JumpFloodPipeline and JumpFloodOutlineRenderPipeline work on one 2D mask and seed texture for one view. In a visionOS immersive space (two eyes, layered target), the flood and outline only cover one view, so SceneSprockets selection outlines (SelectionOutline) cannot draw in stereo.
+
+SilhouetteMaskRenderPipeline can already draw the mask for two views (StereoViews), into a 2-slice array texture. The flood and outline passes do not read or write array textures.
+
+Part of #113.
+
+---
+
+## 115: GraphicsContext3D text labels and curves use only the first stereo view
+
++++
+status: new
+priority: low
+kind: bug
+labels: area:rendering
+created: 2026-11-12T19:24:10Z
++++
+
+With GraphicsContext3DRenderPipeline(context:views:viewport:) and two views:
+
+- Text labels are positioned by projecting their anchors with the first view's view-projection on the CPU. The second eye shows them at the first eye's screen position, so they are misplaced in that eye.
+- Curves (quad/cubic) are tessellated on the CPU for the first view, so tessellation density is chosen for that eye only.
+
+Strokes and fills themselves draw correctly in both eyes. Related to #113.
+
+---
+
+## 116: Mesh render pipelines cannot set maxVertexAmplificationCount
+
++++
+status: new
+priority: low
+kind: enhancement
+labels: area:rendering
+created: 2026-11-12T19:24:11Z
++++
+
+MetalSprockets core builds MTL4MeshRenderPipelineDescriptor in PipelineCache.meshRenderPipeline without applying renderPipelineDescriptorTransformer or any other hook, so mesh pipelines cannot enable vertex amplification (or blending).
+
+Effect in AddOns: GraphicsContext3D strokes cannot use [[amplification_id]] for stereo; they dispatch one threadgroup per join per view and route primitives with [[render_target_array_index]] / [[viewport_array_index]] instead.
+
+This is a MetalSprockets core limitation; tracked here because AddOns works around it.
+
 ---

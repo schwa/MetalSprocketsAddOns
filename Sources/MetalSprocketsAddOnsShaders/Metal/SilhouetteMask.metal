@@ -11,13 +11,14 @@ namespace SilhouetteMask {
     // Reads positions straight from the mesh buffer so any vertex layout works.
     [[vertex]] VertexOut vertex_main(
         uint vertexID [[vertex_id]],
+        ushort eye [[amplification_id]],
         device const uchar *vertices [[buffer(0)]],
         constant BufferDescriptor &vertexDescriptor [[buffer(1)]],
         constant SilhouetteMaskUniforms &uniforms [[buffer(2)]]
     ) {
         float3 position = load_at<float3>(vertices, vertexDescriptor, vertexID);
         VertexOut out;
-        out.position = uniforms.modelViewProjection * float4(position, 1.0);
+        out.position = uniforms.modelViewProjections[eye] * float4(position, 1.0);
         return out;
     }
 

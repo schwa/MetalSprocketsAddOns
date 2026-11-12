@@ -3,5 +3,5 @@
 #import "MetalSprocketsAddOnsShaders.h"
 
 struct SilhouetteMaskUniforms {
-    simd_float4x4 modelViewProjection;
+    simd_float4x4 modelViewProjections[kStereoMaxViewCount];
 };

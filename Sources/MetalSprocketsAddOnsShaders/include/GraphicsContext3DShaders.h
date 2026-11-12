@@ -22,7 +22,8 @@ struct LineJoinGPUData {
 };
 
 struct LineJoinUniforms {
-    simd_float4x4 viewProjection;
+    simd_float4x4 viewProjections[kStereoMaxViewCount]; // Indexed by eye.
     simd_float2 viewport;
-    float _padding[2];          // Align to 16 bytes
+    uint32_t viewCount;
+    uint32_t joinCount;         // Strokes dispatch one object thread per join per view.
 };

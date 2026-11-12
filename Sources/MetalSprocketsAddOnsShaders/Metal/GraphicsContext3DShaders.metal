@@ -11,10 +11,17 @@ namespace GraphicsContext3D {
         float4 color;
     };
 
-    using MeshType = mesh<VertexOut, void, 256, 512, topology::triangle>;
+    // Mesh pipelines are not amplified, so strokes route each eye's primitives to its slice and viewport themselves.
+    struct PrimitiveOut {
+        uint layer [[render_target_array_index]];
+        uint viewportIndex [[viewport_array_index]];
+    };
+
+    using MeshType = mesh<VertexOut, PrimitiveOut, 256, 512, topology::triangle>;
 
     struct ObjectPayload {
         uint joinIndex;
+        uint eye;
     };
 
     // MARK: Helper functions
@@ -64,9 +71,11 @@ namespace GraphicsContext3D {
     void lineJoinObjectShader(
         uint objectID [[thread_position_in_grid]],
         object_data ObjectPayload& payload [[payload]],
+        const device LineJoinUniforms& uniforms [[buffer(1)]],
         mesh_grid_properties mgp
     ) {
-        payload.joinIndex = objectID;
+        payload.joinIndex = objectID % uniforms.joinCount;
+        payload.eye = objectID / uniforms.joinCount;
         mgp.set_threadgroups_per_grid(uint3(1, 1, 1));
     }
 
@@ -81,15 +90,24 @@ namespace GraphicsContext3D {
     ) {
         uint joinIndex = payload.joinIndex;
         LineJoinGPUData data = joinData[joinIndex];
+        float4x4 viewProjection = uniforms.viewProjections[payload.eye];
+        // Every primitive gets the eye's routing; set below once the count is known.
+        uint primitiveCount = 0;
+        auto finish = [&]() {
+            PrimitiveOut primitive { payload.eye, payload.eye };
+            for (uint i = 0; i < primitiveCount; i++) {
+                mesh_out.set_primitive(i, primitive);
+            }
+            mesh_out.set_primitive_count(primitiveCount);
+        };
 
         float radius = data.lineWidth / 2.0;
 
         uint vertexCount = 0;
-        uint primitiveCount = 0;
 
-        float4 prevClip = uniforms.viewProjection * float4(data.prevPoint, 1.0);
-        float4 joinClip = uniforms.viewProjection * float4(data.joinPoint, 1.0);
-        float4 nextClip = uniforms.viewProjection * float4(data.nextPoint, 1.0);
+        float4 prevClip = viewProjection * float4(data.prevPoint, 1.0);
+        float4 joinClip = viewProjection * float4(data.joinPoint, 1.0);
+        float4 nextClip = viewProjection * float4(data.nextPoint, 1.0);
 
         // Clip each half-segment against the camera plane before projecting, so points
         // behind the camera are never mirrored across the screen.
@@ -169,7 +187,7 @@ namespace GraphicsContext3D {
 
         // Joins and caps sit on the join point, so skip them when it is behind the camera.
         if (joinClip.w < minimumW) {
-            mesh_out.set_primitive_count(primitiveCount);
+            finish();
             return;
         }
 
@@ -409,7 +427,7 @@ namespace GraphicsContext3D {
             }
         }
 
-        mesh_out.set_primitive_count(primitiveCount);
+        finish();
     }
 
     // MARK: Vertex Shader
@@ -417,12 +435,13 @@ namespace GraphicsContext3D {
     [[vertex]] VertexOut vertexShader(
         const device GraphicsContext3DVertex* vertices [[buffer(0)]],
         const device LineJoinUniforms& uniforms [[buffer(1)]],
-        uint vertexID [[vertex_id]]
+        uint vertexID [[vertex_id]],
+        ushort eye [[amplification_id]]
     ) {
         GraphicsContext3DVertex in = vertices[vertexID];
         VertexOut out;
         // Full clip-space position, so the rasterizer clips fills against the near plane.
-        out.position = uniforms.viewProjection * float4(in.position, 1.0);
+        out.position = uniforms.viewProjections[eye] * float4(in.position, 1.0);
         out.color = in.color;
         return out;
     }

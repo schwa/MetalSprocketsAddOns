@@ -19,6 +19,11 @@ struct FrameUniforms {
 };
 typedef struct FrameUniforms FrameUniforms;
 
+// MARK: Stereo
+
+// Views drawn at once: 1, or 2 for stereo (visionOS). Shaders index per-view arrays with the eye (amplification ID).
+#define kStereoMaxViewCount 2
+
 // MARK: Math utilities
 
 #if defined(__METAL_VERSION__)

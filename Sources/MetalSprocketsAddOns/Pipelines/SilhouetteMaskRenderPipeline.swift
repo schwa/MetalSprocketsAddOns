@@ -39,13 +39,18 @@ public struct SilhouetteMaskRenderPipeline: Element {
     private var fragmentShader = ShaderLibrary.module.namespaced("SilhouetteMask").requiredFunction(named: "fragment_main", type: FragmentShader.self)
 
     var instances: [Instance]
-    var viewProjection: float4x4
+    var views: StereoViews
     var depthCompareFunction: MTLCompareFunction
     var writesDepth: Bool
 
     public init(instances: [Instance], viewProjection: float4x4, depthCompareFunction: MTLCompareFunction = .always, writesDepth: Bool = false) {
+        self.init(instances: instances, views: StereoViews(viewProjection: viewProjection), depthCompareFunction: depthCompareFunction, writesDepth: writesDepth)
+    }
+
+    /// Draws into every view at once. With two views, the mask must be a layered (array) texture or use the views' viewports.
+    public init(instances: [Instance], views: StereoViews, depthCompareFunction: MTLCompareFunction = .always, writesDepth: Bool = false) {
         self.instances = instances
-        self.viewProjection = viewProjection
+        self.views = views
         self.depthCompareFunction = depthCompareFunction
         self.writesDepth = writesDepth
     }
@@ -56,9 +61,11 @@ public struct SilhouetteMaskRenderPipeline: Element {
                 ForEach(Array(instances.enumerated()), id: \.offset) { _, instance in
                     let mesh = instance.mesh
                     let (positionBuffer, positionOffset, bufferDescriptor) = try Self.positionSource(of: mesh)
-                    let uniforms = SilhouetteMaskUniforms(modelViewProjection: viewProjection * instance.transform)
-                    Draw { encoder in
+                    let viewProjections = views.viewProjectionPair
+                    let uniforms = SilhouetteMaskUniforms(modelViewProjections: (viewProjections.0 * instance.transform, viewProjections.1 * instance.transform))
+                    Draw { [views] encoder in
                         encoder.setCullMode(.none)
+                        views.configure(encoder)
                         for submesh in mesh.submeshes {
                             encoder.drawIndexedPrimitives(
                                 primitiveType: submesh.primitiveType,
@@ -76,6 +83,9 @@ public struct SilhouetteMaskRenderPipeline: Element {
                 }
             }
             .depthCompare(function: depthCompareFunction, writes: writesDepth)
+            .renderPipelineDescriptorTransformer { [count = views.count] descriptor in
+                descriptor.maxVertexAmplificationCount = count
+            }
         }
     }
 

@@ -6,7 +6,8 @@ import simd
 
 public struct GraphicsContext3DRenderPipeline: Element {
     let context: GraphicsContext3D
-    let viewProjection: float4x4
+    let views: StereoViews
+    var viewProjection: float4x4 { views.viewProjections[0] }
     let viewport: SIMD2<Float>
     let debugWireframe: Bool
     let depthCompareFunction: MTLCompareFunction
@@ -57,8 +58,14 @@ public struct GraphicsContext3DRenderPipeline: Element {
 
     // The defaults suit standard depth (near 0, far 1). Use `.always` and no writes to draw on top of everything (#98).
     public init(context: GraphicsContext3D, viewProjection: float4x4, viewport: SIMD2<Float>, debugWireframe: Bool = false, depthCompareFunction: MTLCompareFunction = .less, writesDepth: Bool = true) {
+        self.init(context: context, views: StereoViews(viewProjection: viewProjection), viewport: viewport, debugWireframe: debugWireframe, depthCompareFunction: depthCompareFunction, writesDepth: writesDepth)
+    }
+
+    /// Draws into every view at once. `viewport` is one view's size in pixels; line widths are in those pixels.
+    /// Curves are tessellated and text labels placed for the first view only.
+    public init(context: GraphicsContext3D, views: StereoViews, viewport: SIMD2<Float>, debugWireframe: Bool = false, depthCompareFunction: MTLCompareFunction = .less, writesDepth: Bool = true) {
         self.context = context
-        self.viewProjection = viewProjection
+        self.views = views
         self.viewport = viewport
         self.debugWireframe = debugWireframe
         self.depthCompareFunction = depthCompareFunction
@@ -119,7 +126,8 @@ public struct GraphicsContext3DRenderPipeline: Element {
             }
 
             // Uniforms are bound by value, so each frame gets its own copy.
-            let uniforms = LineJoinUniforms(viewProjection: viewProjection, viewport: viewport, _padding: (0, 0))
+            let uniforms = LineJoinUniforms(viewProjections: views.viewProjectionPair, viewport: viewport, viewCount: UInt32(views.count), joinCount: UInt32(joinCount))
+            let views = views
 
             // Only build a pipeline when it has something to draw. An empty
             // mesh pipeline still binds mesh-stage buffers, which traps on GPUs
@@ -130,14 +138,16 @@ public struct GraphicsContext3DRenderPipeline: Element {
                         Draw { encoder in
                             encoder.setCullMode(.none)
                             encoder.setTriangleFillMode(debugWireframe ? .lines : .fill)
+                            views.setViewports(encoder)
                             encoder.drawMeshThreadgroups(
-                                threadgroupsPerGrid: MTLSize(width: joinCount, height: 1, depth: 1),
+                                threadgroupsPerGrid: MTLSize(width: joinCount * views.count, height: 1, depth: 1),
                                 threadsPerObjectThreadgroup: MTLSize(width: 1, height: 1, depth: 1),
                                 threadsPerMeshThreadgroup: MTLSize(width: 1, height: 1, depth: 1)
                             )
                         }
                         .debugGroup("GraphicsContext3D Stroke Mesh Shader (joinCount: \(joinCount))")
                         .parameter("joinData", functionType: .mesh, buffer: joinDataBuffer, offset: 0)
+                        .parameter("uniforms", functionType: .object, value: uniforms)
                         .parameter("uniforms", functionType: .mesh, value: uniforms)
                     }
                     .depthStencilDescriptor(.init(depthCompareFunction: depthCompareFunction, isDepthWriteEnabled: writesDepth))
@@ -148,6 +158,7 @@ public struct GraphicsContext3DRenderPipeline: Element {
                         Draw { encoder in
                             encoder.setCullMode(.none)
                             encoder.setTriangleFillMode(debugWireframe ? .lines : .fill)
+                            views.configure(encoder)
                             encoder.drawPrimitives(primitiveType: .triangle, vertexStart: 0, vertexCount: fillVertexCount)
                         }
                         .debugGroup("GraphicsContext3D Fill Geometry (fillVertexCount: \(fillVertexCount))")
@@ -155,7 +166,8 @@ public struct GraphicsContext3DRenderPipeline: Element {
                         .parameter("uniforms", functionType: .vertex, value: uniforms)
                     }
                     .depthStencilDescriptor(.init(depthCompareFunction: depthCompareFunction, isDepthWriteEnabled: writesDepth))
-                    .renderPipelineDescriptorTransformer { descriptor in
+                    .renderPipelineDescriptorTransformer { [count = views.count] descriptor in
+                        descriptor.maxVertexAmplificationCount = count
                         // Fill colors are non-premultiplied, so composite source-over.
                         guard let attachment = descriptor.colorAttachments[0] else {
                             return
