@@ -27,7 +27,7 @@ public struct DemoBrowserView: View {
             .navigationTitle("Add-Ons")
             #if os(visionOS)
             .toolbar {
-                ImmersiveDemoToggle()
+                ImmersiveDemoToggle(demo: selection)
             }
             #endif
             .navigationSplitViewColumnWidth(min: 220, ideal: 260)

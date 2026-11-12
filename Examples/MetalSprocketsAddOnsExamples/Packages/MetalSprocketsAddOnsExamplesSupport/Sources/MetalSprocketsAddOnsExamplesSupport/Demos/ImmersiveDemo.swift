@@ -8,6 +8,7 @@ import os
 import simd
 import SwiftMesh
 import SwiftUI
+import Synchronization
 
 /// The immersive space's ID, opened by ``ImmersiveDemoToggle``.
 public let immersiveDemoSpaceID = "AddOnsImmersive"
@@ -30,7 +31,28 @@ public struct ImmersiveDemoSpace: Scene {
     }
 }
 
-/// The GraphicsContext3D demo drawing, plus a spinning silhouette-mask sphere, in front of the viewer.
+/// The demo the immersive space draws: the sidebar's selection. The render loop runs off the main actor, so it reads
+/// this rather than SwiftUI state.
+enum ImmersiveDemoSelection {
+    private static let selected = Mutex<Demo?>(nil)
+
+    static var current: Demo? {
+        get { selected.withLock { $0 } }
+        set { selected.withLock { $0 = newValue } }
+    }
+}
+
+extension Demo {
+    /// Whether the demo has an immersive version. Others need stereo support first (#119-#125).
+    var hasImmersiveVersion: Bool {
+        switch self {
+        case .graphicsContext3D, .jumpFloodOutline: true
+        default: false
+        }
+    }
+}
+
+/// The selected demo's immersive version, in front of the viewer. Demos without one draw nothing.
 struct ImmersiveDemoScene: Element {
     let context: ImmersiveContext
 
@@ -39,6 +61,7 @@ struct ImmersiveDemoScene: Element {
 
     var body: some Element {
         get throws {
+            let demo = ImmersiveDemoSelection.current
             let eyes = 0 ..< context.viewCount
             let viewProjections = eyes.map { context.projectionMatrix(eye: $0) * context.viewMatrix(eye: $0) }
             let viewports = context.viewports
@@ -55,8 +78,15 @@ struct ImmersiveDemoScene: Element {
             let drawing = GraphicsContext3DDemoScene.context(lineWidth: 6, lineCap: .round, lineJoin: .round, showFill: true)
             // The compositor uses reverse Z. visionOS shows color only where depth is written.
             return try Group {
-                GraphicsContext3DRenderPipeline(context: drawing, views: contextViews, viewport: viewportSize, depthCompareFunction: .greater, writesDepth: true)
-                SilhouetteMaskRenderPipeline(instances: [.init(mesh: Self.sphere, transform: sphereTransform)], views: sphereViews, depthCompareFunction: .greater, writesDepth: true)
+                switch demo {
+                case .graphicsContext3D:
+                    GraphicsContext3DRenderPipeline(context: drawing, views: contextViews, viewport: viewportSize, depthCompareFunction: .greater, writesDepth: true)
+                case .jumpFloodOutline:
+                    // The silhouette mask only, for now; outlines are #125.
+                    SilhouetteMaskRenderPipeline(instances: [.init(mesh: Self.sphere, transform: sphereTransform)], views: sphereViews, depthCompareFunction: .greater, writesDepth: true)
+                default:
+                    EmptyElement()
+                }
             }
         }
     }
@@ -68,9 +98,10 @@ public struct ImmersiveDemoToggle: View {
     @Environment(\.dismissImmersiveSpace) private var dismissImmersiveSpace
     @State private var isOpen = false
     @State private var isTransitioning = false
+    let demo: Demo?
 
-    public init() {
-        // Nothing to configure.
+    init(demo: Demo?) {
+        self.demo = demo
     }
 
     public var body: some View {
@@ -91,7 +122,11 @@ public struct ImmersiveDemoToggle: View {
                 isTransitioning = false
             }
         }
-        .disabled(isTransitioning)
+        // Leaving is always allowed; entering needs a demo with an immersive version.
+        .disabled(isTransitioning || (!isOpen && demo?.hasImmersiveVersion != true))
+        .onChange(of: demo, initial: true) {
+            ImmersiveDemoSelection.current = demo
+        }
     }
 }
 #endif

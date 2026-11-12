@@ -2980,17 +2980,20 @@ Related to #113.
 ## 118: Immersive demo ignores the selected demo
 
 +++
-status: open
+status: closed
 priority: medium
 kind: feature
 labels: area:rendering, effort:m
 created: 2026-11-12T19:58:59Z
-updated: 2026-11-12T20:26:50Z
+updated: 2026-11-12T20:38:56Z
+closed: 2026-11-12T20:38:56Z
 +++
 
 The Examples app's visionOS immersive space always draws one fixed scene (the GraphicsContext3D drawing plus a silhouette-mask sphere). Choosing another demo in the sidebar does not change what the immersive space shows, so most demos cannot be checked in stereo on Apple Vision Pro.
 
 Related to #113, #117.
+
+- `2026-11-12T20:38:56Z`: The immersive space now draws the sidebar's selected demo (GraphicsContext3D, or the silhouette mask for Jump Flood Outlines); the button is disabled for demos without an immersive version. Not run on device yet. No unit test: visionOS-only code, and the test target builds for macOS.
 
 ---
 
