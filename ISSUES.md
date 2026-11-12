@@ -1719,6 +1719,7 @@ Cause not investigated. My guess is self-intersection of shadow rays with the fl
 - `2026-10-07T19:07:58Z`: Auto-fixer punt. Tried: reviewed the kernel and ShadowContext. Normals rebuilt from the depth buffer are per-triangle, so they would still give a stair-stepped edge. Punting: a real fix needs smooth shading normals in the shadow pass, which is a public API change (an optional normal texture in ShadowContext, every scene pass writing it, ShadowMaskPass/RayTracedShadowComputePass reading it). Unblocker: decide if ShadowContext should get an optional normal texture (and in what format/space), or if callers should hide the terminator with N·L lighting.
 - `2026-11-12T20:39:06Z`: Auto-fixer punt (2nd). Tried: re-read the issue and the earlier diagnosis; the open question from 2026-10-07 is still unanswered. Punting: the fix is a public API decision, not a code bug. Unblocker: choose (a) an optional smooth-normal texture in ShadowContext (format/space?) read by ShadowMaskPass and RayTracedShadowComputePass, or (b) leave the API and have callers hide the terminator with N·L lighting (then this can close as by-design).
 - `2026-11-12T22:22:40Z`: Question 1 (design): Should ShadowContext get an optional smooth-normal texture (which format/space?) read by ShadowMaskPass and RayTracedShadowComputePass, or should this close as by-design with callers hiding the terminator via N·L lighting?
+- `2026-11-12T22:23:30Z`: Answer 1: add it
 
 ---
 
@@ -3038,6 +3039,7 @@ The ShadowMap pipelines (and the screen-space shadow-mask compute pass) work for
 
 - `2026-11-12T21:32:43Z`: Auto-fixer punt. Tried: reviewed ShadowMaskPass, ShadowContext, ShadowMapTechnique and ImmersiveDemo. The shadow path is a screen-space compute pass that reads a single 2D scene depth and writes a single 2D colour texture in place; the compositor's drawable textures can't be used that way, so stereo needs either (a) render the scene offscreen into 2-slice colour/depth arrays, run a per-slice ShadowMaskPass (texture2d_array + per-view inverse view-projection — public API change to ShadowContext/ShadowMaskPass), then composite colour+depth into the compositor pass, or (b) add a forward path that samples the shadow map in the scene's fragment shader (amplified like BlinnPhong) and skip the mask pass in immersive. Punting: that's a design choice, and neither can be verified without a Vision Pro run. Unblocker: pick (a) or (b); the same choice likely applies to #121 and #123.
 - `2026-11-12T22:22:40Z`: Question 1 (design): For stereo shadow maps: (a) render the scene offscreen into 2-slice colour/depth arrays, run ShadowMaskPass per slice (ShadowContext/ShadowMaskPass API change), then composite into the compositor pass; or (b) add a forward path that samples the shadow map in the scene's amplified fragment shader and skip the mask pass in immersive?
+- `2026-11-12T22:23:47Z`: Answer 1: a for now - least work?
 
 ---
 
@@ -3057,6 +3059,7 @@ The ray-traced shadow compute pass works on one screen-space view only, so the R
 
 - `2026-11-12T21:32:58Z`: Auto-fixer punt. Tried: reviewed RayTracedShadowComputePass and the immersive demo. Same blocker as #120: the pass reads one 2D scene depth and darkens one 2D colour texture in place, which the compositor's drawable can't support. Options: (a) offscreen 2-slice colour/depth arrays + per-slice compute pass with per-view inverse view-projection (ShadowContext API change) + composite into the compositor pass, or (b) a forward path doing the shadow ray query in the scene's amplified fragment shader. Punting: design choice, and unverifiable without a Vision Pro run. Unblocker: the decision on #120 (a/b) should apply here too.
 - `2026-11-12T22:22:40Z`: Question 1 (design): Same choice as #120 for ray-traced shadows: (a) offscreen 2-slice arrays + per-slice compute pass + composite, or (b) shadow ray query in the scene's amplified fragment shader? (The #120 answer likely applies here.)
+- `2026-11-12T22:23:51Z`: Answer 1: least work
 
 ---
 
