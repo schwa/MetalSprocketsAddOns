@@ -2863,3 +2863,21 @@ Expected: this package requires GeometryLite3D 0.3.x (and SwiftMesh 0.1.x where 
 Reported from SceneSprockets #378.
 
 ---
+
+## 113: Shaders used by SceneSprockets cannot render stereo (no vertex amplification)
+
++++
+status: new
+priority: medium
+kind: feature
+labels: area:rendering
+created: 2026-11-12T19:17:28Z
++++
+
+Most AddOns vertex shaders take one view/projection and ignore [[amplification_id]], so they cannot draw both eyes in a visionOS immersive space. Only DebugShaders.metal and SlugShaders.metal support it.
+
+Shaders without stereo support: AxisLines, BlinnPhongShaders, Boxes, EquirectangularSkyboxShader, FlatShader, GraphicsContext3DShaders, GridShader, JumpFlood, LambertianShader, PointCloud, ShadowMap, SilhouetteMask, SkyboxShader, TextureBillboard, TexturedQuad3D, WireframeShader.
+
+SceneSprockets uses BlinnPhong, SilhouetteMask, JumpFlood (outlines), GraphicsContext3D, Wireframe, Flat, Skybox and Grid, so those block SceneSprockets immersive rendering. Reference implementations: MetalSprocketsPBR (PBR.metal, PBRStereoViews) and MetalSprocketsGaussianSplats.
+
+---
