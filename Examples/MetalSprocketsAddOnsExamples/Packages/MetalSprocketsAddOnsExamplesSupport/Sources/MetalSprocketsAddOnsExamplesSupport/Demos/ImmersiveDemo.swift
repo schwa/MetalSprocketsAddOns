@@ -56,6 +56,7 @@ extension Demo {
         switch self {
         case .graphicsContext3D, .jumpFloodOutline, .slugText, .debugShading, .blinnPhong: true
         case .pointCloud: PointCloudFramebuffer.isSupported(on: _MTLCreateSystemDefaultDevice())
+        case .shadowMap: true
         default: false
         }
     }
@@ -122,6 +123,9 @@ struct ImmersiveDemoPrepass: Element {
     var body: some Element {
         get throws {
             try Group {
+                if ImmersiveDemoSelection.current == .shadowMap {
+                    try ImmersiveShadowMapDemo.prepass(context)
+                }
                 if ImmersiveDemoSelection.current == .pointCloud, let scene = ImmersiveDemoShared.pointCloudScene {
                     try scene.rasterize(views: ImmersiveDemoShared.views(context), modelMatrix: ImmersiveDemoShared.pointCloudModelMatrix(context), pointSize: 2)
                 }
@@ -257,6 +261,8 @@ struct ImmersiveDemoScene: Element {
                     try blinnPhong()
                 case .jumpFloodOutline:
                     try outlinedSphere()
+                case .shadowMap:
+                    try ImmersiveShadowMapDemo.composite(context)
                 case .pointCloud:
                     if let scene = ImmersiveDemoShared.pointCloudScene {
                         scene.resolve(views: views)

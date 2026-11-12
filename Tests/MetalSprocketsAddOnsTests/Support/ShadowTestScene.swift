@@ -92,7 +92,7 @@ struct ShadowTestScene {
         let renderer = try OffscreenRenderer(size: defaultRenderSize, colorTexture: normals, depthTexture: texture(.depth32Float, usage: [.renderTarget]))
         renderer.renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)
         let viewProjection = viewProjection
-        _ = try renderer.render(try RenderPass {
+        _ = try renderer.render(RenderPass {
             try MetalSprockets.Group {
                 // MTKMesh.plane's normals face -Z, so after `planeTransform` the floor's point down. Turning it the
                 // other way gives the same square facing up.
@@ -113,33 +113,36 @@ struct ShadowTestScene {
     /// Draws both meshes with `FlatShader`, populating the renderer's colour and depth textures.
     var scenePass: some Element {
         get throws {
-            let viewProjection = viewProjection
-            let sphere = sphere
-            let plane = plane
-            let sphereTransform = sphereTransform
-            let planeTransform = planeTransform
-            return try RenderPass {
-                try MetalSprockets.Group {
-                    try FlatShader(
-                        modelViewProjection: viewProjection * sphereTransform,
-                        textureSpecifier: ColorSource.color([0.8, 0.6, 0.4])
-                    ) {
-                        Draw(mesh: sphere)
-                        .vertexBuffers(of: sphere)
-                    }
-                    .vertexDescriptor(MTLVertexDescriptor(sphere.vertexDescriptor))
-                    .depthCompare(function: .less, writes: true)
+            try scenePass(viewProjection: viewProjection)
+        }
+    }
 
-                    try FlatShader(
-                        modelViewProjection: viewProjection * planeTransform,
-                        textureSpecifier: ColorSource.color([0.8, 0.8, 0.85])
-                    ) {
-                        Draw(mesh: plane)
-                        .vertexBuffers(of: plane)
-                    }
-                    .vertexDescriptor(MTLVertexDescriptor(plane.vertexDescriptor))
-                    .depthCompare(function: .less, writes: true)
+    func scenePass(viewProjection: float4x4) throws -> some Element {
+        let sphere = sphere
+        let plane = plane
+        let sphereTransform = sphereTransform
+        let planeTransform = planeTransform
+        return try RenderPass {
+            try MetalSprockets.Group {
+                try FlatShader(
+                    modelViewProjection: viewProjection * sphereTransform,
+                    textureSpecifier: ColorSource.color([0.8, 0.6, 0.4])
+                ) {
+                    Draw(mesh: sphere)
+                        .vertexBuffers(of: sphere)
                 }
+                .vertexDescriptor(MTLVertexDescriptor(sphere.vertexDescriptor))
+                .depthCompare(function: .less, writes: true)
+
+                try FlatShader(
+                    modelViewProjection: viewProjection * planeTransform,
+                    textureSpecifier: ColorSource.color([0.8, 0.8, 0.85])
+                ) {
+                    Draw(mesh: plane)
+                        .vertexBuffers(of: plane)
+                }
+                .vertexDescriptor(MTLVertexDescriptor(plane.vertexDescriptor))
+                .depthCompare(function: .less, writes: true)
             }
         }
     }

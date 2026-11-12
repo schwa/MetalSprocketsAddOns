@@ -3030,13 +3030,14 @@ BlinnPhongShaders take one view-projection and ignore [[amplification_id]], so t
 ## 120: Shadow Map demo cannot run in the immersive space
 
 +++
-status: open
+status: closed
 priority: low
 kind: feature
 labels: area:rendering, effort:l
 depends: 118
 created: 2026-11-12T19:58:59Z
-updated: 2026-11-12T20:26:50Z
+updated: 2026-11-12T22:38:31Z
+closed: 2026-11-12T22:38:31Z
 +++
 
 The ShadowMap pipelines (and the screen-space shadow-mask compute pass) work for one view only, so the Shadow Map demo cannot draw both eyes in the immersive space.
@@ -3044,6 +3045,7 @@ The ShadowMap pipelines (and the screen-space shadow-mask compute pass) work for
 - `2026-11-12T21:32:43Z`: Auto-fixer punt. Tried: reviewed ShadowMaskPass, ShadowContext, ShadowMapTechnique and ImmersiveDemo. The shadow path is a screen-space compute pass that reads a single 2D scene depth and writes a single 2D colour texture in place; the compositor's drawable textures can't be used that way, so stereo needs either (a) render the scene offscreen into 2-slice colour/depth arrays, run a per-slice ShadowMaskPass (texture2d_array + per-view inverse view-projection — public API change to ShadowContext/ShadowMaskPass), then composite colour+depth into the compositor pass, or (b) add a forward path that samples the shadow map in the scene's fragment shader (amplified like BlinnPhong) and skip the mask pass in immersive. Punting: that's a design choice, and neither can be verified without a Vision Pro run. Unblocker: pick (a) or (b); the same choice likely applies to #121 and #123.
 - `2026-11-12T22:22:40Z`: Question 1 (design): For stereo shadow maps: (a) render the scene offscreen into 2-slice colour/depth arrays, run ShadowMaskPass per slice (ShadowContext/ShadowMaskPass API change), then composite into the compositor pass; or (b) add a forward path that samples the shadow map in the scene's amplified fragment shader and skip the mask pass in immersive?
 - `2026-11-12T22:23:47Z`: Answer 1: a for now - least work?
+- `2026-11-12T22:38:31Z`: Option (a). Library: ShadowContext(views:colorTexture:depthTexture:…) for layered scenes (2D arrays, one slice per view); ShadowMaskPass(views:) runs a layered kernel with per-view inverse view-projections; ShadowMapTechnique picks it automatically; new LayeredCompositeRenderPipeline copies the array colour+depth into each view's slice/viewport of the current pass (layered and side-by-side). Demo: immersive Shadow Map draws the scene with amplified Blinn-Phong into offscreen arrays, masks them, composites into the compositor pass. Tests: layered mask matches each view masked alone; composite routing for both layouts. Builds for visionOS device; not run on Apple Vision Pro. RayTracedShadowTechnique throws for layered contexts until #121.
 
 ---
 

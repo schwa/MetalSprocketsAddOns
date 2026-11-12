@@ -38,3 +38,4 @@ NS_ASSUME_NONNULL_END
 #import "PointCloud.h"
 #import "SilhouetteMask.h"
 #import "JumpFlood.h"
+#import "LayeredComposite.h"

@@ -28,6 +28,11 @@ public struct ShadowContext {
     /// follows their triangles. Write it with ``SceneNormalsRenderPipeline`` into a float format such as `.rgba16Float`.
     public var normalTexture: MTLTexture?
 
+    /// The views when the scene was drawn for several at once (such as both eyes of a visionOS immersive space).
+    /// Then the textures are 2D arrays with one slice per view, and `viewTransforms` is the first view's. Nil for one
+    /// view in plain 2D textures.
+    public var views: StereoViews?
+
     /// Usage the colour texture must be created with: shadow passes write it from compute.
     public static let requiredColorUsage: MTLTextureUsage = [.renderTarget, .shaderRead, .shaderWrite]
 
@@ -57,6 +62,25 @@ public struct ShadowContext {
         self.depthTexture = depthTexture
         self.normalTexture = normalTexture
         self.shadowIntensity = shadowIntensity
+    }
+
+    /// Creates a shadow context for a scene drawn for several views at once, one view per array slice. Draw the
+    /// scene into the textures with vertex amplification (`views.configure(_:)`), then show the shadowed result with
+    /// ``LayeredCompositeRenderPipeline``.
+    ///
+    /// - Throws: ``MetalSprocketsError/configurationError(_:)`` if a texture is missing required usage flags, or is
+    /// not a 2D array with a slice per view.
+    public init(views: StereoViews, colorTexture: MTLTexture, depthTexture: MTLTexture, normalTexture: MTLTexture? = nil, shadowIntensity: Float = 1.0) throws {
+        try Self.validateLayered(views: views, textures: [colorTexture, depthTexture] + (normalTexture.map { [$0] } ?? []))
+        let viewTransforms = ViewTransforms(projectionMatrix: views.projectionMatrices[0], cameraMatrix: views.cameraMatrices[0])
+        try self.init(viewTransforms: viewTransforms, colorTexture: colorTexture, depthTexture: depthTexture, normalTexture: normalTexture, shadowIntensity: shadowIntensity)
+        self.views = views
+    }
+
+    static func validateLayered(views: StereoViews, textures: [MTLTexture]) throws {
+        for texture in textures where texture.textureType != .type2DArray || texture.arrayLength < views.count {
+            throw MetalSprocketsError.configurationError("Layered shadow textures must be 2D arrays with \(views.count) slices; \(texture.label ?? "a texture") is \(texture.textureType.rawValue) with \(texture.arrayLength).")
+        }
     }
 }
 
@@ -170,7 +194,17 @@ public struct ShadowMapTechnique<Casters>: ShadowTechnique where Casters: Elemen
     }
 
     public func passesAfterScene(context: ShadowContext) throws -> ShadowMaskPass {
-        try ShadowMaskPass(
+        if let views = context.views {
+            return try ShadowMaskPass(
+                sceneDepthTexture: context.depthTexture,
+                outputTexture: context.colorTexture,
+                shadowMap: shadowMap,
+                views: views,
+                shadowIntensity: context.shadowIntensity,
+                sceneNormalTexture: context.normalTexture
+            )
+        }
+        return try ShadowMaskPass(
             sceneDepthTexture: context.depthTexture,
             outputTexture: context.colorTexture,
             shadowMap: shadowMap,

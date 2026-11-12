@@ -30,7 +30,8 @@ public struct ShadowMaskPass: Element {
     let sceneNormalTexture: MTLTexture?
     let outputTexture: MTLTexture
     let shadowMap: ShadowMap
-    let inverseViewProjection: float4x4
+    /// One per view. With more than one, the textures are arrays with one slice per view.
+    let inverseViewProjections: [float4x4]
     let shadowIntensity: Float
 
     @MSState
@@ -62,14 +63,40 @@ public struct ShadowMaskPass: Element {
         self.sceneNormalTexture = sceneNormalTexture
         self.outputTexture = outputTexture
         self.shadowMap = shadowMap
-        self.inverseViewProjection = inverseViewProjection
+        self.inverseViewProjections = [inverseViewProjection]
         self.shadowIntensity = shadowIntensity
+        computeKernel = try Self.kernel(layered: false, debug: debug, hasNormals: sceneNormalTexture != nil)
+    }
 
-        let shaderLibrary = ShaderLibrary.module.namespaced("ShadowMask")
+    /// Creates a shadow mask pass for several views at once, such as both eyes of a visionOS immersive space.
+    ///
+    /// The scene was drawn into array textures with one slice per view (see ``ShadowContext/views``): slice `i` of
+    /// `sceneDepthTexture`, `outputTexture` and `sceneNormalTexture` belongs to `views` view `i`.
+    public init(
+        sceneDepthTexture: MTLTexture,
+        outputTexture: MTLTexture,
+        shadowMap: ShadowMap,
+        views: StereoViews,
+        shadowIntensity: Float = 1.0,
+        debug: Bool = false,
+        sceneNormalTexture: MTLTexture? = nil
+    ) throws {
+        try ShadowContext.validateLayered(views: views, textures: [sceneDepthTexture, outputTexture] + (sceneNormalTexture.map { [$0] } ?? []))
+        self.sceneDepthTexture = sceneDepthTexture
+        self.sceneNormalTexture = sceneNormalTexture
+        self.outputTexture = outputTexture
+        self.shadowMap = shadowMap
+        self.inverseViewProjections = views.viewProjections.map(\.inverse)
+        self.shadowIntensity = shadowIntensity
+        computeKernel = try Self.kernel(layered: true, debug: debug, hasNormals: sceneNormalTexture != nil)
+    }
+
+    private static func kernel(layered: Bool, debug: Bool, hasNormals: Bool) throws -> ComputeKernel {
         var constants = FunctionConstants()
         constants["DEBUG"] = .bool(debug)
-        constants["HAS_NORMALS"] = .bool(sceneNormalTexture != nil)
-        computeKernel = try shaderLibrary.function(named: "shadow_mask_compute", type: ComputeKernel.self, constants: constants)
+        constants["HAS_NORMALS"] = .bool(hasNormals)
+        let name = layered ? "shadow_mask_compute_layered" : "shadow_mask_compute"
+        return try ShaderLibrary.module.namespaced("ShadowMask").function(named: name, type: ComputeKernel.self, constants: constants)
     }
 
     /// Creates a shadow mask compute pass from shared camera transforms.
@@ -96,21 +123,28 @@ public struct ShadowMaskPass: Element {
     public var body: some Element {
         get throws {
             let maskParams = ShadowMaskParameters(
-                inverseViewProjection: inverseViewProjection,
+                inverseViewProjection: inverseViewProjections[0],
                 shadowIntensity: shadowIntensity
             )
             let shadowParams = shadowMap.toParameters()
             let width = outputTexture.width
             let height = outputTexture.height
+            let layered = outputTexture.textureType == .type2DArray
+            let inverseViewProjections = inverseViewProjections
 
             try ComputePass(label: "ShadowMask") {
                 // Wait for the scene pass to finish writing depth and colour.
                 QueueBarrier(after: [.fragment, .dispatch], before: .dispatch)
                 try ComputePipeline(label: "ShadowMask", computeKernel: computeKernel) {
                     try ComputeDispatch(
-                        threadsPerGrid: MTLSize(width: width, height: height, depth: 1),
+                        threadsPerGrid: MTLSize(width: width, height: height, depth: layered ? inverseViewProjections.count : 1),
                         threadsPerThreadgroup: MTLSize(width: 8, height: 8, depth: 1)
                     )
+                    .parameters { parameters in
+                        if layered {
+                            parameters.set("inverseViewProjections", values: inverseViewProjections)
+                        }
+                    }
                     .parameter("sceneDepth", texture: sceneDepthTexture)
                     .parameter("shadowMapTexture", texture: shadowMap.depthTexture(forSubmission: submissionIndex))
                     .parameter("outputTexture", texture: outputTexture)
