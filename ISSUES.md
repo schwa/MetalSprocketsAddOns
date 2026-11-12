@@ -3128,11 +3128,13 @@ JumpFlood outlines are single-view (#114), so the Jump Flood Outlines demo canno
 ## 126: Own StereoViews duplicates other packages' stereo view types
 
 +++
-status: new
+status: closed
 priority: medium
 kind: enhancement
 labels: effort:s
 created: 2026-11-12T20:42:20Z
+updated: 2026-11-12T20:54:51Z
+closed: 2026-11-12T20:54:51Z
 +++
 
 StereoViews is this package's own copy of per-view stereo matrices, viewports and vertex amplification setup. MetalSprocketsAddOns, MetalSprocketsPBR, MetalSprocketsParticles and SceneSprockets each have one, and callers convert between them at every boundary. See MetalSprockets #MetalSprockets#558.

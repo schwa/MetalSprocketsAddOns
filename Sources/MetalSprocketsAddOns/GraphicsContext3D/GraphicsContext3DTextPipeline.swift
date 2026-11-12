@@ -67,7 +67,7 @@ internal struct GraphicsContext3DTextPipeline: Element {
 
             return try Group {
                 if let renderableScene {
-                    try SlugTextRenderPipeline(scene: renderableScene, viewConstants: viewConstants, viewports: views.viewports)
+                    try SlugTextRenderPipeline(scene: renderableScene, viewConstants: viewConstants, viewports: views.isStereo ? views.viewports : nil)
                 }
             }
         }

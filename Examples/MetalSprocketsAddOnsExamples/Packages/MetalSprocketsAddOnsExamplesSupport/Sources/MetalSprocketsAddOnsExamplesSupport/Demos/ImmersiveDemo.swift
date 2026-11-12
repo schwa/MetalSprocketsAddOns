@@ -82,8 +82,7 @@ enum ImmersiveDemoShared {
     )
 
     static func views(_ context: ImmersiveContext) -> StereoViews {
-        let viewProjections = (0 ..< context.viewCount).map { context.projectionMatrix(eye: $0) * context.viewMatrix(eye: $0) }
-        return StereoViews(viewProjections: viewProjections, viewports: context.viewports)
+        context.stereoViews
     }
 
     /// About 1.2 m in front at eye height, scaled from the demos' ±1.5 units to about ±0.3 m, spinning.
@@ -219,11 +218,13 @@ struct ImmersiveDemoScene: Element {
     var body: some Element {
         get throws {
             let demo = ImmersiveDemoSelection.current
-            let viewProjections = ImmersiveDemoShared.views(context).viewProjections
-            let viewports = context.viewports
+            let views = ImmersiveDemoShared.views(context)
+            let viewProjections = views.viewProjections
+            let viewports = views.viewports
             let viewportSize = SIMD2<Float>(Float(viewports[0].width), Float(viewports[0].height))
             let world = ImmersiveDemoShared.world(context)
-            let contextViews = StereoViews(viewProjections: viewProjections.map { $0 * world }, viewports: viewports)
+            var contextViews = views
+            contextViews.viewMatrices = views.viewMatrices.map { $0 * world }
 
             let drawing = GraphicsContext3DDemoScene.context(lineWidth: 6, lineCap: .round, lineJoin: .round, showFill: true)
             // The compositor uses reverse Z. visionOS shows color only where depth is written.

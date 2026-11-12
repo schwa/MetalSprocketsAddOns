@@ -33,7 +33,8 @@ private struct StereoTarget {
         renderer.renderPassDescriptor.renderTargetArrayLength = 2
         let viewport = MTLViewport(originX: 0, originY: 0, width: Double(Self.size), height: Double(Self.size), znear: 0, zfar: 1)
         views = StereoViews(
-            viewProjections: [float4x4(translation: [-0.5, 0, 0]), float4x4(translation: [0.5, 0, 0])],
+            viewMatrices: [float4x4(translation: [-0.5, 0, 0]), float4x4(translation: [0.5, 0, 0])],
+            projectionMatrices: [matrix_identity_float4x4, matrix_identity_float4x4],
             viewports: [viewport, viewport]
         )
     }
