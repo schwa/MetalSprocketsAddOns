@@ -97,8 +97,8 @@ struct ShadowTestScene {
                 // MTKMesh.plane's normals face -Z, so after `planeTransform` the floor's point down. Turning it the
                 // other way gives the same square facing up.
                 let upwardPlaneTransform = float4x4(translation: planeTransform.translation) * float4x4(simd_quatf(angle: .pi / 2, axis: SIMD3<Float>(1, 0, 0)))
-                try ForEach([(0, sphere, sphereTransform), (1, plane, upwardPlaneTransform)], id: \.0) { _, mesh, transform in
-                    try SceneNormalsRenderPipeline(viewProjection: viewProjection, modelMatrix: transform) {
+                ForEach([(0, sphere, sphereTransform), (1, plane, upwardPlaneTransform)], id: \.0) { _, mesh, transform in
+                    SceneNormalsRenderPipeline(viewProjection: viewProjection, modelMatrix: transform) {
                         Draw(mesh: mesh)
                             .vertexBuffers(of: mesh)
                     }
