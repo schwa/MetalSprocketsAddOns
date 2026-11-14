@@ -317,7 +317,7 @@ final class PointCloudDemoScene: @unchecked Sendable {
                 if showGrid {
                     GridShader(projectionMatrix: projection, cameraMatrix: camera.cameraMatrix)
                 }
-                try PointCloudResolvePipeline(framebuffer: framebuffer)
+                PointCloudResolvePipeline(framebuffer: framebuffer)
             }
         }
     }
