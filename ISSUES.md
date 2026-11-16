@@ -3170,10 +3170,12 @@ Once MetalSprockets ships a shared StereoViews (#MetalSprockets#558) in a tagged
 ## 127: GridShader has no distance fade, so large grids run to the horizon at full brightness
 
 +++
-status: new
+status: closed
 priority: low
 kind: feature
 created: 2026-11-16T22:14:31Z
+updated: 2026-11-16T22:19:02Z
+closed: 2026-11-16T22:19:02Z
 +++
 
 GridShader's fragment_main has no way to fade the grid with distance from the camera. A large ground grid (for example the SceneSprockets Composer's) draws at full brightness all the way to the horizon.
@@ -3183,5 +3185,7 @@ Effect seen in SceneSprockets (SceneSprockets #184): with an environment backgro
 Missing: a way to fade grid lines (or the whole grid) out with distance, for example given a start and end distance.
 
 Found in 0.3.1.
+
+- `2026-11-16T22:19:02Z`: Added GridShader fadeDistance parameter.
 
 ---

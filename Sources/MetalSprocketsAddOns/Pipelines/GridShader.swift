@@ -72,6 +72,7 @@ public struct GridShader: Element {
     var depthCompareFunction: MTLCompareFunction
     var writesDepth: Bool
     var blendsWithBackground: Bool
+    var fadeDistance: ClosedRange<Float>?
 
     public init(
         viewTransforms: ViewTransforms,
@@ -84,8 +85,10 @@ public struct GridShader: Element {
         backfaceColor: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 0),
         depthCompareFunction: MTLCompareFunction = .less,
         writesDepth: Bool = true,
-        blendsWithBackground: Bool = false
+        blendsWithBackground: Bool = false,
+        fadeDistance: ClosedRange<Float>? = nil
     ) {
+        self.fadeDistance = fadeDistance
         self.depthCompareFunction = depthCompareFunction
         self.writesDepth = writesDepth
         self.blendsWithBackground = blendsWithBackground
@@ -111,7 +114,8 @@ public struct GridShader: Element {
         backfaceColor: SIMD4<Float> = SIMD4<Float>(0, 0, 0, 0),
         depthCompareFunction: MTLCompareFunction = .less,
         writesDepth: Bool = true,
-        blendsWithBackground: Bool = false
+        blendsWithBackground: Bool = false,
+        fadeDistance: ClosedRange<Float>? = nil
     ) {
         self.init(
             viewTransforms: ViewTransforms(projectionMatrix: projectionMatrix, cameraMatrix: cameraMatrix),
@@ -124,7 +128,8 @@ public struct GridShader: Element {
             backfaceColor: backfaceColor,
             depthCompareFunction: depthCompareFunction,
             writesDepth: writesDepth,
-            blendsWithBackground: blendsWithBackground
+            blendsWithBackground: blendsWithBackground,
+            fadeDistance: fadeDistance
         )
     }
 
@@ -156,6 +161,9 @@ public struct GridShader: Element {
                 .parameter("highlightedLines", value: highlightedLinesBuffer)
                 .parameter("majorDivision", value: majorDivisionBuffer)
                 .parameter("backfaceColor", value: backfaceColor)
+                .parameter("modelMatrix", value: modelMatrix)
+                .parameter("cameraPosition", value: viewTransforms.cameraMatrix.columns.3.xyz)
+                .parameter("fadeDistance", value: fadeDistance.map { SIMD2<Float>($0.lowerBound, $0.upperBound) } ?? .zero)
             }
             .vertexDescriptor(vertexShader.inferredVertexDescriptor())
             // The defaults suit standard depth. Over an existing scene with reverse Z, use `.greater`, no depth

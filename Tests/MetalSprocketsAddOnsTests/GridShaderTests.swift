@@ -30,6 +30,25 @@ func testGridShader_default() throws {
 
 @Test(.requiresMetal4)
 @MainActor
+func testGridShader_fadeDistance() throws {
+    let projection = perspectiveProjection()
+    let camera = float4x4(translation: SIMD3<Float>(0, 2, 6)) * float4x4(simd_quatf(angle: -.pi / 8, axis: SIMD3<Float>(1, 0, 0)))
+
+    let renderPass = try RenderPass {
+        GridShader(
+            projectionMatrix: projection,
+            cameraMatrix: camera,
+            fadeDistance: 4...12
+        )
+    }
+
+    let renderer = try OffscreenRenderer(size: defaultRenderSize)
+    let rendering = try renderer.render(renderPass)
+    #expect(try rendering.cgImage.isEqualToGoldenImage(named: "GridShaderFadeDistance"))
+}
+
+@Test(.requiresMetal4)
+@MainActor
 func testGridShader_withMajorDivisionAndHighlight() throws {
     let projection = perspectiveProjection()
     let camera = float4x4(translation: SIMD3<Float>(0, 5, 8)) * float4x4(simd_quatf(angle: -.pi / 3.5, axis: SIMD3<Float>(1, 0, 0)))

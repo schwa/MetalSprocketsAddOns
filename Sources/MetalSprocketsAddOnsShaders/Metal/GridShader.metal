@@ -15,15 +15,18 @@ namespace GridShader {
     struct VertexOutput {
         float4 position [[position]];
         float2 uv;
+        float3 worldPosition;
     };
 
     // Vertex Shader
     vertex VertexOutput vertex_main(
         VertexInput in [[stage_in]],
-        constant float4x4 &modelViewProjectionMatrix [[buffer(2)]]
+        constant float4x4 &modelViewProjectionMatrix [[buffer(2)]],
+        constant float4x4 &modelMatrix [[buffer(3)]]
     ) {
         VertexOutput out;
         out.position = modelViewProjectionMatrix * float4(in.position, 1.0);
+        out.worldPosition = (modelMatrix * float4(in.position, 1.0)).xyz;
         out.uv = in.uv;
         return out;
     }
@@ -79,6 +82,9 @@ namespace GridShader {
         constant GridHighlightedLines &highlightedLines [[buffer(5)]],
         constant GridMajorDivision &majorDivision [[buffer(6)]],
         constant float4 &backfaceColor [[buffer(7)]],
+        constant float3 &cameraPosition [[buffer(8)]],
+        // (start, end) in world units. end <= start disables the fade.
+        constant float2 &fadeDistance [[buffer(9)]],
         bool front_facing [[front_facing]]
     ) {
         // If backfaceColor alpha > 0 and this is a back face, return the backface color
@@ -119,6 +125,12 @@ namespace GridShader {
 
             float alpha = coverage * hl.color.a;
             color = mix(color, float4(hl.color.rgb, 1.0), alpha);
+        }
+
+        if (fadeDistance.y > fadeDistance.x) {
+            float distance = length(in.worldPosition - cameraPosition);
+            float visibility = 1.0 - smoothstep(fadeDistance.x, fadeDistance.y, distance);
+            color = mix(backgroundColor, color, visibility);
         }
 
         return color;
