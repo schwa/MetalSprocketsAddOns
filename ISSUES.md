@@ -3166,3 +3166,22 @@ StereoViews is this package's own copy of per-view stereo matrices, viewports an
 Once MetalSprockets ships a shared StereoViews (#MetalSprockets#558) in a tagged release, adopt it in place of StereoViews and bump the MetalSprockets dependency.
 
 ---
+
+## 127: GridShader has no distance fade, so large grids run to the horizon at full brightness
+
++++
+status: new
+priority: low
+kind: feature
+created: 2026-11-16T22:14:31Z
++++
+
+GridShader's fragment_main has no way to fade the grid with distance from the camera. A large ground grid (for example the SceneSprockets Composer's) draws at full brightness all the way to the horizon.
+
+Effect seen in SceneSprockets (SceneSprockets #184): with an environment background such as a small studio room, the grid seems to run past and under the room's walls, so the background looks nearer than the grid.
+
+Missing: a way to fade grid lines (or the whole grid) out with distance, for example given a start and end distance.
+
+Found in 0.3.1.
+
+---
