@@ -25,5 +25,5 @@ struct LineJoinUniforms {
     simd_float4x4 viewProjections[kStereoMaxViewCount]; // Indexed by eye.
     simd_float2 viewport;
     uint32_t viewCount;
-    uint32_t joinCount;         // Strokes dispatch one object thread per join per view.
+    uint32_t joinCount;
 };

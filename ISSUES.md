@@ -2950,12 +2950,13 @@ Strokes and fills themselves draw correctly in both eyes. Related to #113.
 ## 116: Mesh render pipelines cannot set maxVertexAmplificationCount
 
 +++
-status: open
+status: closed
 priority: low
 kind: enhancement
 labels: area:rendering, effort:s, upstream
 created: 2026-11-12T19:24:11Z
-updated: 2026-11-12T20:26:50Z
+updated: 2026-11-16T22:34:14Z
+closed: 2026-11-16T22:34:14Z
 +++
 
 MetalSprockets core builds MTL4MeshRenderPipelineDescriptor in PipelineCache.meshRenderPipeline without applying renderPipelineDescriptorTransformer or any other hook, so mesh pipelines cannot enable vertex amplification (or blending).
@@ -2963,6 +2964,8 @@ MetalSprockets core builds MTL4MeshRenderPipelineDescriptor in PipelineCache.mes
 Effect in AddOns: GraphicsContext3D strokes cannot use [[amplification_id]] for stereo; they dispatch one threadgroup per join per view and route primitives with [[render_target_array_index]] / [[viewport_array_index]] instead.
 
 This is a MetalSprockets core limitation; tracked here because AddOns works around it.
+
+- `2026-11-16T22:34:14Z`: Fixed in MetalSprockets 0.3.2; strokes now use [[amplification_id]].
 
 ---
 

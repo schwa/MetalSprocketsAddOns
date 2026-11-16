@@ -138,9 +138,9 @@ public struct GraphicsContext3DRenderPipeline: Element {
                         Draw { encoder in
                             encoder.setCullMode(.none)
                             encoder.setTriangleFillMode(debugWireframe ? .lines : .fill)
-                            views.setViewports(encoder)
+                            views.configure(encoder)
                             encoder.drawMeshThreadgroups(
-                                threadgroupsPerGrid: MTLSize(width: joinCount * views.count, height: 1, depth: 1),
+                                threadgroupsPerGrid: MTLSize(width: joinCount, height: 1, depth: 1),
                                 threadsPerObjectThreadgroup: MTLSize(width: 1, height: 1, depth: 1),
                                 threadsPerMeshThreadgroup: MTLSize(width: 1, height: 1, depth: 1)
                             )
@@ -151,6 +151,7 @@ public struct GraphicsContext3DRenderPipeline: Element {
                         .parameter("uniforms", functionType: .mesh, value: uniforms)
                     }
                     .depthStencilDescriptor(.init(depthCompareFunction: depthCompareFunction, isDepthWriteEnabled: writesDepth))
+                    .vertexAmplification(count: views.count)
                 }
 
                 if fillVertexCount > 0, let fillVertexBuffer {

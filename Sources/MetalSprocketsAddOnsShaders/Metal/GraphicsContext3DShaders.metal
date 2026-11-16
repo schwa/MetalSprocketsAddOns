@@ -11,17 +11,10 @@ namespace GraphicsContext3D {
         float4 color;
     };
 
-    // Mesh pipelines are not amplified, so strokes route each eye's primitives to its slice and viewport themselves.
-    struct PrimitiveOut {
-        uint layer [[render_target_array_index]];
-        uint viewportIndex [[viewport_array_index]];
-    };
-
-    using MeshType = mesh<VertexOut, PrimitiveOut, 256, 512, topology::triangle>;
+    using MeshType = mesh<VertexOut, void, 256, 512, topology::triangle>;
 
     struct ObjectPayload {
         uint joinIndex;
-        uint eye;
     };
 
     // MARK: Helper functions
@@ -74,8 +67,7 @@ namespace GraphicsContext3D {
         const device LineJoinUniforms& uniforms [[buffer(1)]],
         mesh_grid_properties mgp
     ) {
-        payload.joinIndex = objectID % uniforms.joinCount;
-        payload.eye = objectID / uniforms.joinCount;
+        payload.joinIndex = objectID;
         mgp.set_threadgroups_per_grid(uint3(1, 1, 1));
     }
 
@@ -86,18 +78,14 @@ namespace GraphicsContext3D {
         MeshType mesh_out,
         const device LineJoinGPUData* joinData [[buffer(0)]],
         const device LineJoinUniforms& uniforms [[buffer(1)]],
-        object_data const ObjectPayload& payload [[payload]]
+        object_data const ObjectPayload& payload [[payload]],
+        ushort eye [[amplification_id]]
     ) {
         uint joinIndex = payload.joinIndex;
         LineJoinGPUData data = joinData[joinIndex];
-        float4x4 viewProjection = uniforms.viewProjections[payload.eye];
-        // Every primitive gets the eye's routing; set below once the count is known.
+        float4x4 viewProjection = uniforms.viewProjections[eye];
         uint primitiveCount = 0;
         auto finish = [&]() {
-            PrimitiveOut primitive { payload.eye, payload.eye };
-            for (uint i = 0; i < primitiveCount; i++) {
-                mesh_out.set_primitive(i, primitive);
-            }
             mesh_out.set_primitive_count(primitiveCount);
         };
 
