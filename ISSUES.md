@@ -3192,3 +3192,150 @@ Found in 0.3.1.
 - `2026-11-16T22:19:02Z`: Added GridShader fadeDistance parameter.
 
 ---
+
+## 128: Decals & projectors
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-11-17T14:01:24Z
+updated: 2026-11-17T14:03:58Z
++++
+
+Nothing in MetalSprocketsAddOns or SwiftMesh projects a texture onto existing scene geometry.
+
+Missing:
+- Decals: a texture placed in an oriented box and applied to the surfaces inside it (signs, damage, dirt).
+- Projectors: a texture cast along a frustum onto any surface it hits (spotlight patterns, slide projector).
+
+---
+
+## 129: God rays
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-11-17T14:01:24Z
+updated: 2026-11-17T14:03:58Z
++++
+
+Nothing in MetalSprocketsAddOns gives a light-shaft (crepuscular ray) effect. Bright lights (sun, windows, spotlights) that are partly hidden by geometry do not produce visible rays.
+
+---
+
+## 130: Extruded text not available as a MetalSprocketsAddOns element
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-11-17T14:01:24Z
+updated: 2026-11-17T14:03:58Z
++++
+
+SwiftMesh has `Mesh.extrudedText(_:font:depth:mode:curveSegments:attributes:)` (Sources/SwiftMesh/TextExtrusion.swift), and SceneSprockets uses it in Shape.swift. MetalSprocketsAddOns depends on SwiftMesh but has no element, convenience, or demo to render extruded text in a scene.
+
+Known limits in the SwiftMesh implementation:
+- Single line only.
+- Even-odd fill rule, so fonts with overlapping contours can show overlaps as holes.
+
+---
+
+## 131: Slug text: missing features beyond basic labels
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-11-17T14:01:24Z
+updated: 2026-11-17T14:03:58Z
++++
+
+Slug rendering exists (Sources/MetalSprocketsAddOns/Slug/: SlugTextMeshBuilder, SlugScene, SlugTextRenderPipeline, FontAtlasCache) and GraphicsContext3D uses it for labels (#6).
+
+This issue tracks what Slug text still cannot do. Scope to be defined.
+
+---
+
+## 132: Annotations: no callouts, leader lines, or occlusion handling
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-11-17T14:01:24Z
+updated: 2026-11-17T14:03:58Z
++++
+
+GraphicsContext3D.text(_:at:with:fontName:fontSize:) draws a Slug label centred on a world position at a fixed pixel size, on top of the geometry. That is the only annotation support.
+
+Missing:
+- Leader lines from a label to its anchor point.
+- Offset callouts and markers.
+- Occlusion: labels for hidden anchors are always drawn on top.
+- Overlap handling when labels collide on screen.
+
+---
+
+## 133: GraphicsContext3D: missing features
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-11-17T14:01:24Z
+updated: 2026-11-17T14:03:58Z
++++
+
+GraphicsContext3D exists (Sources/MetalSprocketsAddOns/GraphicsContext3D/) with stroke(_:with:style:), stroke(_:with:lineWidth:), fill(_:with:), and text(_:at:…), rendered by GraphicsContext3DRenderPipeline. SceneSprockets gizmos use it.
+
+This issue tracks what GraphicsContext3D still cannot do. Scope to be defined.
+
+---
+
+## 134: Starry sky
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-11-17T14:04:01Z
++++
+
+Nothing in MetalSprocketsAddOns renders a night sky with stars.
+
+Wanted: a starry sky background that can use either a real star catalog (actual positions, magnitudes, colors) or a procedurally generated star field.
+
+---
+
+## 135: Portals
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-11-17T14:04:57Z
++++
+
+Nothing in MetalSprocketsAddOns renders portals: a surface that shows the scene as seen from another linked location/camera, with correct perspective and clipping, possibly recursive (portal seen through a portal).
+
+---
+
+## 136: Mirrors & other reflections
+
++++
+status: new
+priority: medium
+kind: feature
+created: 2026-11-17T14:04:57Z
++++
+
+Nothing in MetalSprocketsAddOns renders reflections.
+
+Missing:
+- Planar mirrors (flat reflective surfaces showing the scene).
+- Other reflection types, e.g. screen-space reflections, environment/cube-map reflections, reflective water/floors.
+
+---
